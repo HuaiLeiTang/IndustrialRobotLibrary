@@ -63,14 +63,14 @@ namespace rovin
 	 *	\brief Absolute value conversion
 	 *	\return f(x)=\|x\|
 	*/
-	static Real RealAbs(const Real& op)
+	static Real Abs(const Real& op)
 	{
 		if (op < 0.0) return -op;
 		return op;
 	}
 
 	/// Return min value
-	static Real RealMin(const Real& op1, const Real& op2)
+	static Real Min(const Real& op1, const Real& op2)
 	{
 		if (op1 < op2)
 		{
@@ -80,7 +80,7 @@ namespace rovin
 	}
 
 	/// Return max value
-	static Real RealMax(const Real& op1, const Real& op2)
+	static Real Max(const Real& op1, const Real& op2)
 	{
 		if (op1 > op2)
 		{
@@ -91,7 +91,7 @@ namespace rovin
 
 	static bool RealEqual(const Real& op1, const Real& op2)
 	{
-		if (std::abs(op1 - op2) < RealEps + RealEps*RealAbs(op1)) return true;
+		if (std::abs(op1 - op2) < RealEps + RealEps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -140,7 +140,7 @@ namespace rovin
 
 	static bool RealLess(const Real& op1, const Real& op2)
 	{
-		if (op1 < op2 - RealEps - RealEps*RealAbs(op1)) return true;
+		if (op1 < op2 - RealEps - RealEps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -165,7 +165,7 @@ namespace rovin
 
 	static bool RealLessEqual(const Real& op1, const Real& op2)
 	{
-		if (op1 < op2 + RealEps + RealEps*RealAbs(op1)) return true;
+		if (op1 < op2 + RealEps + RealEps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -190,7 +190,7 @@ namespace rovin
 
 	static bool RealBigger(const Real& op1, const Real& op2)
 	{
-		if (op1 > op2 + RealEps + RealEps*RealAbs(op1)) return true;
+		if (op1 > op2 + RealEps + RealEps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -215,7 +215,7 @@ namespace rovin
 
 	static bool RealBiggerEqual(const Real& op1, const Real& op2)
 	{
-		if (op1 > op2 - RealEps - RealEps*RealAbs(op1)) return true;
+		if (op1 > op2 - RealEps - RealEps*Abs(op1)) return true;
 		return false;
 	}
 
