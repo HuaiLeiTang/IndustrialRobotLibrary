@@ -124,6 +124,7 @@
     <ClInclude Include="Link.h" />
     <ClInclude Include="MotorJoint.h" />
     <ClInclude Include="SerialOpenChain.h" />
+    <ClInclude Include="State.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Dynamics.cpp" />
@@ -131,6 +132,7 @@
     <ClCompile Include="Link.cpp" />
     <ClCompile Include="MotorJoint.cpp" />
     <ClCompile Include="SerialOpenChain.cpp" />
+    <ClCompile Include="State.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Math\Math.vcxproj">

@@ -1,3 +1,10 @@
+/*!
+ *	\file	SE3.h
+ *	\date	2016.01.23
+ *	\author	Keunjun Choi(ckj.monikaru@gmail.com)
+ *	\brief	SE3 class header file
+*/
+
 #pragma once
 
 #include <iostream>
@@ -10,6 +17,9 @@ namespace rovin
 	typedef Vector6 se3;
 	typedef Vector6 dse3;
 
+	/*!
+	 *	\class SE3
+	*/
 	class SE3
 	{
 	public:

@@ -1,6 +1,6 @@
-#include <cassert>
-
 #include "Inertia.h"
+
+#include <rovin/Utils/Diagnostic.h>
 
 namespace rovin
 {
@@ -12,14 +12,14 @@ namespace rovin
 
 	Inertia::Inertia(const Matrix3& I, const Real& m)
 	{
-		assert(I.isApprox(I.transpose()));
+		LOGIF(I.isApprox(I.transpose()), "[ERROR] Inertia construction failed. Inertia must be symmetric.");
 		static_cast<Matrix6&>(*this) << I, Matrix3::Zero(),
 			Matrix3::Zero(), Matrix3::Identity()*m;
 	}
 
 	Inertia::Inertia(const Matrix3& I, const Vector3& p, const Real& m)
 	{
-		assert(I.isApprox(I.transpose()));
+		LOGIF(I.isApprox(I.transpose()), "[ERROR] Inertia construction failed. Inertia must be symmetric.");
 		static_cast<Matrix6&>(*this) << I, -Bracket(p),
 			Bracket(p), Matrix3::Identity()*m;
 	}
@@ -48,8 +48,8 @@ namespace rovin
 		Matrix3 _p = I.block<3, 3>(0, 3);
 		Matrix3 _m = I.block<3, 3>(3, 3);
 
-		assert(_I.isApprox(_I.transpose()));
-		assert(_m.isApprox(Matrix3::Identity()*_m(0, 0)));
+		LOGIF(I.isApprox(I.transpose()), "[ERROR] Inertia construction failed. Inertia must be symmetric.");
+		LOGIF(_m.isApprox(Matrix3::Identity()*_m(0, 0)), "[ERROR] Inertia construction failed.");
 
 		static_cast<Matrix6&>(*this) = I;
 	}
@@ -108,16 +108,4 @@ namespace rovin
 	{
 		static_cast<Matrix6&>(*this) = SE3::InvAd(T).transpose() * static_cast<Matrix6&>(*this) * SE3::InvAd(T);
 	}
-
-	Inertia Inertia::getTransformed(const SE3 & T_ab, bool inverse) const
-	{
-		//	T == T_ab
-		Matrix6 AD;
-		if (!inverse)
-			AD = SE3::Ad(T_ab);
-		else
-			AD = SE3::InvAd(T_ab);
-		return static_cast<Inertia>(AD.transpose() * static_cast<const Matrix6&>(*this) * AD);
-	}
-
 }

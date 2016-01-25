@@ -1,6 +1,7 @@
-#include <cassert>
-#include <cmath>
 #include "SO3.h"
+
+#include <cmath>
+#include <rovin/Utils/Diagnostic.h>
 
 using namespace std;
 
@@ -8,7 +9,8 @@ namespace rovin
 {
 	SO3::SO3(const Matrix3& R)
 	{
-		assert(Matrix3::Identity().isApprox(R*R.transpose()) && abs(R.determinant() - 1.0) <= Eigen::NumTraits<Real>::dummy_precision());
+		LOGIF(Matrix3::Identity().isApprox(R*R.transpose()) && abs(R.determinant() - 1.0) <= Eigen::NumTraits<Real>::dummy_precision(), 
+			"[ERROR] SO3 construction failed.");
 		_e = R;
 	}
 
