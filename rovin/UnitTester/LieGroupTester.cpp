@@ -1,8 +1,11 @@
 #include <iostream>
 #include <conio.h>
 #include <rovin/Math/LieGroup.h>
+#include <rovin\Utils\Diagnostic.h>
 
 #include <Eigen\Dense>
+
+#include <vector>
 
 
 using namespace std;
@@ -33,36 +36,25 @@ public:
 
 int main()
 {
-	SE3 T(SO3::EulerZYX(PI, 0.0, 0.0), Vector3(10, 20, 30));
+	//SE3 T(SO3::EulerZYX(PI, 0.0, 0.0), Vector3(10, 20, 30));
 
-	cout << T << endl;
+	//cout << T << endl;
 
-	Real a = std::numeric_limits<Real>::min();
-	Real b = std::numeric_limits<Real>::max();
+	//int a = 1;
+	//LOGIF(a==0, "Hi");
 
-	cout << a << endl;
-	cout << b << endl;
+	std::vector<int> a;
+	a.push_back(0);
+	a.push_back(1);
+	a.push_back(2);
+	a.push_back(3);
+	a.push_back(4);
 
-	//A aa(1);
-	//aa.print();
-	//int result = aa.add();
-	//cout << result << endl;
-	//aa.print();
-
-	//int geta = aa.geta();
-	//int getb = aa.getb();
-	//cout << geta << endl;
-	//cout << getb << endl;
-
-	//Vector6 a;
-	//a << 0, 1, 2, 3, 4, 5;
-	//cout << a << endl;
-	//cout << endl;
-	//cout << a.head(3) << endl;
-	//Vector3 b = a.tail(3);
-	//cout << endl;
-	//cout << b << endl;
-
+	a.insert(a.begin() + 5, 10);
+	cout << a.size() << endl;
+	cout << endl;
+	for (int i = 0; i < a.size(); i++)
+		cout << a[i] << endl;
 
 	_getch();
 	return 0;

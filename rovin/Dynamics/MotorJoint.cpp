@@ -4,6 +4,10 @@ namespace rovin {
 	MotorJoint::MotorJoint() : _rotorinertia(0), _resistance(0), _inductance(0), _gearRatio(0),
 		_springConstant(0), _damperConstant(0), _ViscousFrictionConstant(0), _CoulombFrictionConstant(0)
 	{
+		_axis.setZero();
+		// z-axis (w,v) = (0, 0, 1, 0, 0, 0)
+		_axis[2] = 1; 
+
 		_LimitPosLower = std::numeric_limits<Real>::min();
 		_LimitPosUpper = std::numeric_limits<Real>::max();
 
