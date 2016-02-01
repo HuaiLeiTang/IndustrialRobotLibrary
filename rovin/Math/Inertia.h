@@ -31,7 +31,5 @@ namespace rovin
 
 		void changeFrame(const SE3& T ///< Transformation from {b} to {a}, T_ba
 			);
-
-		Inertia getTransformed(const SE3& T_ab, bool inverse = false) const;
 	};
 }

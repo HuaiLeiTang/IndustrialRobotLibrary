@@ -154,6 +154,9 @@ namespace rovin {
 
 		// deep-copy
 		LinkStatePtr copy() const;
+
+	public:
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	};
 
 
@@ -253,6 +256,9 @@ namespace rovin {
 
 		// deep-copy
 		JointStatePtr copy() const;
+
+	public:
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 	};
 
 }

@@ -1,5 +1,7 @@
 #include "SE3.h"
 
+#include <rovin/Utils/Diagnostic.h>
+
 using namespace std;
 
 namespace rovin
@@ -14,7 +16,7 @@ namespace rovin
 	SE3::SE3(const Matrix4& T)
 	{
 		Eigen::Matrix<Real, 1, 4> Affine = T.block(3, 0, 1, 4);
-		assert(Affine_const.isApprox(Affine));
+		LOGIF(Affine_const.isApprox(Affine), "[ERROR] SE3 construction failed.");
 
 		SE3::SE3(T.block(0, 0, 3, 3), T.block(0, 3, 1, 3));
 	}
@@ -47,6 +49,7 @@ namespace rovin
 		return *this;
 	}
 
+	/// \todo can be implemented more efficiently
 	const Matrix4 SE3::matrix() const
 	{
 		Matrix4 result;
