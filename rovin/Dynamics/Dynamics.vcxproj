@@ -74,7 +74,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\SNURobotics\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\SNURobotics\include\; ../..;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -97,7 +97,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\SNURobotics\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\SNURobotics\include\; ../..;</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -121,16 +121,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Dynamics.h" />
+    <ClInclude Include="GeometryInfo.h" />
+    <ClInclude Include="Kinematics.h" />
     <ClInclude Include="Link.h" />
     <ClInclude Include="MotorJoint.h" />
     <ClInclude Include="SerialOpenChain.h" />
+    <ClInclude Include="State.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Dynamics.cpp" />
+    <ClCompile Include="GeomeryInfo.cpp" />
     <ClCompile Include="Kinematics.cpp" />
     <ClCompile Include="Link.cpp" />
     <ClCompile Include="MotorJoint.cpp" />
     <ClCompile Include="SerialOpenChain.cpp" />
+    <ClCompile Include="State.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Math\Math.vcxproj">

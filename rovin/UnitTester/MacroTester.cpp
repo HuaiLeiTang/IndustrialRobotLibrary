@@ -10,5 +10,6 @@ int main()
 	LOGIF(0, "HI");
 	
 	_getch();
+
 	return 0;
 }
