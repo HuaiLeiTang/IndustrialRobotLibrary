@@ -99,6 +99,21 @@ namespace rovin
 		*        this function returns initial link, joint state
 		*/
 		StatePtr makeState() const;
+
+
+
+	public:
+		/*!
+		* \brief Serial Open Chain kinematics functions
+		*/
+		static void solveForwardKinematics(State& state, JOINT_KINEMATICS_OPTION option);
+
+
+	public:
+		/*!
+		* \brief Serial Open Chain dynamics functions
+		*/
+
 	};
 
 

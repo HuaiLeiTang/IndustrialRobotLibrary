@@ -124,6 +124,18 @@ namespace rovin {
 		return state;
 	}
 
+	/*!
+	* \brief Serial Open Chain kinematics functions
+	*/
+	void SerialOpenChain::solveForwardKinematics(State & state, JOINT_KINEMATICS_OPTION option)
+	{
+
+
+
+	}
+
+	// Mate class
+
 	Mate::Mate(const MotorJointPtr & motorJoint, const SE3 & parentT, const SE3 & childT) : _parentT(parentT), _childT(childT)
 	{
 		_motorJoint = motorJoint->copy();
@@ -161,6 +173,8 @@ namespace rovin {
 		return _childT;
 	}
 
+	// SerialOpenChainLink class
+
 	SerialOpenChainLink::SerialOpenChainLink(const SE3 & M, const Inertia & G) : _M(M), _G(G) {}
 
 	SerialOpenChainLink::~SerialOpenChainLink() {}
@@ -189,6 +203,8 @@ namespace rovin {
 	{
 		_screw.setZero();
 	}
+
+	// SerialOpenChainJoint class
 
 	SerialOpenChainJoint::SerialOpenChainJoint(const se3 & screw) : _screw(screw)	{}
 

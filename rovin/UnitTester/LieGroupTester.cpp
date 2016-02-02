@@ -6,6 +6,7 @@
 #include <Eigen\Dense>
 
 #include <vector>
+#include <rovin\Dynamics\State.h>
 
 
 using namespace std;
@@ -42,19 +43,8 @@ int main()
 
 	//int a = 1;
 	//LOGIF(a==0, "Hi");
-
-	std::vector<int> a;
-	a.push_back(0);
-	a.push_back(1);
-	a.push_back(2);
-	a.push_back(3);
-	a.push_back(4);
-
-	a.insert(a.begin() + 5, 10);
-	cout << a.size() << endl;
-	cout << endl;
-	for (int i = 0; i < a.size(); i++)
-		cout << a[i] << endl;
+	
+	cout << State::ALL_INFO << endl;
 
 	_getch();
 	return 0;

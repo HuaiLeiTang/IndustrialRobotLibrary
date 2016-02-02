@@ -29,6 +29,7 @@ namespace rovin {
 	//////////////////////////////////////////////////////////////
 	class State
 	{	
+	public:
 		/*!
 		* \brief Information about whether each state is up to date or not
 		*/

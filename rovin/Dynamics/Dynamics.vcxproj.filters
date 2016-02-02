@@ -30,12 +30,6 @@
     <ClInclude Include="State.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="Kinematics.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="Dynamics.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Link.cpp">
@@ -45,12 +39,6 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="SerialOpenChain.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="Kinematics.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="Dynamics.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="GeomeryInfo.cpp">
