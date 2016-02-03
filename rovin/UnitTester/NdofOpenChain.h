@@ -12,7 +12,7 @@ public:
 		for (unsigned int i = 0; i < dof + 1; i++)
 		{
 			rovin::LinkPtr link_tmp = rovin::LinkPtr(new rovin::Link());
-			link_tmp->addDrawingGeomtryInfo(std::shared_ptr< rovin::Box >(new Box(2, 2, 10)));
+			link_tmp->addDrawingGeomtryInfo(std::shared_ptr< rovin::Box >(new Box(3, 3, 15)));
 
 			addLink(link_tmp);
 		}

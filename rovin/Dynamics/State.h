@@ -76,20 +76,24 @@ namespace rovin {
 		const int getDof() const;
 		JointState& getJointState(const unsigned int jointIndex);
 		LinkState& getLinkState(const unsigned int linkIndex);
+		const JointState& getJointState(const unsigned int jointIndex) const;
+		const LinkState& getLinkState(const unsigned int linkIndex) const;
 		
-		const Real getJointStatePos(const unsigned int jointIndex);
-		const Real getJointStateVel(const unsigned int jointIndex);
-		const Real getJointStateAcc(const unsigned int jointIndex);
+		const Real getJointStatePos(const unsigned int jointIndex) const;
+		const Real getJointStateVel(const unsigned int jointIndex) const;
+		const Real getJointStateAcc(const unsigned int jointIndex) const;
 
-		const se3& getJointStateScrew(const unsigned int jointIndex);
-		const se3& getJointStateScrewDot(const unsigned int jointIndex);
+		const se3& getJointStateScrew(const unsigned int jointIndex) const;
+		const se3& getJointStateScrewDot(const unsigned int jointIndex) const;
 
-		const SE3& getJointStateT(const unsigned int jointIndex);
-		const SE3& getJointStateAT(const unsigned int jointIndex);
+		const SE3& getJointStateT(const unsigned int jointIndex) const;
+		const SE3& getJointStateAT(const unsigned int jointIndex) const;
+		const dse3& getJointStateConstraintF(const unsigned int jointIndex) const;
+		const Real getJointStateTorque(const unsigned int jointIndex) const;
 		
-		const SE3& getLinkStateSE3(const unsigned int linkIndex);
-		const se3& getLinkStateVel(const unsigned int linkIndex);
-		const se3& getLinkStateAcc(const unsigned int linkIndex);
+		const SE3& getLinkStateSE3(const unsigned int linkIndex) const;
+		const se3& getLinkStateVel(const unsigned int linkIndex) const;
+		const se3& getLinkStateAcc(const unsigned int linkIndex) const;
 
 		// set-functions
 		void setJointStatePos(JointState& jointstate, const Real q);
@@ -104,6 +108,8 @@ namespace rovin {
 
 		void setJointStateT(const unsigned int jointIndex, const SE3& T);
 		void setJointStateAT(const unsigned int jointIndex, const SE3& T);
+		void setJointStateConstraintF(const unsigned int jointIndex, const dse3& constraintF);
+		void setJointStateTorque(const unsigned int jointIndex, const Real tau);
 		
 		void setLinkStateSE3(const unsigned int linkIndex, const SE3& T);
 		void setLinkStateVel(const unsigned int linkIndex, const se3& V);

@@ -62,6 +62,8 @@ namespace rovin
 		// get-function
 		LinkPtr getLinkPtr(const unsigned int linkIdx);
 		MotorJointPtr getMotorJointPtr(const unsigned int motorJointIdx);
+		const LinkPtr& getLinkPtr(const unsigned int linkIdx) const;
+		const MotorJointPtr& getMotorJointPtr(const unsigned int motorJointIdx) const;
 		bool isComplete() const;
 		const unsigned int getNumOfLink() const;
 		const unsigned int getNumOfJoint() const;
@@ -110,6 +112,8 @@ namespace rovin
 		 void solveDiffForwardKinematics(State& state);
 		 void solve2ndDiffForwardKinematics(State& state);
 
+		 void solveInverseKinematics(State& state);
+
 		 void solveJacobian(State& state);
 		 void solveJacobianDot(State & state);
 
@@ -123,7 +127,7 @@ namespace rovin
 		*/
 		/*!
 		* \brief Inverse Dynamics function
-		*        endeffectorF is represented by base(fixed) frame
+		*        endeffectorF is represented by body frame
 		*/
 		void solveInverDynamics(State& state, const dse3& endeffectorF);
 		void solveFowardDynamics(State& state);
