@@ -11,6 +11,8 @@
 
 #include <iostream>
 #include <cassert>
+#include <ctime>
+#include <omp.h>
 
 #define LOGIF(statement,message)\
 	do{\
