@@ -23,14 +23,44 @@ namespace rovin {
 		return _dof;
 	}
 
-	const JointState & State::getJointState(const unsigned int jointIndex)
+	JointState & State::getJointState(const unsigned int jointIndex)
 	{
 		return _jointState[jointIndex];
 	}
 
-	const LinkState & State::getLintState(const unsigned int linkIndex)
+	LinkState & State::getLinkState(const unsigned int linkIndex)
 	{
 		return _linkState[linkIndex];
+	}
+
+	const Real State::getJointStatePos(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointPos();
+	}
+
+	const Real State::getJointStateVel(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointVel();
+	}
+
+	const Real State::getJointStateAcc(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointAcc();
+	}
+
+	const SE3& State::getJointStateT(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointT();
+	}
+
+	const SE3& State::getJointStateAT(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointAccumulatedT();
+	}
+
+	const SE3& State::getLinkStateSE3(const unsigned int linkIndex)
+	{
+		return _linkState[linkIndex].getLinkSE3();
 	}
 
 	void State::setJointStatePos(JointState & jointstate, const Real q)
@@ -38,6 +68,8 @@ namespace rovin {
 		jointstate.setJointPos(q);
 		updateStateInfoUpToDate(LINKS_POS | LINKS_VEL | LINKS_ACC | JOINTS_T_FROM_BASE | JOINTS_JACOBIAN | JOINTS_JACOBIAN_DOT, false);
 	}
+
+	// joint 값 vector 로 받는 함수 추가
 
 	void State::setJointStatePos(const unsigned int jointIndex, const Real q)
 	{
@@ -64,6 +96,21 @@ namespace rovin {
 	void State::setJointStateAcc(const unsigned int jointIndex, const Real qddot)
 	{
 		setJointStateAcc(_jointState[jointIndex], qddot);
+	}
+
+	void State::setJointStateT(const unsigned int jointIndex, const SE3 & T)
+	{
+		_jointState[jointIndex].setJointT(T);
+	}
+
+	void State::setJointStateAT(const unsigned int jointIndex, const SE3 & T)
+	{
+		_jointState[jointIndex].setJointAccumulatedT(T);
+	}
+
+	void State::setLinkStateSE3(const unsigned int linkIndex, const SE3 & T)
+	{
+		_linkState[linkIndex].setLinkSE3(T);
 	}
 
 	void State::addJointStatePos(JointState & jointstate, const Real q)
@@ -225,13 +272,12 @@ namespace rovin {
 	void JointState::setJointPos(const Real q)
 	{
 		_q = q;
-		updateJointInfoUpToDate(ALL_INFO, false);
+		updateJointInfoUpToDate(EXPOENTIAL, false);
 	}
 
 	void JointState::setJointVel(const Real qdot)
 	{
 		_qdot = qdot;
-		updateJointInfoUpToDate(JACOBIAN_DOT); // 이건 아직 잘 모르겠음..
 	}
 
 	void JointState::setJointAcc(const Real qddot)
@@ -300,13 +346,12 @@ namespace rovin {
 	void JointState::addJointPos(const Real q)
 	{
 		_q += q;
-		updateJointInfoUpToDate(ALL_INFO, false);
+		updateJointInfoUpToDate(EXPOENTIAL, false);
 	}
 
 	void JointState::addJointVel(const Real qdot)
 	{
 		_qdot += qdot;
-		updateJointInfoUpToDate(JACOBIAN_DOT);
 	}
 
 	void JointState::addJointAcc(const Real qddot)

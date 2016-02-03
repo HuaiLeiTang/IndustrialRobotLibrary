@@ -28,12 +28,13 @@ namespace rovin
 
 	class SerialOpenChain
 	{
+	public:
 		/// forward kinematics option
 		enum JOINT_KINEMATICS_OPTION
 		{
-			JOINT_TRANSFORM = 1 << 0, ///< option for forward kinematics, endeffector SE3 
-			JOINT_JACOBIAN = 1 << 1, ///< option for differenctial forward kinematics, Link velocity
-			JOINT_JACOBIANDOT = 1 << 2 ///< option for differenctial forward kinematics, Link acceleration
+			//JOINT_TRANSFORM = 1 << 0, ///< option for forward kinematics, endeffector SE3 
+			//JOINT_JACOBIAN = 1 << 1, ///< option for differenctial forward kinematics, Link velocity
+			//JOINT_JACOBIANDOT = 1 << 2 ///< option for differenctial forward kinematics, Link acceleration
 		};
 
 	private:
@@ -106,7 +107,14 @@ namespace rovin
 		/*!
 		* \brief Serial Open Chain kinematics functions
 		*/
-		static void solveForwardKinematics(State& state, JOINT_KINEMATICS_OPTION option);
+		 void solveForwardKinematics(State& state);
+		 void solveDiffForwardKinematics(State& state);
+		 void solve2ndDiffForwardKinematics(State& state);
+
+		 ///< calculate joint exponential(exp([S_i] * theta_i) if this value is not up to date
+		 void updateJointStateExponetial(State & state, const unsigned int jointIndex);
+
+
 
 
 	public:

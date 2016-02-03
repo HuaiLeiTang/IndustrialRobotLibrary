@@ -127,12 +127,70 @@ namespace rovin {
 	/*!
 	* \brief Serial Open Chain kinematics functions
 	*/
-	void SerialOpenChain::solveForwardKinematics(State & state, JOINT_KINEMATICS_OPTION option)
+	void SerialOpenChain::solveForwardKinematics(State & state)
 	{
+		LOGIF(_complete, "SerialOpenChain::solveForwardKinematics error : Assembly is not complete");
 
+		if (state.checkStateInfoUpToDate(State::LINKS_POS))	{ return; }
+
+		SE3 T;
+
+		int jointsize = _motorJointPtr.size();
+
+		if (state.checkStateInfoUpToDate(State::JOINTS_T_FROM_BASE))
+		{
+			for (int i = 0; i < jointsize; i++)
+			{
+				T = state.getJointStateAT(i) * _socLink[i + 1].getM();
+				state.setLinkStateSE3(i + 1, T);
+			}
+		}
+		else
+		{
+			for (int i = 0; i < jointsize; i++)
+			{
+				updateJointStateExponetial(state, i);
+				if (i == 0)
+					state.setJointStateAT(i, state.getJointStateT(i));
+				else
+				{
+					T = state.getJointStateAT(i - 1) * state.getJointStateT(i);
+					state.setJointStateAT(i, T);
+				}
+				T = state.getJointStateAT(i) * _socLink[i + 1].getM();
+				state.setLinkStateSE3(i + 1, T);
+			}
+			state.updateStateInfoUpToDate(State::JOINTS_T_FROM_BASE, true);
+		}
+		state.updateStateInfoUpToDate(State::LINKS_POS, true);
+	}
+
+	void SerialOpenChain::solveDiffForwardKinematics(State & state)
+	{
+		LOGIF(_complete, "SerialOpenChain::solveForwardKinematics error : Assembly is not complete");
+
+		if (state.checkStateInfoUpToDate(State::LINKS_VEL)) {
+			return;
+		}
+		
 
 
 	}
+
+	void SerialOpenChain::solve2ndDiffForwardKinematics(State & state)
+	{
+	}
+
+	void SerialOpenChain::updateJointStateExponetial(State & state, const unsigned int jointIndex)
+	{
+		if (!state.getJointState(jointIndex).checkJointInfoUpToDate(JointState::EXPOENTIAL))
+		{
+			state.setJointStateT(jointIndex, SE3::Exp(_socJoint[jointIndex].getScrew(), state.getJointStatePos(jointIndex)));
+			state.getJointState(jointIndex).updateJointInfoUpToDate(JointState::EXPOENTIAL, true);
+		}
+	}
+
+
 
 	// Mate class
 

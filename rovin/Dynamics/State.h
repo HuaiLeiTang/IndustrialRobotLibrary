@@ -74,8 +74,16 @@ namespace rovin {
 
 		// get-functions
 		const int getDof() const;
-		const JointState& getJointState(const unsigned int jointIndex);
-		const LinkState& getLintState(const unsigned int linkIndex);
+		JointState& getJointState(const unsigned int jointIndex);
+		LinkState& getLinkState(const unsigned int linkIndex);
+		
+		const Real getJointStatePos(const unsigned int jointIndex);
+		const Real getJointStateVel(const unsigned int jointIndex);
+		const Real getJointStateAcc(const unsigned int jointIndex);
+
+		const SE3& getJointStateT(const unsigned int jointIndex);
+		const SE3& getJointStateAT(const unsigned int jointIndex);
+		const SE3& getLinkStateSE3(const unsigned int linkIndex);
 
 		// set-functions
 		void setJointStatePos(JointState& jointstate, const Real q);
@@ -85,6 +93,10 @@ namespace rovin {
 		void setJointStateAcc(JointState& jointstate, const Real qddot);
 		void setJointStateAcc(const unsigned int jointIndex, const Real qddot);
 
+		void setJointStateT(const unsigned int jointIndex, const SE3& T);
+		void setJointStateAT(const unsigned int jointIndex, const SE3& T);
+		void setLinkStateSE3(const unsigned int linkIndex, const SE3& T);
+		
 		// joint state(pos, vel, acc) add functions
 		void addJointStatePos(JointState& jointstate, const Real q);
 		void addJointStatePos(const unsigned int jointIndex, const Real q);
@@ -166,15 +178,13 @@ namespace rovin {
 	//////////////////////////////////////////////////////////////
 	class JointState
 	{
+	public:
 		/*!
 		* \brief Information about whether each joint state is up to date or not
 		*/
 		const enum JOINT_INFO
 		{
-			TRANSFORM = 1 << 0, // exp([S_i] * theta_i)(variable _T) is up to date
-			JACOBIAN = 1 << 1, // need description
-			JACOBIAN_DOT = 1 << 2, // need description
-			ALL_INFO = TRANSFORM | JACOBIAN | JACOBIAN_DOT,
+			EXPOENTIAL = true // exp([S_i] * theta_i)(variable _T) is up to date
 		};
 
 	private:
