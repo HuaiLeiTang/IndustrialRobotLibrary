@@ -172,13 +172,61 @@ namespace rovin {
 		if (state.checkStateInfoUpToDate(State::LINKS_VEL)) {
 			return;
 		}
+
+		int jointsize = _motorJointPtr.size();
+		se3 V;
+		V.setZero();
 		
-
-
+		if (state.checkStateInfoUpToDate(State::JOINTS_JACOBIAN))
+		{
+			// 이거 더 빠른지 check 하기..두 개의 계산 값이 같은지 확인하기
+			for (int i = 0; i < jointsize; i++)
+			{
+				V += (state.getJointStateScrew(i) * state.getJointStateVel(i));
+				state.setLinkStateVel(i + 1, V);
+			}
+		}
+		else
+		{
+			for (int i = 0; i < jointsize; i++)
+			{
+				updateJointStateExponetial(state, i);
+				V = SE3::Ad(state.getJointStateT(i), V) + _socJoint[i].getScrew() * state.getJointStateVel(i);
+				state.setLinkStateVel(i + 1, V);
+			}
+		}
+		state.updateStateInfoUpToDate(State::LINKS_VEL, true);
 	}
 
 	void SerialOpenChain::solve2ndDiffForwardKinematics(State & state)
 	{
+		LOGIF(_complete, "SerialOpenChain::solve2ndDiffForwardKinematics error : Assembly is not complete");
+
+		if (state.checkStateInfoUpToDate(State::LINKS_ACC)) {
+			return;
+		}
+
+
+
+	}
+
+	void SerialOpenChain::solveJacobian(State & state)
+	{
+		LOGIF(_complete, "SerialOpenChain::solveJacobian error : Assembly is not complete");
+
+		if (state.checkStateInfoUpToDate(State::JOINTS_JACOBIAN)) { return; }
+
+		int jointsize = _motorJointPtr.size();
+		SE3 T;
+		for (int i = jointsize; i > 0; i--)
+		{
+			se3 scr = SE3::Ad(T, _socJoint[i - 1].getScrew());
+			state.setJointStateScrew(i - 1, scr);
+			updateJointStateExponetial(state, i - 1);
+			T = state.getJointStateT(i - 1).inverse() * T;
+		}
+		state.updateStateInfoUpToDate(State::JOINTS_JACOBIAN, true);
+
 	}
 
 	void SerialOpenChain::updateJointStateExponetial(State & state, const unsigned int jointIndex)

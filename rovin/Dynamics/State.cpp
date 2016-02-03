@@ -48,6 +48,11 @@ namespace rovin {
 		return _jointState[jointIndex].getJointAcc();
 	}
 
+	const se3 & State::getJointStateScrew(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointScrew();
+	}
+
 	const SE3& State::getJointStateT(const unsigned int jointIndex)
 	{
 		return _jointState[jointIndex].getJointT();
@@ -61,6 +66,11 @@ namespace rovin {
 	const SE3& State::getLinkStateSE3(const unsigned int linkIndex)
 	{
 		return _linkState[linkIndex].getLinkSE3();
+	}
+
+	const se3 & State::getLinkStateVel(const unsigned int linkIndex)
+	{
+		return _linkState[linkIndex].getLinkVel();
 	}
 
 	void State::setJointStatePos(JointState & jointstate, const Real q)
@@ -98,6 +108,11 @@ namespace rovin {
 		setJointStateAcc(_jointState[jointIndex], qddot);
 	}
 
+	void State::setJointStateScrew(const unsigned int jointIndex, const se3 & screw)
+	{
+		_jointState[jointIndex].setJointScrew(screw);
+	}
+
 	void State::setJointStateT(const unsigned int jointIndex, const SE3 & T)
 	{
 		_jointState[jointIndex].setJointT(T);
@@ -111,6 +126,11 @@ namespace rovin {
 	void State::setLinkStateSE3(const unsigned int linkIndex, const SE3 & T)
 	{
 		_linkState[linkIndex].setLinkSE3(T);
+	}
+
+	void State::setLinkStateVel(const unsigned int linkIndex, const se3 & V)
+	{
+		_linkState[linkIndex].setLinkVel(V);
 	}
 
 	void State::addJointStatePos(JointState & jointstate, const Real q)
