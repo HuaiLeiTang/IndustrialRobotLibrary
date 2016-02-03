@@ -114,13 +114,21 @@ namespace rovin {
 			inertia.changeFrame(T);
 			_socLink[i + 1].setG(inertia);
 		}
-
+		
 		_complete = true;
 	}
 
 	StatePtr SerialOpenChain::makeState() const
 	{
+		LOGIF((0 < _motorJointPtr.size()), "SerialOpenChain::makeState() error : DOF should be larger than zero");
 		StatePtr state(new State(_motorJointPtr.size()));
+
+		// set baselink generalized velocity
+		Vector6 V = Vector6::Zero();
+		V[5] = 9.8;
+
+		state->setLinkStateVel(0, V);
+
 		return state;
 	}
 
@@ -175,7 +183,7 @@ namespace rovin {
 
 		int jointsize = _motorJointPtr.size();
 		se3 V;
-		V.setZero();
+		V = state.getLinkStateVel(0);
 		
 		if (state.checkStateInfoUpToDate(State::JOINTS_JACOBIAN))
 		{
@@ -191,7 +199,7 @@ namespace rovin {
 			for (int i = 0; i < jointsize; i++)
 			{
 				updateJointStateExponetial(state, i);
-				V = SE3::Ad(state.getJointStateT(i), V) + _socJoint[i].getScrew() * state.getJointStateVel(i);
+				V = SE3::Ad(state.getJointStateT(i).inverse(), V) + _socJoint[i].getScrew() * state.getJointStateVel(i);
 				state.setLinkStateVel(i + 1, V);
 			}
 		}
@@ -206,8 +214,32 @@ namespace rovin {
 			return;
 		}
 
+		int jointsize = _motorJointPtr.size();
+		se3 V, VDot;
+		V = state.getLinkStateVel(0);
+		VDot = state.getLinkStateAcc(0);
 
-
+		if (state.checkStateInfoUpToDate(State::JOINTS_JACOBIAN | State::JOINTS_JACOBIAN_DOT))
+		{
+			for (int i = 0; i < jointsize; i++)
+			{
+				VDot += (state.getJointStateScrewDot(i) * state.getJointStateVel(i) + state.getJointStateScrew(i) * state.getJointStateAcc(i));
+				state.setLinkStateAcc(i + 1, VDot);
+			}
+		}
+		else
+		{
+			solveDiffForwardKinematics(state);
+			
+			for (int i = 0; i < jointsize; i++)
+			{
+				updateJointStateExponetial(state, i);
+				VDot = SE3::Ad(state.getJointStateT(i).inverse(), VDot) + SE3::ad(state.getLinkStateVel(i), _socJoint[i].getScrew()) * state.getJointStateVel(i)
+					+ _socJoint[i].getScrew() * state.getJointStateAcc(i);
+				state.setLinkStateAcc(i + 1, VDot);
+			}
+		}
+		state.updateStateInfoUpToDate(State::LINKS_ACC, true);
 	}
 
 	void SerialOpenChain::solveJacobian(State & state)
@@ -229,6 +261,37 @@ namespace rovin {
 
 	}
 
+	void SerialOpenChain::solveJacobianDot(State & state)
+	{
+		LOGIF(_complete, "SerialOpenChain::solveJacobianDot error : Assembly is not complete");
+
+		if (state.checkStateInfoUpToDate(State::JOINTS_JACOBIAN_DOT)) { return; }
+
+		int jointsize = _motorJointPtr.size();
+		se3 Jdot_i; /// (i-1)th column of Jdot
+		se3 dJdq_qd; /// dJ(i-1)_dq(j-1)
+
+		for (int i = jointsize; i > 0; i--) /// each column of Jdot
+		{
+			Jdot_i.setZero();
+			for (int j = jointsize; j > i; j--) /// - dJ(i-1)_dq(j-1) * qdot
+			{
+				dJdq_qd = _socJoint[i - 1].getScrew();
+				int k;
+				for (k = jointsize; k > i; k--)
+				{
+					updateJointStateExponetial(state, k - 1);
+					dJdq_qd = SE3::Ad(state.getJointStateT(k - 1).inverse(), dJdq_qd);
+					if (k == (j - 1))
+						dJdq_qd = SE3::ad(_socJoint[k].getScrew()) * dJdq_qd;;
+				}
+				Jdot_i -= dJdq_qd * state.getJointStateVel(j - 1);
+			}
+			state.setJointStateScrew(i - 1, Jdot_i);
+		}
+		state.updateStateInfoUpToDate(State::JOINTS_JACOBIAN_DOT, true);
+	}
+
 	void SerialOpenChain::updateJointStateExponetial(State & state, const unsigned int jointIndex)
 	{
 		if (!state.getJointState(jointIndex).checkJointInfoUpToDate(JointState::EXPOENTIAL))
@@ -236,6 +299,32 @@ namespace rovin {
 			state.setJointStateT(jointIndex, SE3::Exp(_socJoint[jointIndex].getScrew(), state.getJointStatePos(jointIndex)));
 			state.getJointState(jointIndex).updateJointInfoUpToDate(JointState::EXPOENTIAL, true);
 		}
+	}
+
+
+	// Dynamics
+
+	void SerialOpenChain::solveInverDynamics(State & state, const dse3& endeffectorF)
+	{
+
+
+		// Forward Iteration
+		solveForwardKinematics(state);
+		solveDiffForwardKinematics(state);
+
+		// Backward Iteration
+
+
+
+	}
+
+	void SerialOpenChain::solveFowardDynamics(State & state)
+	{
+
+
+
+
+
 	}
 
 

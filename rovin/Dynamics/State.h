@@ -82,12 +82,14 @@ namespace rovin {
 		const Real getJointStateAcc(const unsigned int jointIndex);
 
 		const se3& getJointStateScrew(const unsigned int jointIndex);
+		const se3& getJointStateScrewDot(const unsigned int jointIndex);
 
 		const SE3& getJointStateT(const unsigned int jointIndex);
 		const SE3& getJointStateAT(const unsigned int jointIndex);
 		
 		const SE3& getLinkStateSE3(const unsigned int linkIndex);
 		const se3& getLinkStateVel(const unsigned int linkIndex);
+		const se3& getLinkStateAcc(const unsigned int linkIndex);
 
 		// set-functions
 		void setJointStatePos(JointState& jointstate, const Real q);
@@ -98,12 +100,14 @@ namespace rovin {
 		void setJointStateAcc(const unsigned int jointIndex, const Real qddot);
 
 		void setJointStateScrew(const unsigned int jointIndex, const se3& screw);
+		void setJointStateScrewDot(const unsigned int jointIndex, const se3& screwDot);
 
 		void setJointStateT(const unsigned int jointIndex, const SE3& T);
 		void setJointStateAT(const unsigned int jointIndex, const SE3& T);
 		
 		void setLinkStateSE3(const unsigned int linkIndex, const SE3& T);
 		void setLinkStateVel(const unsigned int linkIndex, const se3& V);
+		void setLinkStateAcc(const unsigned int linkIndex, const se3& VDot);
 		
 		// joint state(pos, vel, acc) add functions
 		void addJointStatePos(JointState& jointstate, const Real q);
