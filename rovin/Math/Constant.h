@@ -37,6 +37,8 @@ namespace rovin
 	static const Real	DEG2RAD					= 0.01745329251994329577;				///< rad = DEG2RAD * deg
 	static const Real	RAD2DEG					= 57.2957795130823208768;				///< deg = RAD2DEG * rad
 
+	static const Real	InverseKinematicsExitCondition = 1e-11;
+
 	static const Real	RealEps = std::numeric_limits<Real>::epsilon();
 	static const Real	RealMax = std::numeric_limits<Real>::max();
 	static const Real	RealMin = std::numeric_limits<Real>::min();

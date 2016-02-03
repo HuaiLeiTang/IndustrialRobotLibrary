@@ -141,35 +141,17 @@ namespace rovin {
 
 		if (state.checkStateInfoUpToDate(State::LINKS_POS))	{ return; }
 
-		SE3 T;
+		updateAccumulatedT(state);
 
+		SE3 T;
 		int jointsize = _motorJointPtr.size();
 
-		if (state.checkStateInfoUpToDate(State::JOINTS_T_FROM_BASE))
+		for (int i = 0; i < jointsize; i++)
 		{
-			for (int i = 0; i < jointsize; i++)
-			{
-				T = state.getJointStateAT(i) * _socLink[i + 1].getM();
-				state.setLinkStateSE3(i + 1, T);
-			}
+			T = state.getJointStateAT(i) * _socLink[i + 1].getM();
+			state.setLinkStateSE3(i + 1, T);
 		}
-		else
-		{
-			for (int i = 0; i < jointsize; i++)
-			{
-				updateJointStateExponetial(state, i);
-				if (i == 0)
-					state.setJointStateAT(i, state.getJointStateT(i));
-				else
-				{
-					T = state.getJointStateAT(i - 1) * state.getJointStateT(i);
-					state.setJointStateAT(i, T);
-				}
-				T = state.getJointStateAT(i) * _socLink[i + 1].getM();
-				state.setLinkStateSE3(i + 1, T);
-			}
-			state.updateStateInfoUpToDate(State::JOINTS_T_FROM_BASE, true);
-		}
+
 		state.updateStateInfoUpToDate(State::LINKS_POS, true);
 	}
 
@@ -242,12 +224,31 @@ namespace rovin {
 		state.updateStateInfoUpToDate(State::LINKS_ACC, true);
 	}
 
-	void SerialOpenChain::solveInverseKinematics(State & state)
+	void SerialOpenChain::solveInverseKinematics(State & state, const SE3& goalT)
 	{
+		int index_endeffector = _linkPtr.size() - 1;
+		int jointsize = _motorJointPtr.size();
 
+		se3 S;
+		Matrix6X J(jointsize);
+		SE3 goalTmod_inv;
+		VectorX delta;
 
+		while (true)
+		{
+			updateAccumulatedT(state);
 
+			goalTmod_inv = _socLink[index_endeffector].getM() * goalT.inverse();
+			if((S = SE3::Log(goalTmod_inv * state.getLinkStateSE3(index_endeffector))).norm() < InverseKinematicsExitCondition)
+				break;
 
+			for (int i = 0; i < jointsize; i++)
+				J.col(i) = state.getJointStateScrew(i);
+
+			delta = pInv(J) * S;
+			for (int i = 0; i < jointsize; i++)
+				state.addJointStatePos(i, delta[i]);
+		}
 	}
 
 	void SerialOpenChain::solveJacobian(State & state)
@@ -306,6 +307,30 @@ namespace rovin {
 		{
 			state.setJointStateT(jointIndex, SE3::Exp(_socJoint[jointIndex].getScrew(), state.getJointStatePos(jointIndex)));
 			state.getJointState(jointIndex).updateJointInfoUpToDate(JointState::EXPOENTIAL, true);
+		}
+	}
+
+	void SerialOpenChain::updateAccumulatedT(State & state)
+	{
+
+		if (!state.checkStateInfoUpToDate(State::JOINTS_T_FROM_BASE))
+		{
+			int jointsize = _motorJointPtr.size();
+			SE3 T;
+
+			for (int i = 0; i < jointsize; i++)
+			{
+				updateJointStateExponetial(state, i);
+				if (i == 0)
+					state.setJointStateAT(i, state.getJointStateT(i));
+				else
+				{
+					T = state.getJointStateAT(i - 1) * state.getJointStateT(i);
+					state.setJointStateAT(i, T);
+				}
+			}
+
+			state.updateStateInfoUpToDate(State::JOINTS_T_FROM_BASE, true);
 		}
 	}
 

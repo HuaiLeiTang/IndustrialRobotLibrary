@@ -110,14 +110,14 @@ namespace rovin
 		 void solveDiffForwardKinematics(State& state);
 		 void solve2ndDiffForwardKinematics(State& state);
 
-		 void solveInverseKinematics(State& state);
+		 void solveInverseKinematics(State& state, const SE3& goalT);
 
 		 void solveJacobian(State& state);
 		 void solveJacobianDot(State & state);
 
 		 ///< calculate joint exponential(exp([S_i] * theta_i) if this value is not up to date
 		 void updateJointStateExponetial(State & state, const unsigned int jointIndex);
-		 
+		 void updateAccumulatedT(State & state);
 
 	public:
 		/*!
