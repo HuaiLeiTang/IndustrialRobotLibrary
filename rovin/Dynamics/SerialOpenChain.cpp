@@ -124,10 +124,10 @@ namespace rovin {
 		StatePtr state(new State(_motorJointPtr.size()));
 
 		// set baselink generalized velocity
-		Vector6 V = Vector6::Zero();
-		V[5] = 9.8;
+		Vector6 VDot = Vector6::Zero();
+		VDot[5] = 9.8;
 
-		state->setLinkStateVel(0, V);
+		state->setLinkStateAcc(0, VDot);
 
 		return state;
 	}

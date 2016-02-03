@@ -115,7 +115,7 @@ namespace rovin
 
 		 ///< calculate joint exponential(exp([S_i] * theta_i) if this value is not up to date
 		 void updateJointStateExponetial(State & state, const unsigned int jointIndex);
-
+		 
 
 	public:
 		/*!
