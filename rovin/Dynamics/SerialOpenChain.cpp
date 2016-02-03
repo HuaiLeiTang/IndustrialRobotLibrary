@@ -18,6 +18,18 @@ namespace rovin {
 		return _motorJointPtr[motorJointIdx];
 	}
 
+	const LinkPtr& SerialOpenChain::getLinkPtr(const unsigned int linkIdx) const
+	{
+		LOGIF((linkIdx < _linkPtr.size()), "SerialOpenChain::getLinkPtr error : Link index is larger than number of Links");
+		return _linkPtr[linkIdx];
+	}
+
+	const MotorJointPtr& SerialOpenChain::getMotorJointPtr(const unsigned int motorJointIdx) const
+	{
+		LOGIF((motorJointIdx < _motorJointPtr.size()), "SerialOpenChain::getJointPtr error : Motorjoint index is larger than number of motorjoints");
+		return _motorJointPtr[motorJointIdx];
+	}
+
 	bool SerialOpenChain::isComplete() const
 	{
 		return _complete;
@@ -216,7 +228,7 @@ namespace rovin {
 			for (int i = 0; i < jointsize; i++)
 			{
 				updateJointStateExponetial(state, i);
-				VDot = SE3::Ad(state.getJointStateT(i).inverse(), VDot) + SE3::ad(state.getLinkStateVel(i+1), _socJoint[i].getScrew()) * state.getJointStateVel(i)
+				VDot = SE3::Ad(state.getJointStateT(i).inverse(), VDot) + SE3::ad(state.getLinkStateVel(i + 1), _socJoint[i].getScrew()) * state.getJointStateVel(i)
 					+ _socJoint[i].getScrew() * state.getJointStateAcc(i);
 				state.setLinkStateAcc(i + 1, VDot);
 			}
@@ -261,10 +273,10 @@ namespace rovin {
 		SE3 T;
 		for (int i = jointsize; i > 0; i--)
 		{
-			se3 scr = SE3::Ad(T, _socJoint[i - 1].getScrew());
+			se3 scr = SE3::Ad(T.inverse(), _socJoint[i - 1].getScrew());
 			state.setJointStateScrew(i - 1, scr);
 			updateJointStateExponetial(state, i - 1);
-			T = state.getJointStateT(i - 1).inverse() * T;
+			T = state.getJointStateT(i - 1) * T;
 		}
 		state.updateStateInfoUpToDate(State::JOINTS_JACOBIAN, true);
 
@@ -277,26 +289,12 @@ namespace rovin {
 		if (state.checkStateInfoUpToDate(State::JOINTS_JACOBIAN_DOT)) { return; }
 
 		int jointsize = _motorJointPtr.size();
-		se3 Jdot_i; /// (i-1)th column of Jdot
-		se3 dJdq_qd; /// dJ(i-1)_dq(j-1)
+		Matrix6 ad_sum = Matrix6::Zero();
 
 		for (int i = jointsize; i > 0; i--) /// each column of Jdot
 		{
-			Jdot_i.setZero();
-			for (int j = jointsize; j > i; j--) /// - dJ(i-1)_dq(j-1) * qdot
-			{
-				dJdq_qd = _socJoint[i - 1].getScrew();
-				int k;
-				for (k = jointsize; k > i; k--)
-				{
-					updateJointStateExponetial(state, k - 1);
-					dJdq_qd = SE3::Ad(state.getJointStateT(k - 1).inverse(), dJdq_qd);
-					if (k == (j - 1))
-						dJdq_qd = SE3::ad(_socJoint[k].getScrew()) * dJdq_qd;;
-				}
-				Jdot_i -= dJdq_qd * state.getJointStateVel(j - 1);
-			}
-			state.setJointStateScrew(i - 1, Jdot_i);
+			ad_sum += SE3::ad(state.getJointStateScrew(i - 1)) * state.getJointStateVel(i - 1);
+			state.setJointStateScrewDot(i - 1, -ad_sum * state.getJointStateScrew(i - 1));
 		}
 		state.updateStateInfoUpToDate(State::JOINTS_JACOBIAN_DOT, true);
 	}

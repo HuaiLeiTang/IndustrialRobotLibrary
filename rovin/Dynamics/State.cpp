@@ -37,62 +37,72 @@ namespace rovin {
 		return _linkState[linkIndex];
 	}
 
-	const Real State::getJointStatePos(const unsigned int jointIndex)
+	const JointState & State::getJointState(const unsigned int jointIndex) const
+	{
+		return _jointState[jointIndex];
+	}
+
+	const LinkState & State::getLinkState(const unsigned int linkIndex) const
+	{
+		return _linkState[linkIndex];
+	}
+
+	const Real State::getJointStatePos(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointPos();
 	}
 
-	const Real State::getJointStateVel(const unsigned int jointIndex)
+	const Real State::getJointStateVel(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointVel();
 	}
 
-	const Real State::getJointStateAcc(const unsigned int jointIndex)
+	const Real State::getJointStateAcc(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointAcc();
 	}
 
-	const se3 & State::getJointStateScrew(const unsigned int jointIndex)
+	const se3 & State::getJointStateScrew(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointScrew();
 	}
 
-	const se3 & State::getJointStateScrewDot(const unsigned int jointIndex)
+	const se3 & State::getJointStateScrewDot(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointScrewDot();
 	}
 
-	const SE3& State::getJointStateT(const unsigned int jointIndex)
+	const SE3& State::getJointStateT(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointT();
 	}
 
-	const SE3& State::getJointStateAT(const unsigned int jointIndex)
+	const SE3& State::getJointStateAT(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointAccumulatedT();
 	}
 
-	const dse3 & State::getJointStateConstraintF(const unsigned int jointIndex)
+	const dse3 & State::getJointStateConstraintF(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointConstraintF();
 	}
 
-	const Real State::getJointStateTorque(const unsigned int jointIndex)
+	const Real State::getJointStateTorque(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointTorque();
 	}
 
-	const SE3& State::getLinkStateSE3(const unsigned int linkIndex)
+	const SE3& State::getLinkStateSE3(const unsigned int linkIndex) const
 	{
 		return _linkState[linkIndex].getLinkSE3();
 	}
 
-	const se3 & State::getLinkStateVel(const unsigned int linkIndex)
+	const se3 & State::getLinkStateVel(const unsigned int linkIndex) const
 	{
 		return _linkState[linkIndex].getLinkVel();
 	}
 
-	const se3 & State::getLinkStateAcc(const unsigned int linkIndex)
+	const se3 & State::getLinkStateAcc(const unsigned int linkIndex) const
 	{
 		return _linkState[linkIndex].getLinkVelDot();
 	}
