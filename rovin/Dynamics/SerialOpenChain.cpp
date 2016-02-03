@@ -234,12 +234,20 @@ namespace rovin {
 			for (int i = 0; i < jointsize; i++)
 			{
 				updateJointStateExponetial(state, i);
-				VDot = SE3::Ad(state.getJointStateT(i).inverse(), VDot) + SE3::ad(state.getLinkStateVel(i), _socJoint[i].getScrew()) * state.getJointStateVel(i)
+				VDot = SE3::Ad(state.getJointStateT(i).inverse(), VDot) + SE3::ad(state.getLinkStateVel(i+1), _socJoint[i].getScrew()) * state.getJointStateVel(i)
 					+ _socJoint[i].getScrew() * state.getJointStateAcc(i);
 				state.setLinkStateAcc(i + 1, VDot);
 			}
 		}
 		state.updateStateInfoUpToDate(State::LINKS_ACC, true);
+	}
+
+	void SerialOpenChain::solveInverseKinematics(State & state)
+	{
+
+
+
+
 	}
 
 	void SerialOpenChain::solveJacobian(State & state)
@@ -306,16 +314,34 @@ namespace rovin {
 
 	void SerialOpenChain::solveInverDynamics(State & state, const dse3& endeffectorF)
 	{
-
-
 		// Forward Iteration
 		solveForwardKinematics(state);
 		solveDiffForwardKinematics(state);
 
 		// Backward Iteration
+		int jointsize = _motorJointPtr.size();
+		dse3 F_end = (SE3::Ad(_socLink[_motorJointPtr.size()].getM().inverse())).transpose() * endeffectorF; ///< transformation end-effector dse3
+		dse3 F;
 
+		for (int i = jointsize; i > 0; i--)
+		{
+			const Matrix6& G = static_cast<const Matrix6&>(_socLink[i].getG());
+			F = G * state.getLinkStateAcc(i) - SE3::adTranspose(state.getLinkStateVel(i), G * state.getLinkStateVel(i));
+			if (i == jointsize)
+				F += F_end;
+			else
+				F += SE3::Ad(state.getJointStateT(i).inverse()).transpose() * state.getJointStateConstraintF(i);
+			state.setJointStateConstraintF(i - 1, F);
 
-
+			// torque
+			Real tau = F.dot(_socJoint[i - 1].getScrew());
+			tau += state.getJointStatePos(i - 1)*_motorJointPtr[i - 1]->getSpringConstant() + state.getJointStateVel(i - 1)*_motorJointPtr[i - 1]->getDamperConstant();
+			if (RealBigger(state.getJointStateVel(i - 1), 0))
+				tau += _motorJointPtr[i - 1]->getCoulombFrictionConstant();
+			else if (RealLess(state.getJointStateVel(i - 1), 0))
+				tau -= _motorJointPtr[i - 1]->getCoulombFrictionConstant();
+			state.setJointStateTorque(i-1, tau);
+		}
 	}
 
 	void SerialOpenChain::solveFowardDynamics(State & state)

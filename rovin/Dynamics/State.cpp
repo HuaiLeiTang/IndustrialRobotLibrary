@@ -72,6 +72,16 @@ namespace rovin {
 		return _jointState[jointIndex].getJointAccumulatedT();
 	}
 
+	const dse3 & State::getJointStateConstraintF(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointConstraintF();
+	}
+
+	const Real State::getJointStateTorque(const unsigned int jointIndex)
+	{
+		return _jointState[jointIndex].getJointTorque();
+	}
+
 	const SE3& State::getLinkStateSE3(const unsigned int linkIndex)
 	{
 		return _linkState[linkIndex].getLinkSE3();
@@ -140,6 +150,16 @@ namespace rovin {
 	void State::setJointStateAT(const unsigned int jointIndex, const SE3 & T)
 	{
 		_jointState[jointIndex].setJointAccumulatedT(T);
+	}
+
+	void State::setJointStateConstraintF(const unsigned int jointIndex, const dse3 & constraintF)
+	{
+		_jointState[jointIndex].setJointConstraintF(constraintF);
+	}
+
+	void State::setJointStateTorque(const unsigned int jointIndex, const Real tau)
+	{
+		_jointState[jointIndex].setJointTorque(tau);
 	}
 
 	void State::setLinkStateSE3(const unsigned int linkIndex, const SE3 & T)

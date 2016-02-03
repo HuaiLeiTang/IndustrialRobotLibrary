@@ -86,6 +86,8 @@ namespace rovin {
 
 		const SE3& getJointStateT(const unsigned int jointIndex);
 		const SE3& getJointStateAT(const unsigned int jointIndex);
+		const dse3& getJointStateConstraintF(const unsigned int jointIndex);
+		const Real getJointStateTorque(const unsigned int jointIndex);
 		
 		const SE3& getLinkStateSE3(const unsigned int linkIndex);
 		const se3& getLinkStateVel(const unsigned int linkIndex);
@@ -104,6 +106,8 @@ namespace rovin {
 
 		void setJointStateT(const unsigned int jointIndex, const SE3& T);
 		void setJointStateAT(const unsigned int jointIndex, const SE3& T);
+		void setJointStateConstraintF(const unsigned int jointIndex, const dse3& constraintF);
+		void setJointStateTorque(const unsigned int jointIndex, const Real tau);
 		
 		void setLinkStateSE3(const unsigned int linkIndex, const SE3& T);
 		void setLinkStateVel(const unsigned int linkIndex, const se3& V);
