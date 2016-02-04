@@ -7,6 +7,7 @@ template <unsigned int dof>
 class NdofOpenChain : public rovin::SerialOpenChain
 {
 public:
+
 	NdofOpenChain() : SerialOpenChain()
 	{
 		for (unsigned int i = 0; i < dof + 1; i++)

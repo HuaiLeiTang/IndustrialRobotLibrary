@@ -81,17 +81,17 @@ int main()
 		}
 		cout << endl;
 	}
-	//PERFORM_TEST(
-	//	for (unsigned int i = 0; i < DOF; i++)
-	//	{
-	//		state->setJointStatePos(i, (rand() % 100 - 50) / 100.0 * PI);
-	//	};
-	//robot.solveForwardKinematics(*state);,
-	//	10e+4
-	//	);
+	PERFORM_TEST(
+		for (unsigned int i = 0; i < DOF; i++)
+		{
+			state->setJointStatePos(i, (rand() % 100 - 50) / 100.0 * PI);
+		};
+	robot.solveForwardKinematics(*state);,
+		10e+6
+		);
 
-	OSG_simpleRender renderer(robot, *state, 600, 600);
-	renderer.getViewer().run();
+	//OSG_simpleRender renderer(robot, *state, 600, 600);
+	//renderer.getViewer().run();
 
 	_getch();
 

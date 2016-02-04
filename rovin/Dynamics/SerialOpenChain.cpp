@@ -113,7 +113,7 @@ namespace rovin {
 		inertia.changeFrame(T);
 		_socLink[1].setG(inertia);
 
-		for (int i = 1; i < numOfmotorjoint; i++)
+		for (unsigned int i = 1; i < numOfmotorjoint; i++)
 		{
 			T = _socLink[i].getM() * _Mate[i].getParentT().inverse();
 			screw = SE3::Ad(T) * (_Mate[i].getMotorJoint()->getAxis());
@@ -242,7 +242,7 @@ namespace rovin {
 		int jointsize = _motorJointPtr.size();
 
 		se3 S;
-		Matrix6X J(jointsize);
+		MatrixX J(6, jointsize);
 		SE3 goalTmod_inv;
 		VectorX delta;
 
