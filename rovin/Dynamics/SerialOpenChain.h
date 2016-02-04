@@ -129,7 +129,7 @@ namespace rovin
 		* \brief Inverse Dynamics function
 		*        endeffectorF is represented by body frame
 		*/
-		void solveInverDynamics(State& state, const dse3& endeffectorF);
+		void solveInverseDynamics(State& state, const dse3& endeffectorF = (dse3::Zero()));
 		void solveFowardDynamics(State& state);
 
 	};

@@ -246,18 +246,21 @@ namespace rovin {
 		SE3 goalTmod_inv;
 		VectorX delta;
 
+		goalTmod_inv = _socLink[index_endeffector].getM() * goalT.inverse();
+
 		while (true)
 		{
 			updateAccumulatedT(state);
 
-			goalTmod_inv = _socLink[index_endeffector].getM() * goalT.inverse();
-			if((S = SE3::Log(goalTmod_inv * state.getLinkStateSE3(index_endeffector))).norm() < InverseKinematicsExitCondition)
+			if((S = SE3::Log(goalTmod_inv * state.getJointStateAT(index_endeffector - 1))).norm() < InverseKinematicsExitCondition)
 				break;
 
+			solveJacobian(state);
 			for (int i = 0; i < jointsize; i++)
 				J.col(i) = state.getJointStateScrew(i);
 
-			delta = pInv(J) * S;
+			delta = pInv(J) * (-S);
+
 			for (int i = 0; i < jointsize; i++)
 				state.addJointStatePos(i, delta[i]);
 		}
@@ -335,11 +338,12 @@ namespace rovin {
 
 	// Dynamics
 
-	void SerialOpenChain::solveInverDynamics(State & state, const dse3& endeffectorF)
+	void SerialOpenChain::solveInverseDynamics(State & state, const dse3& endeffectorF)
 	{
 		// Forward Iteration
 		solveForwardKinematics(state);
 		solveDiffForwardKinematics(state);
+		solve2ndDiffForwardKinematics(state);
 
 		// Backward Iteration
 		int jointsize = _motorJointPtr.size();

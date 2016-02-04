@@ -414,7 +414,7 @@ namespace rovin {
 		if (upToDate)
 			_jointInfoUpToDate |= infoIdx;
 		else
-			_jointInfoUpToDate &= infoIdx;
+			_jointInfoUpToDate &= ~infoIdx;
 	}
 
 	void JointState::addJointPos(const Real q)
