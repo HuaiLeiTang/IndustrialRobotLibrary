@@ -86,17 +86,47 @@ namespace rovin {
 
 	}
 
-	VectorX GivenPathTimeOptimization::MinAcc(const Real & s, const Real & sdot)
+	void GivenPathTimeOptimization::MinMaxAcc(const unsigned int index, const Real& sdot, Real& min, Real& max)
 	{
+		int dof = _socRobotPtr->getNumOfJoint();
 
-		return VectorX();
+		State state(dof);
+		state.setJointStatePos(_q[index]);
+		MatrixX M(dof, dof);
+		M = _socRobotPtr->calculateMassMatrix(state);
+
+		state.setJointStateVel(_qs[index] * sdot);
+		_socRobotPtr->solveInverseDynamics(state);
+		VectorX h(dof);
+		for (int i = 0; i < dof; i++)
+			h(i) = state.getJointStateTorque(i);
+
+		VectorX c1(dof), c2(dof);
+		c1 = M*_qs[index];
+		c2 = M*_qss[index] * sdot*sdot + h;
+
+		min = 0;
+		max = 0;
+		Real mincur, maxcur;
+		for (int i = 0; i < dof; i++)
+		{
+			if (c1[i] > 0)
+			{
+				mincur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueLower() - c2[i]) / c1[i];
+				maxcur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueUpper() - c2[i]) / c1[i];
+			}
+			else
+			{
+				mincur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueUpper() - c2[i]) / c1[i];
+				maxcur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueLower() - c2[i]) / c1[i];
+			}
+
+			if (mincur > min)
+				min = mincur;
+			if (maxcur < max)
+				max = maxcur;
+		}
 	}
-
-	VectorX GivenPathTimeOptimization::MaxAcc(const Real & s, const Real & sdot)
-	{
-		return VectorX();
-	}
-
 
 
 }

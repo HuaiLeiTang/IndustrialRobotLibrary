@@ -51,8 +51,7 @@ namespace rovin
 		
 		void solveInvKinAll();
 
-		VectorX MinAcc(const Real& s, const Real& sdot);
-		VectorX MaxAcc(const Real& s, const Real& sdot);
+		void MinMaxAcc(const unsigned int index, const Real& sdot, Real& min, Real& max);
 
 
 	};
