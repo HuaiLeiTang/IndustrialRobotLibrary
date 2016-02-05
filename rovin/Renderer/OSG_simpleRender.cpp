@@ -171,8 +171,8 @@ namespace rovin
 		_viewer.setSceneData(_rootNode);
 		_viewer.getCamera()->setClearColor(osg::Vec4(90 / 255.0, 102 / 255.0, 117 / 255.0, 1.0f));
 		_viewer.setCameraManipulator(_cameraManipulator.get(), true);
-		//_cameraManipulator->setDistance(5.0f);
-		//_cameraManipulator->setRotation(osg::Quat(1, osg::Vec3d(1, 0, 0)));
+		_cameraManipulator->setDistance(5.0f);
+		_cameraManipulator->setRotation(osg::Quat(1, osg::Vec3d(1, 0, 0)));
 
 		_viewer.addEventHandler(new osgViewer::WindowSizeHandler);
 		_viewer.addEventHandler(new SimpleGUIHandler());

@@ -52,7 +52,7 @@ namespace rovin
 
 	protected:
 		static const unsigned int numTiles = 25;
-		static osg::ref_ptr< osg::Node > createGround(const float& size = (30.0f));
+		static osg::ref_ptr< osg::Node > createGround(const float& size = (1.0f));
 
 		osg::ref_ptr< osg::Group >					_rootNode;
 		osgViewer::Viewer							_viewer;

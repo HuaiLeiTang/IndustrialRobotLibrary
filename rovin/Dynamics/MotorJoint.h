@@ -33,8 +33,8 @@ namespace rovin{
 		Real _resistance;
 		Real _inductance;
 		Real _gearRatio;
-		//Real _motorConstant;
-		//Real _backEMFConstant;
+		Real _motorConstant;
+		Real _backEMFConstant;
 
 		Real _springConstant;
 		Real _damperConstant;
@@ -74,6 +74,8 @@ namespace rovin{
 		void setResistance(const Real R);
 		void setInductance(const Real In);
 		void setGearRatio(const Real Gear);
+		void setMotorConstant(const Real MC);
+		void setBackEMFConstant(const Real BEMFC);
 		void setSpringConstant(const Real Spring);
 		void setDamperConstant(const Real Damper);
 		void setViscousFrictionConstant(const Real VFriction);
@@ -93,6 +95,8 @@ namespace rovin{
 		const Real getResistance() const;
 		const Real getInductance() const;
 		const Real getGearRatio() const;
+		const Real getMotorConstant() const;
+		const Real getBackEMFConstant() const;
 		const Real getSpringConstant() const;
 		const Real getDamperConstant() const;
 		const Real getViscousFrictionConstant() const;

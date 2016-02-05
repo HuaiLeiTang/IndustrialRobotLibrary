@@ -65,6 +65,16 @@ namespace rovin {
 		_gearRatio = Gear;
 	}
 
+	void MotorJoint::setMotorConstant(const Real MC)
+	{
+		_motorConstant = MC;
+	}
+
+	void MotorJoint::setBackEMFConstant(const Real BEMFC)
+	{
+		_backEMFConstant = BEMFC;
+	}
+
 	void MotorJoint::setSpringConstant(const Real Spring)
 	{
 		_springConstant = Spring;
@@ -150,6 +160,16 @@ namespace rovin {
 	const Real MotorJoint::getGearRatio() const
 	{
 		return _gearRatio;
+	}
+
+	const Real MotorJoint::getMotorConstant() const
+	{
+		return _motorConstant;
+	}
+
+	const Real MotorJoint::getBackEMFConstant() const
+	{
+		return _backEMFConstant;
 	}
 
 	const Real MotorJoint::getSpringConstant() const
