@@ -132,7 +132,7 @@ namespace rovin
 		void solveInverseDynamics(State& state, const dse3& endeffectorF = (dse3::Zero()));
 		void solveFowardDynamics(State& state);
 
-		MatrixX& differentiateInverseDynamics(State& state, const MatrixX& dqdp, const MatrixX& dqdotdp, const MatrixX& dqddotdp);
+		MatrixX differentiateInverseDynamics(State& state, const MatrixX& dqdp, const MatrixX& dqdotdp, const MatrixX& dqddotdp);
 
 	};
 

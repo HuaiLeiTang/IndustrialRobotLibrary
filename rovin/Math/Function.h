@@ -30,42 +30,90 @@ namespace rovin
 		}
 
 		virtual VectorX func(const VectorX& x) const = 0;
-		virtual MatrixX Jacobian(const VectorX& x) const = 0;
-		virtual std::vector< MatrixX > Hessian(const VectorX& x) const = 0;
-		virtual FunctionPtr MultiplyConst(const Real& w) const = 0;
+		virtual MatrixX Jacobian(const VectorX& x) const;
+		virtual std::vector< MatrixX > Hessian(const VectorX& x) const;
+		virtual FunctionPtr MultiplyConst(const Real& w) const;
+
 	private:
 		Real _eps;
+	};
+
+	class EmptyFunction : public Function
+	{
+	public:
+		EmptyFunction() {}
+
+		VectorX operator()(const VectorX& x) const
+		{
+			return func(x);
+		}
+
+		VectorX func(const VectorX& x) const { return VectorX(); }
+		MatrixX Jacobian(const VectorX& x) const { return MatrixX(); }
+		std::vector< MatrixX > Hessian(const VectorX& x) const { return std::vector< MatrixX >(0); }
+		FunctionPtr MultiplyConst(const Real& w) const { return FunctionPtr(new EmptyFunction);	}
+	};
+
+	class MultiplyConstFunction : public Function
+	{
+	public:
+		MultiplyConstFunction() : _w(1.0) {}
+
+		VectorX operator()(const VectorX& x) const
+		{
+			return func(x);
+		}
+
+		virtual VectorX func(const VectorX& x) const;
+		virtual MatrixX Jacobian(const VectorX& x) const;
+		virtual std::vector< MatrixX > Hessian(const VectorX& x) const;
+		virtual FunctionPtr MultiplyConst(const Real& w) const;
+
+		void setBaseFunction(const std::shared_ptr<const Function>& baseFunction);
+		void setWeight(const Real w);
+
+	private:
+		std::shared_ptr<const Function> _baseFunction;
+		Real _w;
 	};
 
 
 	class AffineFunction : public Function
 	{
-
 	public:
 		AffineFunction() {}
-		MatrixX A;
-		VectorX b;
 
-		VectorX func(const VectorX& x) const;
-		MatrixX Jacobian(const VectorX& x) const;
-		std::vector< MatrixX > Hessian(const VectorX& x) const;
-		FunctionPtr MultiplyConst(const Real& w) const;
+		virtual VectorX func(const VectorX& x) const;
+		virtual MatrixX Jacobian(const VectorX& x) const;
+		virtual std::vector< MatrixX > Hessian(const VectorX& x) const;
+		virtual FunctionPtr MultiplyConst(const Real& w) const;
 
+		void setA(const MatrixX& A) { _A = A; }
+		void setb(const VectorX& b) { _b = b; }
+
+	private:
+		MatrixX _A;
+		VectorX _b;
 	};
 
 	class QuadraticFunction : public Function
 	{
 	public:
 		QuadraticFunction() {}
-		MatrixX A;
-		VectorX b;
-		VectorX c;
 
-		VectorX func(const VectorX& x) const;
-		MatrixX Jacobian(const VectorX& x) const;
-		std::vector< MatrixX > Hessian(const VectorX& x) const;
-		FunctionPtr MultiplyConst(const Real& w) const;
+		virtual VectorX func(const VectorX& x) const;
+		virtual MatrixX Jacobian(const VectorX& x) const;
+		virtual std::vector< MatrixX > Hessian(const VectorX& x) const;
+		virtual FunctionPtr MultiplyConst(const Real& w) const;
 
+		void setA(const MatrixX& A) { _A = A; }
+		void setb(const VectorX& b) { _b = b; }
+		void setc(const Real c) { _c(0) = c; }
+
+	private:
+		MatrixX _A;
+		VectorX _b;
+		Eigen::Matrix<Real, 1, 1> _c;
 	};
 
 
