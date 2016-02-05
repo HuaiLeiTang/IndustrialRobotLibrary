@@ -19,8 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{FE25EF73-2C8F-403C-B12E-9AAA4F50B073}</ProjectGuid>
-    <RootNamespace>Dynamics</RootNamespace>
+    <ProjectGuid>{8A31C70E-9E73-427B-9FFB-16A1D001D55F}</ProjectGuid>
+    <RootNamespace>Renderer</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -74,11 +74,9 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\SNURobotics\include\; ../..;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\SNURobotics\include\;..\..\;C:\SNURobotics\include\OpenSceneGraph\;</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -86,9 +84,6 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -97,11 +92,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\SNURobotics\include\; ../..;</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\SNURobotics\include\;..\..\;C:\SNURobotics\include\OpenSceneGraph\;</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
@@ -115,26 +109,24 @@
       <SDLCheck>true</SDLCheck>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="GeometryInfo.h" />
-    <ClInclude Include="Link.h" />
-    <ClInclude Include="MotorJoint.h" />
-    <ClInclude Include="SerialOpenChain.h" />
-    <ClInclude Include="State.h" />
+    <ClCompile Include="OSG_NodeVisitor.cpp" />
+    <ClCompile Include="OSG_simpleRender.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="GeomeryInfo.cpp" />
-    <ClCompile Include="Link.cpp" />
-    <ClCompile Include="MotorJoint.cpp" />
-    <ClCompile Include="SerialOpenChain.cpp" />
-    <ClCompile Include="State.cpp" />
+    <ClInclude Include="OSG_ExtFile.h" />
+    <ClInclude Include="OSG_NodeVisitor.h" />
+    <ClInclude Include="OSG_Primitives.h" />
+    <ClInclude Include="OSG_simpleRender.h" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Dynamics\Dynamics.vcxproj">
+      <Project>{fe25ef73-2c8f-403c-b12e-9aaa4f50b073}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\Math\Math.vcxproj">
       <Project>{a97c2360-55dc-4b93-927e-3370c28f45e8}</Project>
     </ProjectReference>

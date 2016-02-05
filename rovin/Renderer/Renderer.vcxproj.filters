@@ -15,27 +15,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MacroTester.cpp">
+    <ClCompile Include="OSG_simpleRender.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="LieGroupTester.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="KinematicsTester.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="DynamicsTester.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="EfortTester.cpp">
+    <ClCompile Include="OSG_NodeVisitor.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="NdofOpenChain.h">
+    <ClInclude Include="OSG_simpleRender.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="efortRobot.h">
+    <ClInclude Include="OSG_ExtFile.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="OSG_NodeVisitor.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="OSG_Primitives.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
