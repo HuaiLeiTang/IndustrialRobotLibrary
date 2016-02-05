@@ -41,12 +41,15 @@ namespace rovin
 		GivenPathTimeOptimization(const std::vector<SE3>& givenPath);
 		~GivenPathTimeOptimization();
 
-		VectorX getq(const unsigned int i);
-		VectorX getqs(const unsigned int i);
-		VectorX getqss(const unsigned int i);
+		VectorX getq(const unsigned int i) const;
+		VectorX getqs(const unsigned int i) const;
+		VectorX getqss(const unsigned int i) const;
+		SerialOpenChainPtr getSOCPtr();
 
-		void setGivenPath(const std::vector<SE3>& givenPath);
+		void InputGivenPath(const std::vector<SE3>& givenPath);
 		void solveMinimumTimeOptimization();
+		
+		void solveInvKinAll();
 
 		VectorX MinAcc(const Real& s, const Real& sdot);
 		VectorX MaxAcc(const Real& s, const Real& sdot);
