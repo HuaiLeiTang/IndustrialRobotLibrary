@@ -132,6 +132,8 @@ namespace rovin
 		void solveInverseDynamics(State& state, const dse3& endeffectorF = (dse3::Zero()));
 		void solveFowardDynamics(State& state);
 
+		MatrixX calculateMassMatrix(State & state);
+		MatrixX calculateMassMatrixbyInvDyn(const State & state);
 	};
 
 

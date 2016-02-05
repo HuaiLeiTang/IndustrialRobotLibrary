@@ -22,8 +22,8 @@ int main()
 
 	robot.solveForwardKinematics(*state);
 
-	OSG_simpleRender renderer(robot, *state, 600, 600);
-	renderer.getViewer().run();
+	//OSG_simpleRender renderer(robot, *state, 600, 600);
+	//renderer.getViewer().run();
 
 	return 0;
 }

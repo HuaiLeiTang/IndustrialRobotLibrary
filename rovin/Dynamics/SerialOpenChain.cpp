@@ -381,6 +381,65 @@ namespace rovin {
 	}
 
 
+	MatrixX SerialOpenChain::calculateMassMatrix(State & state)
+	{
+		int dof = state.getDof();
+
+		MatrixX M(dof, dof);
+		Matrix6 Jij = Matrix6::Zero();
+		Matrix6 J_offdiag;
+
+		for (int i = 0; i < dof; i++)
+			updateJointStateExponetial(state, i);
+
+		for (int j = dof; j > 0; j--)
+		{
+			Jij = _socLink[j].getG();
+			if (j != dof)
+				Jij += J_offdiag * SE3::InvAd(state.getJointStateT(j));
+
+			for (int i = j; i > 0; i--)
+			{
+				M(i - 1, j - 1) = _socJoint[i - 1].getScrew().transpose() * Jij * _socJoint[j - 1].getScrew();
+				Jij = SE3::InvAd(state.getJointStateT(i - 1)).transpose() * Jij;
+				if (i == j)
+					J_offdiag = Jij;
+				else
+					M(j - 1, i - 1) = M(i - 1, j - 1);
+			}
+		}
+
+		return M;
+	}
+
+	MatrixX SerialOpenChain::calculateMassMatrixbyInvDyn(const State & state)
+	{
+		int dof = state.getDof();
+		MatrixX M(dof, dof);
+
+		State state_cur = state;
+		for (int i = 0; i < dof; i++)
+			state_cur.setJointStateAcc(i, 0);
+
+		solveInverseDynamics(state_cur);
+
+		VectorX tau_cur(dof);
+		for (int i = 0; i < dof; i++)
+			tau_cur(i) = state_cur.getJointStateTorque(i);
+
+		for (int i = 0; i < dof; i++)
+		{
+			state_cur.setJointStateAcc(i, 1);
+			solveInverseDynamics(state_cur);
+			for (int j = 0; j < dof; j++)
+				M(i, j) = state_cur.getJointStateTorque(j) - tau_cur(j);
+
+			state_cur.setJointStateAcc(i, 0);
+		}
+
+		return M;
+	}
+
 
 	// Mate class
 
