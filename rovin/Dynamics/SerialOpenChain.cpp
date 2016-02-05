@@ -1,5 +1,7 @@
 #include "SerialOpenChain.h"
 
+using namespace std;
+
 namespace rovin {
 
 	SerialOpenChain::SerialOpenChain() : _complete(false){}
@@ -380,7 +382,7 @@ namespace rovin {
 
 	}
 
-	MatrixX & SerialOpenChain::differentiateInverseDynamics(State & state, const MatrixX & dqdp, const MatrixX & dqdotdp, const MatrixX & dqddotdp)
+	MatrixX SerialOpenChain::differentiateInverseDynamics(State & state, const MatrixX & dqdp, const MatrixX & dqdotdp, const MatrixX & dqddotdp)
 	{
 		int dof = dqdp.rows(); ///< Robot degree of freedom
 		int pN = dqdp.cols(); ///< number of parameters
@@ -407,12 +409,12 @@ namespace rovin {
 			// calculate current dVdp, dimension 6 * pN
 			curdVdp = SE3::Ad(state.getJointStateT(i).inverse()) * curdVdp + 
 				_socJoint[i].getScrew() * dqdotdp.row(i) -
-				SE3::ad(_socJoint[i].getScrew(), state.getLinkStateVel(i)) * dqdp.row(i);
+				SE3::ad(_socJoint[i].getScrew(), state.getLinkStateVel(i + 1)) * dqdp.row(i);
 
 			// calculate current dVdotdq, dimension 6 * pN
 			currdVdotdp = SE3::Ad(state.getJointStateT(i).inverse()) * currdVdotdp +
 				_socJoint[i].getScrew() * dqddotdp.row(i) -
-				SE3::ad(_socJoint[i].getScrew(), state.getLinkStateVel(i)) * dqdotdp.row(i) -
+				SE3::ad(_socJoint[i].getScrew(), state.getLinkStateVel(i + 1)) * dqdotdp.row(i) -
 				SE3::ad(_socJoint[i].getScrew()) * curdVdp * state.getJointStateVel(i) -
 				SE3::ad(_socJoint[i].getScrew()) * SE3::Ad(state.getJointStateT(i).inverse(), state.getLinkStateAcc(i)) * dqdp.row(i);
 
@@ -427,27 +429,25 @@ namespace rovin {
 		for (int i = dof; i > 0; i--)
 		{
 			// calculate current dFdp, dimension 6 * pN
-			const Matrix6& G = static_cast<const Matrix6&>(_socLink[dof].getG());
-			curdFdp = G * dVdotdp[i] -
+			const Matrix6& G = static_cast<const Matrix6&>(_socLink[i].getG());
+			curdFdp += G * dVdotdp[i] -
 				SE3::adTranspose(state.getLinkStateVel(i)) * G * dVdp[i];
-			for (int k = 0; i < pN; k++)
+			se3 tmp = G * state.getLinkStateVel(i);
+			for (int k = 0; k < pN; k++)
 			{
-				curdFdp -= SE3::adTranspose(dVdp[i].col(k), G * state.getLinkStateVel(i));
+				curdFdp.col(k) -= SE3::adTranspose(dVdp[i].col(k), tmp);
 			}
 
-			if (i != dof)
-				curdFdp += SE3::Ad(state.getJointStateT(i).inverse()).transpose() * (SE3::adTranspose(-(_socJoint[i].getScrew()), state.getJointStateConstraintF(i)) * dqdp.row(i) + curdFdp);
-
 			// calculate current dtaudp, dimension 1 * pN
-			se3 screw = _socJoint[i].getScrew();
-			dtaudp.row(i) = screw.transpose() * curdFdp;
+			se3 screw = _socJoint[i - 1].getScrew();
+			dtaudp.row(i - 1) = screw.transpose() * curdFdp + _motorJointPtr[i - 1]->getSpringConstant()*dqdp.row(i - 1) + _motorJointPtr[i - 1]->getDamperConstant()*dqdotdp.row(i - 1);
+
+			curdFdp = SE3::Ad(state.getJointStateT(i - 1).inverse()).transpose() * (SE3::adTranspose(-(_socJoint[i - 1].getScrew()), state.getJointStateConstraintF(i - 1)) * dqdp.row(i - 1) + curdFdp);
 		}
 
 		return dtaudp;
 	}
-
-
-
+	
 	// Mate class
 
 	Mate::Mate(const MotorJointPtr & motorJoint, const SE3 & parentT, const SE3 & childT) : _parentT(parentT), _childT(childT)
