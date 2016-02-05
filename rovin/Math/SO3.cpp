@@ -212,7 +212,7 @@ namespace rovin
 	{
 		SO3 result;
 
-		Eigen::JacobiSVD<Matrix3> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		Eigen::JacobiSVD<Matrix3> svd(R.transpose(), Eigen::ComputeFullU | Eigen::ComputeFullV);
 
 		if (R.determinant() > 0)
 		{
