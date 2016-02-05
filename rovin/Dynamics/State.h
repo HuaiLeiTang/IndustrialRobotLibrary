@@ -83,6 +83,10 @@ namespace rovin {
 		const Real getJointStateVel(const unsigned int jointIndex) const;
 		const Real getJointStateAcc(const unsigned int jointIndex) const;
 
+		const VectorX getJointStatePos() const;
+		const VectorX getJointStateVel() const;
+		const VectorX getJointStateAcc() const;
+
 		const se3& getJointStateScrew(const unsigned int jointIndex) const;
 		const se3& getJointStateScrewDot(const unsigned int jointIndex) const;
 
@@ -90,6 +94,8 @@ namespace rovin {
 		const SE3& getJointStateAT(const unsigned int jointIndex) const;
 		const dse3& getJointStateConstraintF(const unsigned int jointIndex) const;
 		const Real getJointStateTorque(const unsigned int jointIndex) const;
+
+		const VectorX getJointStateTorque() const;
 		
 		const SE3& getLinkStateSE3(const unsigned int linkIndex) const;
 		const se3& getLinkStateVel(const unsigned int linkIndex) const;
@@ -103,6 +109,10 @@ namespace rovin {
 		void setJointStateAcc(JointState& jointstate, const Real qddot);
 		void setJointStateAcc(const unsigned int jointIndex, const Real qddot);
 
+		void setJointStatePos(const VectorX& q);
+		void setJointStateVel(const VectorX& qdot);
+		void setJointStateAcc(const VectorX& qddot);
+
 		void setJointStateScrew(const unsigned int jointIndex, const se3& screw);
 		void setJointStateScrewDot(const unsigned int jointIndex, const se3& screwDot);
 
@@ -110,6 +120,8 @@ namespace rovin {
 		void setJointStateAT(const unsigned int jointIndex, const SE3& T);
 		void setJointStateConstraintF(const unsigned int jointIndex, const dse3& constraintF);
 		void setJointStateTorque(const unsigned int jointIndex, const Real tau);
+
+		void setJointStateTorque(const VectorX& tau);
 		
 		void setLinkStateSE3(const unsigned int linkIndex, const SE3& T);
 		void setLinkStateVel(const unsigned int linkIndex, const se3& V);
@@ -122,6 +134,10 @@ namespace rovin {
 		void addJointStateVel(const unsigned int jointIndex, const Real qdot);
 		void addJointStateAcc(JointState& jointstate, const Real qddot);
 		void addJointStateAcc(const unsigned int jointIndex, const Real qddot);
+
+		void addJointStatePos(const VectorX& q);
+		void addJointStateVel(const VectorX& qdot);
+		void addJointStateAcc(const VectorX& qddot);
 
 		// other functions
 		/*!

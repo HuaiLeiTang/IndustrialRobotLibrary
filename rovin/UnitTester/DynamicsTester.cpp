@@ -21,19 +21,46 @@ int main()
 	StatePtr state = robot.makeState();
 	SE3 GoalT;
 
-	state->setJointStatePos(0, 1);
-	state->setJointStatePos(1, 2);
-	state->setJointStatePos(2, PI_HALF);
+	VectorX q(DOF), qdot(DOF), qddot(DOF);
 
-	state->setJointStateVel(0, 1);
-	state->setJointStateVel(1, 2);
-	state->setJointStateVel(2, 3);
+	q << 3, 2, 1;
+	qdot << 3, 2, 1;
+	qddot << 3, 2, 1;
 
-	state->setJointStateAcc(0, 1);
-	state->setJointStateAcc(1, 2);
-	state->setJointStateAcc(2, 3);
+	state->setJointStatePos(q);
+	state->setJointStateVel(qdot);
+	state->setJointStateAcc(qddot);
 
-	robot.solveInverseDynamics(*state);
+	//state->setJointStatePos(0, 1);
+	//state->setJointStatePos(1, 2);
+	//state->setJointStatePos(2, PI_HALF);
+
+	//state->setJointStateVel(0, 1);
+	//state->setJointStateVel(1, 2);
+	//state->setJointStateVel(2, 3);
+
+	//state->setJointStateAcc(0, 1);
+	//state->setJointStateAcc(1, 2);
+	//state->setJointStateAcc(2, 3);
+
+	PERFORM_TEST(
+		q.setRandom();
+	qdot.setRandom();
+	qddot.setRandom();
+
+	state->setJointStatePos(q);
+	state->setJointStateVel(qdot);
+	state->setJointStateAcc(qddot);
+
+	robot.solveInverseDynamics(*state);,
+		1e+6
+		);
+
+	cout << "q = " << state->getJointStatePos() << endl;
+	cout << "qdot = " << state->getJointStateVel() << endl;
+	cout << "qddot = " << state->getJointStateAcc() << endl;
+
+	//robot.solveInverseDynamics(*state);
 
 	cout << "VEL = " << endl << state->getLinkStateVel(3) << endl;
 	cout << "ACC = " << endl << state->getLinkStateAcc(3) << endl;
@@ -41,7 +68,7 @@ int main()
 	cout << "tau(0) = " << state->getJointStateTorque(0) << endl;
 	cout << "tau(1) = " << state->getJointStateTorque(1) << endl;
 	cout << "tau(2) = " << state->getJointStateTorque(2) << endl;
-	//cout << endl;
+	cout << endl;
 
 	//cout << "q(0) = " << state->getJointStatePos(0) << endl;
 	//cout << "q(1) = " << state->getJointStatePos(1) << endl;

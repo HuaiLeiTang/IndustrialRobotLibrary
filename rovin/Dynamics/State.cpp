@@ -1,6 +1,5 @@
 #include "State.h"
 
-
 namespace rovin {
 
 	//////////////////////////////////////////////////////////////
@@ -62,6 +61,36 @@ namespace rovin {
 		return _jointState[jointIndex].getJointAcc();
 	}
 
+	const VectorX State::getJointStatePos() const
+	{
+		VectorX q(_dof);
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			q(i) = _jointState[i].getJointPos();
+		}
+		return q;
+	}
+
+	const VectorX State::getJointStateVel() const
+	{
+		VectorX qdot(_dof);
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			qdot(i) = _jointState[i].getJointVel();
+		}
+		return qdot;
+	}
+
+	const VectorX State::getJointStateAcc() const
+	{
+		VectorX qddot(_dof);
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			qddot(i) = _jointState[i].getJointAcc();
+		}
+		return qddot;
+	}
+
 	const se3 & State::getJointStateScrew(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointScrew();
@@ -90,6 +119,16 @@ namespace rovin {
 	const Real State::getJointStateTorque(const unsigned int jointIndex) const
 	{
 		return _jointState[jointIndex].getJointTorque();
+	}
+
+	const VectorX State::getJointStateTorque() const
+	{
+		VectorX tau(_dof);
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			tau(i) = _jointState[i].getJointTorque();
+		}
+		return tau;
 	}
 
 	const SE3& State::getLinkStateSE3(const unsigned int linkIndex) const
@@ -142,6 +181,30 @@ namespace rovin {
 		setJointStateAcc(_jointState[jointIndex], qddot);
 	}
 
+	void State::setJointStatePos(const VectorX& q)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			setJointStatePos(_jointState[i], q(i));
+		}
+	}
+
+	void State::setJointStateVel(const VectorX& qdot)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			setJointStateVel(_jointState[i], qdot(i));
+		}
+	}
+
+	void State::setJointStateAcc(const VectorX& qddot)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			setJointStateAcc(_jointState[i], qddot(i));
+		}
+	}
+
 	void State::setJointStateScrew(const unsigned int jointIndex, const se3 & screw)
 	{
 		_jointState[jointIndex].setJointScrew(screw);
@@ -170,6 +233,14 @@ namespace rovin {
 	void State::setJointStateTorque(const unsigned int jointIndex, const Real tau)
 	{
 		_jointState[jointIndex].setJointTorque(tau);
+	}
+
+	void State::setJointStateTorque(const VectorX& tau)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			setJointStateTorque(i, tau(i));
+		}
 	}
 
 	void State::setLinkStateSE3(const unsigned int linkIndex, const SE3 & T)
@@ -218,6 +289,30 @@ namespace rovin {
 	void State::addJointStateAcc(const unsigned int jointIndex, const Real qddot)
 	{
 		addJointStateAcc(_jointState[jointIndex], qddot);
+	}
+
+	void State::addJointStatePos(const VectorX& q)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			addJointStatePos(_jointState[i], q(i));
+		}
+	}
+
+	void State::addJointStateVel(const VectorX& qdot)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			addJointStateVel(_jointState[i], qdot(i));
+		}
+	}
+
+	void State::addJointStateAcc(const VectorX& qddot)
+	{
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			addJointStateAcc(_jointState[i], qddot(i));
+		}
 	}
 
 	bool State::checkStateInfoUpToDate(int infoIdx)
