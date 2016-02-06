@@ -15,6 +15,9 @@ using namespace rovin;
 
 int main()
 {
+	int a = 1;
+	cout << a / 2 << endl;
+
 	SerialOpenChainPtr robot = SerialOpenChainPtr(new efortRobot);
 	rovin::StatePtr state = robot->makeState();
 
@@ -44,22 +47,27 @@ int main()
 
 	GivenPathTimeOptimization GPTO(robot, T_traj);
 
-	OSG_simpleRender renderer(*robot, *state, 600, 600);
-	renderer.getViewer().realize();
+	GPTO.solveMinimumTimeOptimization(0.0, 0.0);
 
-	int count = 0;
-	int t = clock();
-	while(1)
-	{
-		if (clock() - t >= 30)
-		{
-			t = clock();
-			state->setJointStatePos(GPTO.getq(count));
-			robot->solveForwardKinematics(*state);
-			count++;
-			if (count >= T_traj.size()) count = 0;
-		}
-		renderer.updateFrame();
-	}
+	_getch();
+
+	//OSG_simpleRender renderer(*robot, *state, 600, 600);
+	//renderer.getViewer().realize();
+
+	//int count = 0;
+	//int t = clock();
+	//while(1)
+	//{
+	//	if (clock() - t >= 30)
+	//	{
+	//		t = clock();
+	//		state->setJointStatePos(GPTO.getq(count));
+	//		robot->solveForwardKinematics(*state);
+	//		count++;
+	//		if (count >= T_traj.size()) count = 0;
+	//	}
+	//	renderer.updateFrame();
+	//}
+
 	return 0;
 }

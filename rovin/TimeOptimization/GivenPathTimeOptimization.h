@@ -41,10 +41,14 @@ namespace rovin
 		GivenPathTimeOptimization(const SerialOpenChainPtr& socRobotPtr, const std::vector<SE3, Eigen::aligned_allocator<SE3>>& givenPath);
 		~GivenPathTimeOptimization();
 
+		///< get functions
 		VectorX getq(const unsigned int i) const;
 		VectorX getqs(const unsigned int i) const;
 		VectorX getqss(const unsigned int i) const;
 		SerialOpenChainPtr getSOCPtr();
+
+		///< set functions
+		void setSerialOpenChainPtr(const SerialOpenChainPtr & socPtr);
 
 		/*!
 		* \brief Input GivenPath function
@@ -53,7 +57,7 @@ namespace rovin
 		*/
 		void InputGivenPath(const std::vector<SE3, Eigen::aligned_allocator<SE3>>& givenPath);
 
-		void solveMinimumTimeOptimization();
+		void solveMinimumTimeOptimization(const Real & sdot_i, const Real & sdot_f);
 		
 		void solveInvKinAll();
 

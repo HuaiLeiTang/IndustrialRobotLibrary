@@ -32,6 +32,11 @@ namespace rovin {
 	{
 		return _socRobotPtr;
 	}
+	
+	void GivenPathTimeOptimization::setSerialOpenChainPtr(const SerialOpenChainPtr & socPtr)
+	{
+		_socRobotPtr = socPtr;
+	}
 
 	void GivenPathTimeOptimization::InputGivenPath(const std::vector<SE3, Eigen::aligned_allocator<SE3>>& givenPath)
 	{
@@ -42,11 +47,167 @@ namespace rovin {
 		for (int i = 0; i < pathsize; i++)
 			_s[i] = Real(i) / Real(pathsize - 1);
 
+		_sdot.resize(pathsize);
+		_sddot.resize(pathsize);
+
 		solveInvKinAll();
 	}
 
-	void GivenPathTimeOptimization::solveMinimumTimeOptimization()
+	void GivenPathTimeOptimization::solveMinimumTimeOptimization(const Real & sdot_i, const Real & sdot_f)
 	{
+		Real min, max;
+		Real sdot;
+		const int pathsize = _givenPath.size();  ///< pathsize
+
+		const int InitStep = 0; ///< initial step for one forward iteration
+		const int Finalstep = pathsize - 1;  ///< final step for one backward iteration
+
+		int step; ///< 
+		
+		vector<Real> sdotarray_fwd;
+		vector<Real> sdotarray_bwd;
+		sdotarray_fwd.resize(pathsize);
+		sdotarray_bwd.resize(pathsize);
+		for (int i = 0; i < pathsize; i++)
+		{
+			sdotarray_fwd[i] = RealMax;
+			sdotarray_bwd[i] = -RealMax;
+		}
+
+		int binary_num;
+
+		int fw_startstep = InitStep;
+		int bw_startstep = Finalstep;
+
+		while (true)
+		{
+			///< forward search
+			step = fw_startstep;
+			sdot = sdot_i;
+			while (true)
+			{
+				sdotarray_fwd[step] = sdot;
+				MinMaxAcc(step, sdot, min, max);
+
+				if (min > max)
+				{
+					binary_num = pathsize - step;
+					break;
+				}
+
+				sdot = sqrt(sdot*sdot + 2 * max * (_s[step + 1] - _s[step]));
+				step++;
+
+				if (step > Finalstep)
+					break;
+			}
+
+			bool isfeasible;
+			int SwitchingPoint1, SwitchingPoint2;
+			Real max_minus_min;
+			Real minimumMinMaxDiff;
+
+			///< backward search iteration
+			while(binary_num != 0)
+			{
+				step = bw_startstep;
+				sdot = sdot_f;
+				binary_num /= 2;
+				minimumMinMaxDiff = RealMax;
+
+				while (true) ///< one backward search
+				{
+					sdotarray_bwd[step] = sdot;
+					MinMaxAcc(step, sdot, min, max);
+					max_minus_min = max - min;
+					if ((minimumMinMaxDiff > max_minus_min) && (max_minus_min > 0))
+					{
+						minimumMinMaxDiff = max_minus_min;
+						SwitchingPoint2 = step;
+					}
+
+					if (sdot > sdotarray_fwd[step]) ///< feasible.
+					{
+						bw_startstep += binary_num;
+						isfeasible = true;
+						SwitchingPoint1 = step;
+						break;
+					}
+
+					if (max_minus_min < 0) ///< not feasible.
+					{
+						cout << "before: " << bw_startstep << endl;
+						bw_startstep -= binary_num;
+						cout << "after: " << bw_startstep << endl;
+						isfeasible = false;
+						break;
+					}
+
+
+					sdot = sqrt(sdot*sdot - 2 * min * (_s[step] - _s[step - 1]));
+					step--;
+
+				} ///< one backward search end
+				
+				if (bw_startstep > Finalstep) ///< if first backward search is feasible.
+					break;
+
+			}///< backward search iteration end
+
+			///< repeat when last backward search is not feasible.
+			if (!isfeasible)
+			{
+				step = bw_startstep - 1;
+				sdot = sdot_f;
+				while (true)
+				{
+					sdotarray_bwd[step] = sdot;
+					MinMaxAcc(step, sdot, min, max);
+					max_minus_min = max - min;
+
+					LOGIF((max_minus_min > 0), "something is wrong");
+					if (max_minus_min <= 0)
+					{
+						cout << bw_startstep << endl;
+						cout << step << endl;
+						cout << binary_num << endl;
+					}
+
+					if ((minimumMinMaxDiff > max_minus_min) && (max_minus_min > 0))
+					{
+						minimumMinMaxDiff = max_minus_min;
+						SwitchingPoint2 = step;
+					}
+					if (sdot > sdotarray_fwd[step]) ///< feasible.
+					{
+						SwitchingPoint1 = step;
+						break;
+					}
+
+					sdot = sqrt(sdot*sdot - 2 * min * (_s[step] - _s[step - 1]));
+					step--;
+					cout << "isfeasible" << endl;
+				}
+			}
+
+
+			
+			///< Save one pair of forward-backward trajectory.
+			for (int i = fw_startstep; i < SwitchingPoint1; i++)
+				_sdot[i] = sdotarray_fwd[i];
+
+			for (int i = SwitchingPoint1 + 1; i < SwitchingPoint2; i++)
+				_sdot[i] = sdotarray_bwd[i];
+
+			fw_startstep = SwitchingPoint2 + 1;
+
+			if (binary_num != 0) ///< All sdot search is done.
+				break;
+
+
+		}
+
+		cout << "End!!!!!!!!!!" << endl;
 
 	}
 
@@ -65,7 +226,6 @@ namespace rovin {
 			_socRobotPtr->solveInverseKinematics(*statePtr, _givenPath[i]);
 			_q[i] = statePtr->getJointStatePos();
 		}
-		cout << "InversKin. Finish!" << endl;
 		
 		///< calculate qs: numerical differentiation
 		_qs.resize(pathsize);
@@ -78,7 +238,6 @@ namespace rovin {
 			else
 				_qs[i] = (_q[i + 1] - _q[i - 1]) / (_s[i + 1] - _s[i - 1]);
 		}
-		cout << "Prime73" << endl;
 
 		///< calculate qss: numerical differentiation
 		_qss.resize(pathsize);
@@ -91,7 +250,6 @@ namespace rovin {
 			else
 				_qss[i] = (_qs[i + 1] - _qs[i - 1]) / (_s[i + 1] - _s[i - 1]);
 		}
-		cout << "HYS love KWY" << endl;
 
 
 	}
@@ -111,28 +269,27 @@ namespace rovin {
 		statePtr->setJointStateAcc(zerovector);
 		_socRobotPtr->solveInverseDynamics(*statePtr);
 
-		VectorX h(dof);
-		for (int i = 0; i < dof; i++)
-			h(i) = statePtr->getJointStateTorque(i);
+		VectorX h = statePtr->getJointStateTorque();
 
 		VectorX c1(dof), c2(dof);
 		c1 = M*_qs[index];
 		c2 = M*_qss[index] * sdot*sdot + h;
-
+		
 		min = -RealMax;
 		max = RealMax;
 		Real mincur, maxcur;
+
 		for (int i = 0; i < dof; i++)
 		{
-			if (c1[i] > 0)
+			if (c1(i) > 0)
 			{
-				mincur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueLower() - c2[i]) / c1[i];
-				maxcur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueUpper() - c2[i]) / c1[i];
+				mincur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueLower() - c2(i)) / c1(i);
+				maxcur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueUpper() - c2(i)) / c1[i];
 			}
 			else
 			{
-				mincur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueUpper() - c2[i]) / c1[i];
-				maxcur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueLower() - c2[i]) / c1[i];
+				mincur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueUpper() - c2(i)) / c1(i);
+				maxcur = (_socRobotPtr->getMotorJointPtr(i)->getLimitTorqueLower() - c2(i)) / c1(i);
 			}
 
 			if (mincur > min)
@@ -140,6 +297,7 @@ namespace rovin {
 			if (maxcur < max)
 				max = maxcur;
 		}
+
 	}
 
 
