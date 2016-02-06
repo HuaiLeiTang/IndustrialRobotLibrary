@@ -77,18 +77,19 @@ namespace rovin {
 		int binary_num;
 
 		int fw_startstep = InitStep;
-		int bw_startstep = Finalstep;
+		int bw_startstep;
 
 		bool isfeasible;
 		int SwitchingPoint1, SwitchingPoint2;
 		Real max_minus_min;
 		Real minimumMinMaxDiff;
 
+		Real fw_startsdot = sdot_i;
 		while (true)
 		{
 			///< forward search
 			step = fw_startstep;
-			sdot = sdot_i;
+			sdot = fw_startsdot;
 			while (true)
 			{
 				sdotarray_fwd[step] = sdot;
@@ -112,6 +113,7 @@ namespace rovin {
 
 
 			///< backward search iteration
+			bw_startstep = Finalstep;
 			while(binary_num != 0)
 			{
 				step = bw_startstep;
@@ -144,9 +146,7 @@ namespace rovin {
 
 					if (max_minus_min < 0) ///< not feasible.
 					{
-						cout << "before: " << bw_startstep << endl;
 						bw_startstep -= binary_num;
-						cout << "after: " << bw_startstep << endl;
 						isfeasible = false;
 						break;
 					}
@@ -159,8 +159,6 @@ namespace rovin {
 				
 				if (bw_startstep > Finalstep) ///< if first backward search is feasible.
 				{
-					for (int i = 0; i < pathsize; i++)
-						cout << sdotarray_bwd[i] << endl;
 					SwitchingPoint2 = Finalstep;
 					break;
 				}
@@ -193,6 +191,7 @@ namespace rovin {
 						minimumMinMaxDiff = max_minus_min;
 						SwitchingPoint2 = step;
 					}
+
 					if (sdot > sdotarray_fwd[step]) ///< feasible.
 					{
 						SwitchingPoint1 = step;
@@ -201,12 +200,14 @@ namespace rovin {
 
 					sdot = sqrt(sdot*sdot - 2 * min * (_s[step] - _s[step - 1]));
 					step--;
-					cout << "isfeasible" << endl;
 				}
+				cout << "backward once again" << endl;
 			}
 
 
 			cout << "fw_startstep: " << fw_startstep << "  SwitchingPoint1: " << SwitchingPoint1 << "  SwitchingPoint2: " << SwitchingPoint2 << endl;
+			//cout << "  minimumMinMaxDiff: " << minimumMinMaxDiff << endl;
+
 			///< Save one pair of forward-backward trajectory.
 			for (int i = fw_startstep; i < SwitchingPoint1 + 1; i++)
 				_sdot[i] = sdotarray_fwd[i];
@@ -214,19 +215,22 @@ namespace rovin {
 			for (int i = SwitchingPoint1 + 1; i < SwitchingPoint2 + 1; i++)
 				_sdot[i] = sdotarray_bwd[i];
 
-			fw_startstep = SwitchingPoint2 + 1;
+			for (int i = fw_startstep; i < SwitchingPoint2 + 1; i++)
+				cout << "i: " << i << "  s: " << _s[i] << "   sdot: " << _sdot[i] << endl;
+
+			fw_startstep = SwitchingPoint2;
+			fw_startsdot = _sdot[fw_startstep];
 
 			if (binary_num != 0) ///< All sdot search is done.
 				break;
 
-
 		}
 
 		cout << "End!!!!!!!!!!" << endl;
-		//for (int i = 0; i < pathsize; i++)
-		//{
-		//	cout << "i: " << i << "  s: " << _s[i] << "   sdot: "<< _sdot[i] << endl;
-		//}
+		for (int i = 0; i < pathsize; i++)
+		{
+			cout << "i: " << i << "  s: " << _s[i] << "   sdot: "<< _sdot[i] << endl;
+		}
 	}
 
 	void GivenPathTimeOptimization::solveInvKinAll()
