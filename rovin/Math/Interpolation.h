@@ -37,10 +37,10 @@ namespace rovin
 
 			LOGIF(_knots.rows() - _controlPoints.cols() >= 0, "[ERROR] BSpline constuction failed.");
 
-			_N = _controlPoints.cols();
-			_K = _knots.rows() - _N;
-			_D = _K - 1;
-			_M = _controlPoints.rows();
+			_N = _controlPoints.cols(); ///< number of control points 
+			_K = _knots.rows() - _N; ///< B spline order
+			_D = _K - 1; ///< 
+			_M = _controlPoints.rows(); ///< dimension of control points
 
 			if ((OrderK == -1) || (CoefficientN == -1)) _InvDeltaU = Eigen::Matrix<Real, -1, -1>(_K, _N + _K);
 			_InvDeltaU.setZero();
@@ -195,8 +195,8 @@ namespace rovin
 		Eigen::Matrix<Real, Dimension, (OrderK == -1 ? -1 : OrderK*OrderK)> _d;
 
 		int _N;
-		int _K;
+		int _K; ///< 
 		int _D;
-		int _M;
+		int _M; ///< 
 	};
 }

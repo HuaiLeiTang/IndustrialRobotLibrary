@@ -6,6 +6,19 @@ namespace rovin
 {
 	class NonlinearOptimization
 	{
+	private:
+		int _xN; ///< number of parameters
+		int _eqN; ///< number of equality constraint
+		int _ineqN; ///< number of inequality constrain
+
+		FunctionPtr _objectFunc;
+		FunctionPtr _eqConstraint;
+		FunctionPtr _ineqConstraint;
+
+	public:
+		VectorX resultX;
+		Real resultFunc;
+
 	public:
 		NonlinearOptimization() : _xN(-1), _eqN(-1), _ineqN(-1), 
 			_objectFunc(FunctionPtr(new EmptyFunction())), _eqConstraint(FunctionPtr(new EmptyFunction())), _ineqConstraint(FunctionPtr(new EmptyFunction())) {}
@@ -26,14 +39,5 @@ namespace rovin
 
 		void solve(const VectorX& initialX);
 
-		VectorX resultX;
-		Real resultFunc;
-
-	private:
-		int _xN, _eqN, _ineqN;
-
-		FunctionPtr _objectFunc;
-		FunctionPtr _eqConstraint;
-		FunctionPtr _ineqConstraint;
 	};
 }
