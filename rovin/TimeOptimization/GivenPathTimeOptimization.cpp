@@ -79,6 +79,11 @@ namespace rovin {
 		int fw_startstep = InitStep;
 		int bw_startstep = Finalstep;
 
+		bool isfeasible;
+		int SwitchingPoint1, SwitchingPoint2;
+		Real max_minus_min;
+		Real minimumMinMaxDiff;
+
 		while (true)
 		{
 			///< forward search
@@ -98,29 +103,32 @@ namespace rovin {
 				sdot = sqrt(sdot*sdot + 2 * max * (_s[step + 1] - _s[step]));
 				step++;
 
-				if (step > Finalstep)
+				if (step == Finalstep)
+				{
+					sdotarray_fwd[step] = sdot;
 					break;
+				}
 			}
 
-			bool isfeasible;
-			int SwitchingPoint1, SwitchingPoint2;
-			Real max_minus_min;
-			Real minimumMinMaxDiff;
 
 			///< backward search iteration
 			while(binary_num != 0)
 			{
 				step = bw_startstep;
 				sdot = sdot_f;
-				binary_num /= 2;
-				minimumMinMaxDiff = RealMax;
+				if (binary_num > 1)
+					binary_num = (binary_num + 1) / 2;
+				else
+					binary_num = 0;
 
+				minimumMinMaxDiff = RealMax;
 				while (true) ///< one backward search
 				{
 					sdotarray_bwd[step] = sdot;
 					MinMaxAcc(step, sdot, min, max);
 					max_minus_min = max - min;
-					if ((minimumMinMaxDiff > max_minus_min) && (max_minus_min > 0))
+
+					if ((max_minus_min < minimumMinMaxDiff) && (max_minus_min > 0))
 					{
 						minimumMinMaxDiff = max_minus_min;
 						SwitchingPoint2 = step;
@@ -150,15 +158,22 @@ namespace rovin {
 				} ///< one backward search end
 				
 				if (bw_startstep > Finalstep) ///< if first backward search is feasible.
+				{
+					for (int i = 0; i < pathsize; i++)
+						cout << sdotarray_bwd[i] << endl;
+					SwitchingPoint2 = Finalstep;
 					break;
+				}
 
 			}///< backward search iteration end
+
 
 			///< repeat when last backward search is not feasible.
 			if (!isfeasible)
 			{
 				step = bw_startstep - 1;
 				sdot = sdot_f;
+				minimumMinMaxDiff = RealMax;
 				while (true)
 				{
 					sdotarray_bwd[step] = sdot;
@@ -191,12 +206,12 @@ namespace rovin {
 			}
 
 
-			
+			cout << "fw_startstep: " << fw_startstep << "  SwitchingPoint1: " << SwitchingPoint1 << "  SwitchingPoint2: " << SwitchingPoint2 << endl;
 			///< Save one pair of forward-backward trajectory.
-			for (int i = fw_startstep; i < SwitchingPoint1; i++)
+			for (int i = fw_startstep; i < SwitchingPoint1 + 1; i++)
 				_sdot[i] = sdotarray_fwd[i];
 
-			for (int i = SwitchingPoint1 + 1; i < SwitchingPoint2; i++)
+			for (int i = SwitchingPoint1 + 1; i < SwitchingPoint2 + 1; i++)
 				_sdot[i] = sdotarray_bwd[i];
 
 			fw_startstep = SwitchingPoint2 + 1;
@@ -208,7 +223,10 @@ namespace rovin {
 		}
 
 		cout << "End!!!!!!!!!!" << endl;
-
+		//for (int i = 0; i < pathsize; i++)
+		//{
+		//	cout << "i: " << i << "  s: " << _s[i] << "   sdot: "<< _sdot[i] << endl;
+		//}
 	}
 
 	void GivenPathTimeOptimization::solveInvKinAll()

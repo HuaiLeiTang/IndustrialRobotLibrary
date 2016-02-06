@@ -15,9 +15,6 @@ using namespace rovin;
 
 int main()
 {
-	int a = 1;
-	cout << a / 2 << endl;
-
 	SerialOpenChainPtr robot = SerialOpenChainPtr(new efortRobot);
 	rovin::StatePtr state = robot->makeState();
 
