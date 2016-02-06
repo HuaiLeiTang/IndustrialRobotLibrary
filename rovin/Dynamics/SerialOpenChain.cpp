@@ -382,7 +382,7 @@ namespace rovin {
 
 	}
 
-	MatrixX SerialOpenChain::differentiateInverseDynamics(State & state, const MatrixX & dqdp, const MatrixX & dqdotdp, const MatrixX & dqddotdp)
+	MatrixX SerialOpenChain::solveDiffInverseDynamics(State & state, const MatrixX & dqdp, const MatrixX & dqdotdp, const MatrixX & dqddotdp)
 	{
 		int dof = dqdp.rows(); ///< Robot degree of freedom
 		int pN = dqdp.cols(); ///< number of parameters

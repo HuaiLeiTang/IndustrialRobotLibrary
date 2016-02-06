@@ -1,5 +1,8 @@
 #include <rovin\Optimizer\NonlinearOptimization.h>
 #include <rovin\Math\Function.h>
+#include <rovin\EnergyOptimization\PTPOptimization.h>
+
+#include "efortRobot.h"
 
 #include <iostream>
 #include <conio.h>
@@ -49,18 +52,31 @@ public:
 
 int main()
 {
-	NonlinearOptimization nop;
-	VectorX initX(2);
+	SerialOpenChainPtr robot(new efortRobot());
+	unsigned int dof = robot->getNumOfJoint();
 
-	initX.setRandom();
+	StatePtr initState, finalState;
+	initState = robot->makeState();
+	finalState = robot->makeState();
 
-	nop.setObjectiveFunction(FunctionPtr(new TestObjFunction));
-	nop.setEqualityConstraint(FunctionPtr(new TestEqFunction));
-	nop.setInequalityConstraint(FunctionPtr(new TestIneqFunction));
-	nop.solve(initX);
+	VectorX init_q(dof), init_qdot(dof), init_qddot(dof);
+	VectorX final_q(dof), final_qdot(dof), final_qddot(dof);
 
-	cout << nop.resultX << endl;
-	cout << "f(x) = " << nop.resultFunc << endl;
+	init_q.setZero(); init_qdot.setZero(); init_qddot.setZero();
+	final_q.setRandom(); final_qdot.setZero(); final_qddot.setZero();
+
+	initState->setJointStatePos(init_q);
+	initState->setJointStateVel(init_qdot);
+	initState->setJointStateAcc(init_qddot);
+
+	finalState->setJointStatePos(final_q);
+	finalState->setJointStatePos(final_qdot);
+	finalState->setJointStatePos(final_qddot);
+
+	vector<bool> optJoint(robot->getNumOfJoint());
+	optJoint[0] = optJoint[1] = optJoint[2] = true;
+	PTPOptimization PTPManager(robot, optJoint, 4, 4, 20, 3.0, initState, finalState);
+	PTPManager.generateTrajectory();
 
 	_getch();
 

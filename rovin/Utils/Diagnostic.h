@@ -16,7 +16,7 @@
 
 #define LOGIF(statement,message)\
 	do{\
-		if(!statement){std::cout<<(message)<<std::endl;}\
+		if(!(statement)){std::cout<<(message)<<std::endl;}\
 		assert((statement)&&(message));\
 	}while(false);
 

@@ -28,7 +28,7 @@ namespace rovin
 		}
 
 		/// BSpline construction
-		BSpline(const Math::VectorX& knots, ///< Knot vector
+		BSpline(const VectorX& knots, ///< Knot vector
 			const Eigen::Matrix<Real, Dimension, -1>& controlPoints ///< Control Points is n*m Matrix where n is the size of dimensions, and m is the number of control points
 			)
 		{
@@ -83,7 +83,7 @@ namespace rovin
 		Eigen::Matrix<Real, Dimension, -1> operator()(const VectorX& x)
 		{
 			int nTime = x.size();
-			Math::MatrixX fval(_M, nTime);
+			MatrixX fval(_M, nTime);
 			for (int i = 0; i < nTime; i++)
 			{
 				fval.col(i) = this->fval(x(i));
@@ -94,7 +94,7 @@ namespace rovin
 		Eigen::Matrix<Real, Dimension, 1> fval(const Real& x)
 		{
 			if (RealLess(x, _knots(0)) || RealBiggerEqual(x, _knots(_N + _D)))
-				return Math::VectorX::Zero(_M);
+				return VectorX::Zero(_M);
 
 			int l = 0;
 
@@ -157,8 +157,8 @@ namespace rovin
 					count++;
 			}
 
-			Math::VectorX new_knots(_N + _K - count, 1);
-			Math::MatrixX new_controlPoint(_M, _N + 1 - count);
+			VectorX new_knots(_N + _K - count, 1);
+			MatrixX new_controlPoint(_M, _N + 1 - count);
 
 			int cPntCount = 0;
 			int knotCount = 0;
@@ -186,6 +186,8 @@ namespace rovin
 			}
 			return BSpline<-1, -1, Dimension>(new_knots, new_controlPoint);
 		}
+
+		const Eigen::Matrix<Real, Dimension, ((CoefficientN == -1) ? -1 : CoefficientN)>& getControlPoints() const { return _controlPoints; }
 
 	private:
 		Eigen::Matrix<Real, ((OrderK == -1) || (CoefficientN == -1) ? -1 : CoefficientN + OrderK), 1> _knots;

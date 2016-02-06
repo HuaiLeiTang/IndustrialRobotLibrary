@@ -77,11 +77,27 @@ namespace rovin
 		Real _w;
 	};
 
+	class AugmentedFunction : public Function
+	{
+	public:
+		AugmentedFunction() {}
+
+		virtual VectorX func(const VectorX& x) const;
+		virtual MatrixX Jacobian(const VectorX& x) const;
+		virtual std::vector< MatrixX > Hessian(const VectorX& x) const;
+
+		void addFunction(const FunctionPtr& function);
+
+	private:
+		std::vector<FunctionPtr> _functionList;
+
+	};
 
 	class AffineFunction : public Function
 	{
 	public:
 		AffineFunction() {}
+		AffineFunction(const MatrixX& A, const VectorX& b) : _A(A), _b(b) {}
 
 		virtual VectorX func(const VectorX& x) const;
 		virtual MatrixX Jacobian(const VectorX& x) const;

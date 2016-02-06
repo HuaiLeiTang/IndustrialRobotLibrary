@@ -166,6 +166,61 @@ namespace rovin
 		_w = w;
 	}
 
+	VectorX AugmentedFunction::func(const VectorX& x) const
+	{
+		vector<VectorX> fvalList(_functionList.size());
+		unsigned int dimension = 0;
+		for (unsigned int i = 0; i < _functionList.size(); i++)
+		{
+			fvalList[i] = _functionList[i]->func(x);
+			dimension += fvalList[i].size();
+		}
+		VectorX f(dimension);
+		for (unsigned int i = 0, idx = 0; i < _functionList.size(); i++)
+		{
+			f.block(idx, 0, fvalList[i].size(), 1) = fvalList[i];
+			idx += fvalList[i].size();
+		}
+		return f;
+	}
+
+	MatrixX AugmentedFunction::Jacobian(const VectorX& x) const
+	{
+		vector<MatrixX> jacobianList(_functionList.size());
+		unsigned int dimension = 0;
+		for (unsigned int i = 0; i < _functionList.size(); i++)
+		{
+			jacobianList[i] = _functionList[i]->Jacobian(x);
+			dimension += jacobianList[i].rows();
+		}
+		MatrixX jacobian(dimension, x.size());
+		for (unsigned int i = 0, idx = 0; i < _functionList.size(); i++)
+		{
+			jacobian.block(idx, 0, jacobianList[i].rows(), x.size()) = jacobianList[i];
+			idx += jacobianList[i].rows();
+		}
+		return jacobian;
+	}
+
+	std::vector< MatrixX > AugmentedFunction::Hessian(const VectorX& x) const
+	{
+		std::vector< MatrixX > hessian, hessianItem;
+		for (unsigned int i = 0; i < _functionList.size(); i++)
+		{
+			hessianItem = _functionList[i]->Hessian(x);
+			for (unsigned int j = 0; j < hessianItem.size(); j++)
+			{
+				hessian.push_back(hessianItem[j]);
+			}
+		}
+		return hessian;
+	}
+
+	void AugmentedFunction::addFunction(const FunctionPtr& function)
+	{
+		_functionList.push_back(function);
+	}
+
 	VectorX AffineFunction::func(const VectorX & x) const
 	{
 		return _A*x + _b;
