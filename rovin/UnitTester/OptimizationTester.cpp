@@ -62,16 +62,18 @@ int main()
 	VectorX init_q(dof), init_qdot(dof), init_qddot(dof);
 	VectorX final_q(dof), final_qdot(dof), final_qddot(dof);
 
-	init_q.setZero(); init_qdot.setZero(); init_qddot.setZero();
-	final_q.setRandom(); final_qdot.setZero(); final_qddot.setZero();
+	init_q << 1.0854, 1.02654, 0.798359, 2.97849, 1.50724, 1.45496;
+	init_qdot.setZero(); init_qddot.setZero();
+	final_q << -1.31465, 0.128787, -0.546992, 2.83671, -1.8583, 2.95029;
+	final_qdot.setZero(); final_qddot.setZero();
 
 	initState->setJointStatePos(init_q);
 	initState->setJointStateVel(init_qdot);
 	initState->setJointStateAcc(init_qddot);
 
 	finalState->setJointStatePos(final_q);
-	finalState->setJointStatePos(final_qdot);
-	finalState->setJointStatePos(final_qddot);
+	finalState->setJointStateVel(final_qdot);
+	finalState->setJointStateAcc(final_qddot);
 
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;

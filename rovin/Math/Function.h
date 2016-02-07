@@ -107,6 +107,9 @@ namespace rovin
 		void setA(const MatrixX& A) { _A = A; }
 		void setb(const VectorX& b) { _b = b; }
 
+		const MatrixX& getA() const { return _A; }
+		const VectorX& getb() const { return _b; }
+
 	private:
 		MatrixX _A;
 		VectorX _b;

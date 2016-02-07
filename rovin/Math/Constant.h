@@ -41,5 +41,5 @@ namespace rovin
 
 	static const Real	RealEps = std::numeric_limits<Real>::epsilon();
 	static const Real	RealMax = std::numeric_limits<Real>::max();
-	static const Real	RealMin = std::numeric_limits<Real>::min();
+	static const Real	RealMin = std::numeric_limits<Real>::lowest();
 }

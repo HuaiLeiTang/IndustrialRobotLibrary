@@ -48,7 +48,7 @@ namespace rovin{
 		Real delta = _tf / (_numOfOptCP + 6 - _orderOfBSpline + 1);
 		for (unsigned int i = 0; i < _numOfOptCP + 6 - _orderOfBSpline; i++)
 		{
-			_knot[_orderOfBSpline + i] = _tf * delta * (i + 1);
+			_knot[_orderOfBSpline + i] = delta * (i + 1);
 		}
 	}
 
@@ -81,25 +81,27 @@ namespace rovin{
 		unsigned int nr = _shared->_dRdP.rows();
 		MatrixX A((np + nq + nr) * 2 * _numOfOptJoint, _numOfOptCP * _numOfOptJoint);
 		VectorX b((np + nq + nr) * 2 * _numOfOptJoint);
+		A.setZero();
+		b.setZero();
 		for (unsigned int i = 0; i < _numOfOptJoint; i++)
 		{
-			A.block((np + nq + nr) * 2 + i, _numOfOptCP * i, np, _numOfOptCP) = _shared->_dPdP;
-			A.block((np + nq + nr) * 2 + i + np, _numOfOptCP * i, np, _numOfOptCP) = -_shared->_dPdP;
+			A.block((np + nq + nr) * 2 * i, _numOfOptCP * i, np, _numOfOptCP) = _shared->_dPdP;
+			A.block((np + nq + nr) * 2 * i + np, _numOfOptCP * i, np, _numOfOptCP) = -_shared->_dPdP;
 
-			A.block((np + nq + nr) * 2 + i + np * 2, _numOfOptCP * i, nq, _numOfOptCP) = _shared->_dQdP;
-			A.block((np + nq + nr) * 2 + i + np * 2 + nq, _numOfOptCP * i, nq, _numOfOptCP) = _shared->_dQdP;
+			A.block((np + nq + nr) * 2 * i + np * 2, _numOfOptCP * i, nq, _numOfOptCP) = _shared->_dQdP;
+			A.block((np + nq + nr) * 2 * i + np * 2 + nq, _numOfOptCP * i, nq, _numOfOptCP) = -_shared->_dQdP;
 
-			A.block((np + nq + nr) * 2 + i + (np + nq) * 2, _numOfOptCP * i, nr, _numOfOptCP) = _shared->_dRdP;
-			A.block((np + nq + nr) * 2 + i + (np + nq) * 2 + nr, _numOfOptCP * i, nr, _numOfOptCP) = _shared->_dRdP;
+			A.block((np + nq + nr) * 2 * i + (np + nq) * 2, _numOfOptCP * i, nr, _numOfOptCP) = _shared->_dRdP;
+			A.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, _numOfOptCP * i, nr, _numOfOptCP) = -_shared->_dRdP;
 
-			b.block((np + nq + nr) * 2 + i, 0, np, 1) = -VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosUpper();
-			b.block((np + nq + nr) * 2 + i + np, 0, np, 1) = VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosLower();
+			b.block((np + nq + nr) * 2 * i, 0, np, 1) = -VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosUpper();
+			b.block((np + nq + nr) * 2 * i + np, 0, np, 1) = VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosLower();
 
-			b.block((np + nq + nr) * 2 + i + np * 2, 0, nq, 1) = -VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelUpper();
-			b.block((np + nq + nr) * 2 + i + np * 2 + nq, 0, nq, 1) = VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelLower();
+			b.block((np + nq + nr) * 2 * i + np * 2, 0, nq, 1) = -VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelUpper();
+			b.block((np + nq + nr) * 2 * i + np * 2 + nq, 0, nq, 1) = VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelLower();
 
-			b.block((np + nq + nr) * 2 + i + (np + nq) * 2, 0, nr, 1) = -VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccUpper();
-			b.block((np + nq + nr) * 2 + i + (np + nq) * 2 + nr, 0, nr, 1) = VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
+			b.block((np + nq + nr) * 2 * i + (np + nq) * 2, 0, nr, 1) = -VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccUpper();
+			b.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, 0, nr, 1) = VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
 		}
 		_linearIneqFunc = FunctionPtr(new AffineFunction(A, b));
 
@@ -124,19 +126,33 @@ namespace rovin{
 	{
 		makeBSplineKnot();
 		LOG("Complete making B-Spline knots.");
+		cout << "knot : " << _knot.transpose() << endl;
 		makeBoundaryCondition();
 		LOG("Complete making boundary conditions.");
+		cout << "Boundary Conditions : " << endl;
+		for (unsigned int i = 0; i < 3; i++) cout << _initialCP[i].transpose() << endl;
+		for (unsigned int i = 0; i < 3; i++) cout << _finalCP[i].transpose() << endl; 
 
 		GQ = GaussianQuadrature(_numOfGQSample, 0.0, _tf);
 		LOG("Gaussian quadrature ready.");
+		cout << "Gaussian Qudrature ti: " << GQ.getQueryPoints().transpose() << endl;
+		cout << "Gaussian Qudrature wi: " << GQ.getWeights().transpose() << endl;
 
 		_shared = sharedResourcePtr(new sharedResource(this));
 		LOG("Complete shared initialization.");
+		cout << _shared->_dPdP << endl;
+		cout << _shared->_dQdP << endl;
+		cout << _shared->_dRdP << endl;
 
 		makeNonOptJointCP();
+
 		makeObjectiveFunction();
 		makeIneqConstraintFunction();
 		LOG("Optimization ready.");
+		cout << "Nopt Joint CP: " << endl;
+		cout << _noptJointCP << endl;
+		cout << "LinearInequalityCondition(A): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getA() << endl;
+		cout << "LinearInequalityCondition(b): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getb() << endl;
 
 		// Initial Guess
 		VectorX initX(_numOfOptJoint * _numOfOptCP);
@@ -144,10 +160,12 @@ namespace rovin{
 		{
 			for (unsigned int j = 0; j < _numOfOptCP; j++)
 			{
-				initX(_numOfOptJoint * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
+				initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
 			}
 		}
 		LOG("Initial guess ready.");
+		cout << "Initial X: " << endl;
+		cout << initX << endl;
 
 		_optimizer.setObjectiveFunction(_objectFunc);
 		_optimizer.setInequalityConstraint(_IneqFunc);
@@ -228,7 +246,7 @@ namespace rovin{
 		{
 			for (unsigned int j = 0; j < _PTPOptimizer->_numOfOptCP; j++)
 			{
-				cp(_PTPOptimizer->_optJointIdx[i], 3 + j) = params(_PTPOptimizer->_numOfOptJoint*i + j);
+				cp(_PTPOptimizer->_optJointIdx[i], 3 + j) = params(_PTPOptimizer->_numOfOptCP*i + j);
 			}
 		}
 
@@ -261,7 +279,7 @@ namespace rovin{
 				_state[i]->setJointStatePos(_qSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
 				_state[i]->setJointStateVel(_qdotSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
 				_state[i]->setJointStateAcc(_qddotSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
-
+				 
 				_PTPOptimizer->_soc->solveInverseDynamics(*_state[i]);
 				_tau[i] = _state[i]->getJointStateTorque();
 				_dtaudp[i] = _PTPOptimizer->_soc->solveDiffInverseDynamics(*_state[i], _dqdp[i], _dqdotdp[i], _dqddotdp[i]);
@@ -290,7 +308,7 @@ namespace rovin{
 		VectorX fval = VectorX::Zero(1);
 		for (unsigned int i = 0; i < _PTPOptimizer->_numOfGQSample; i++)
 		{
-			fval(0) += weight(i) * tau[i].norm();
+			fval(0) += weight(i) * tau[i].squaredNorm();
 		}
 		return fval;
 	}
@@ -300,7 +318,7 @@ namespace rovin{
 		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
 		const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
 		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
-		MatrixX jacobian = MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), params.size());
+		MatrixX jacobian = MatrixX::Zero(1, params.size());
 		for (unsigned int i = 0; i < _PTPOptimizer->_numOfGQSample; i++)
 		{
 			jacobian += weight(i) * 2 * tau[i].transpose()*dtaudp[i];
