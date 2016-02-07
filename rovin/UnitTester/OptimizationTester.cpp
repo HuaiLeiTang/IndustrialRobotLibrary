@@ -77,7 +77,7 @@ int main()
 
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
-	PTPOptimization PTPManager(robot, optJoint, 4, 4, 20, 3.0, initState, finalState);
+	PTPOptimization PTPManager(robot, optJoint, 4, 4, 20, 1.2, initState, finalState);
 	PTPManager.generateTrajectory();
 
 	_getch();

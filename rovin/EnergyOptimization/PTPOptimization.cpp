@@ -126,33 +126,33 @@ namespace rovin{
 	{
 		makeBSplineKnot();
 		LOG("Complete making B-Spline knots.");
-		cout << "knot : " << _knot.transpose() << endl;
+		//cout << "knot : " << _knot.transpose() << endl;
 		makeBoundaryCondition();
 		LOG("Complete making boundary conditions.");
-		cout << "Boundary Conditions : " << endl;
-		for (unsigned int i = 0; i < 3; i++) cout << _initialCP[i].transpose() << endl;
-		for (unsigned int i = 0; i < 3; i++) cout << _finalCP[i].transpose() << endl; 
+		//cout << "Boundary Conditions : " << endl;
+		//for (unsigned int i = 0; i < 3; i++) cout << _initialCP[i].transpose() << endl;
+		//for (unsigned int i = 0; i < 3; i++) cout << _finalCP[i].transpose() << endl; 
 
 		GQ = GaussianQuadrature(_numOfGQSample, 0.0, _tf);
 		LOG("Gaussian quadrature ready.");
-		cout << "Gaussian Qudrature ti: " << GQ.getQueryPoints().transpose() << endl;
-		cout << "Gaussian Qudrature wi: " << GQ.getWeights().transpose() << endl;
+		//cout << "Gaussian Qudrature ti: " << GQ.getQueryPoints().transpose() << endl;
+		//cout << "Gaussian Qudrature wi: " << GQ.getWeights().transpose() << endl;
 
 		_shared = sharedResourcePtr(new sharedResource(this));
 		LOG("Complete shared initialization.");
-		cout << _shared->_dPdP << endl;
-		cout << _shared->_dQdP << endl;
-		cout << _shared->_dRdP << endl;
+		//cout << _shared->_dPdP << endl;
+		//cout << _shared->_dQdP << endl;
+		//cout << _shared->_dRdP << endl;
 
 		makeNonOptJointCP();
 
 		makeObjectiveFunction();
 		makeIneqConstraintFunction();
 		LOG("Optimization ready.");
-		cout << "Nopt Joint CP: " << endl;
-		cout << _noptJointCP << endl;
-		cout << "LinearInequalityCondition(A): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getA() << endl;
-		cout << "LinearInequalityCondition(b): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getb() << endl;
+		//cout << "Nopt Joint CP: " << endl;
+		//cout << _noptJointCP << endl;
+		//cout << "LinearInequalityCondition(A): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getA() << endl;
+		//cout << "LinearInequalityCondition(b): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getb() << endl;
 
 		// Initial Guess
 		VectorX initX(_numOfOptJoint * _numOfOptCP);
@@ -163,9 +163,14 @@ namespace rovin{
 				initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
 			}
 		}
+		//initX << 0.419949, 0.275863, -0.263421, -0.847695, -0.218918, -0.226281, -0.224308, -0.177036, 1.22172, 1.20281, 0.169464, -0.362267;
 		LOG("Initial guess ready.");
 		cout << "Initial X: " << endl;
 		cout << initX << endl;
+		cout << "f(X): " << endl;
+		cout << _objectFunc->func(initX) << endl;
+		cout << "Inequality(X): " << endl;
+		cout << _IneqFunc->func(initX) << endl;
 
 		_optimizer.setObjectiveFunction(_objectFunc);
 		_optimizer.setInequalityConstraint(_IneqFunc);
@@ -173,7 +178,9 @@ namespace rovin{
 		_optimizer.solve(initX);
 		LOG("Finish optimization.");
 
-		cout << _optimizer.resultFunc << endl;
+		cout << "X : " << _optimizer.resultX << endl;
+		cout << "Inequality : " << _IneqFunc->func(_optimizer.resultX) << endl;
+		cout << "f(X) : " << _optimizer.resultFunc << endl;
 	}
 	
 	// class sharedResource
@@ -331,18 +338,25 @@ namespace rovin{
 		//
 		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
 		VectorX fval(_PTPOptimizer->_soc->getNumOfJoint() * 2);
+		Real upper, lower;
 		for (unsigned int i = 0; i < _PTPOptimizer->_soc->getNumOfJoint(); i++)
 		{
-			fval(i) = RealMin;
-			fval(_PTPOptimizer->_soc->getNumOfJoint() + i) = RealMin;
+			upper = RealMin;
+			lower = RealMax;
 			for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
 			{
-				if (fval(i) < tau[j](i)) fval(i) = tau[j](i);
-				if (fval(_PTPOptimizer->_soc->getNumOfJoint() + i) < -tau[j](i)) fval(_PTPOptimizer->_soc->getNumOfJoint() + i) = -tau[j](i);
+				if (upper < tau[j](i))
+				{
+					upper = tau[j](i);
+				}
+				if (lower > tau[j](i))
+				{
+					lower = tau[j](i);
+				}
 			}
 
-			fval(i) -= _PTPOptimizer->_soc->getMotorJointPtr(i)->getLimitTorqueUpper();
-			fval(_PTPOptimizer->_soc->getNumOfJoint() + i) -= _PTPOptimizer->_soc->getMotorJointPtr(i)->getLimitTorqueLower();
+			fval(i) = upper - _PTPOptimizer->_soc->getMotorJointPtr(i)->getLimitTorqueUpper();
+			fval(_PTPOptimizer->_soc->getNumOfJoint() + i) = lower * (-1) + _PTPOptimizer->_soc->getMotorJointPtr(i)->getLimitTorqueLower();
 		}
 		return fval;
 	}
@@ -373,7 +387,7 @@ namespace rovin{
 			}
 
 			jacobian.row(i) = dtaudp[upperIdx].row(i);
-			jacobian.row(_PTPOptimizer->_soc->getNumOfJoint() + i) = dtaudp[lowerIdx].row(i);
+			jacobian.row(_PTPOptimizer->_soc->getNumOfJoint() + i) = -dtaudp[lowerIdx].row(i);
 		}
 		return jacobian;
 	}

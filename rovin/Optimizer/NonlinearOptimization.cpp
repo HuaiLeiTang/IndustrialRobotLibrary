@@ -69,17 +69,17 @@ namespace rovin
 
 		opt optimizer;
 
-		if(_eqN != 0) optimizer = opt(nlopt::LD_SLSQP, _xN );
+		if(_eqN != 0) optimizer = opt(nlopt::LD_SLSQP, _xN);
 		else optimizer = opt(nlopt::LD_MMA, _xN);
 
 		optimizer.set_min_objective(objective, this);
 		if (_eqN != 0)
 		{
-			optimizer.add_equality_mconstraint(constraint, new pair<bool, NonlinearOptimization*>(false, this), vector<Real>(_eqN, 1e-8));
+			optimizer.add_equality_mconstraint(constraint, new pair<bool, NonlinearOptimization*>(false, this), vector<Real>(_eqN, 1e-7));
 		}
 		if (_ineqN != 0)
 		{
-			optimizer.add_inequality_mconstraint(constraint, new pair<bool, NonlinearOptimization*>(true, this), vector<Real>(_ineqN, 1e-8));
+			optimizer.add_inequality_mconstraint(constraint, new pair<bool, NonlinearOptimization*>(true, this), vector<Real>(_ineqN, 1e-7));
 		}
 
 		optimizer.set_xtol_rel(1e-4);
