@@ -143,6 +143,11 @@ public:
 			getMotorJointPtr(i)->setLimitAcc(qddotmin(i), qddotmax(i));
 			getMotorJointPtr(i)->setLimitJerk(qdddotmin(i), qdddotmax(i));
 			getMotorJointPtr(i)->setLimitTorque(taumin(i), taumax(i));
+
+			std::cout << "Joint " << i << std::endl;
+			std::cout << "q: " << qmin(i) << " " << qmax(i) << std::endl;
+			std::cout << "qdot: " << qdotmin(i) << " " << qdotmax(i) << std::endl;
+			std::cout << "qddot: " << qddotmin(i) << " " << qddotmax(i) << std::endl;
 		}
 
 		completeAssembling();

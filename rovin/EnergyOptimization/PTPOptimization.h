@@ -108,10 +108,6 @@ namespace rovin {
 		std::vector<MatrixX> _dtaudp;
 		std::vector<StatePtr> _state;
 
-		BSpline<-1, -1, -1> _qSpline;
-		BSpline<-1, -1, -1> _qdotSpline;
-		BSpline<-1, -1, -1> _qddotSpline;
-
 		std::vector<MatrixX> _dqdp;
 		std::vector<MatrixX> _dqdotdp;
 		std::vector<MatrixX> _dqddotdp;
@@ -128,10 +124,17 @@ namespace rovin {
 		const std::vector<MatrixX>& getdtaudp(const VectorX& params);
 
 	public:
+		BSpline<-1, -1, -1> _qSpline;
+		BSpline<-1, -1, -1> _qdotSpline;
+		BSpline<-1, -1, -1> _qddotSpline;
 
 		MatrixX _dPdP;
 		MatrixX _dQdP;
 		MatrixX _dRdP;
+
+		std::vector<VectorX> _P;
+		std::vector<VectorX> _Q;
+		std::vector<VectorX> _R;
 	};
 
 

@@ -94,14 +94,14 @@ namespace rovin{
 			A.block((np + nq + nr) * 2 * i + (np + nq) * 2, _numOfOptCP * i, nr, _numOfOptCP) = _shared->_dRdP;
 			A.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, _numOfOptCP * i, nr, _numOfOptCP) = -_shared->_dRdP;
 
-			b.block((np + nq + nr) * 2 * i, 0, np, 1) = -VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosUpper();
-			b.block((np + nq + nr) * 2 * i + np, 0, np, 1) = VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosLower();
+			b.block((np + nq + nr) * 2 * i, 0, np, 1) = _shared->_P[i] - VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosUpper();
+			b.block((np + nq + nr) * 2 * i + np, 0, np, 1) = -_shared->_P[i] + VectorX::Ones(np)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitPosLower();
 
-			b.block((np + nq + nr) * 2 * i + np * 2, 0, nq, 1) = -VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelUpper();
-			b.block((np + nq + nr) * 2 * i + np * 2 + nq, 0, nq, 1) = VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelLower();
+			b.block((np + nq + nr) * 2 * i + np * 2, 0, nq, 1) = _shared->_Q[i] -VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelUpper();
+			b.block((np + nq + nr) * 2 * i + np * 2 + nq, 0, nq, 1) = -_shared->_Q[i] + VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelLower();
 
-			b.block((np + nq + nr) * 2 * i + (np + nq) * 2, 0, nr, 1) = -VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccUpper();
-			b.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, 0, nr, 1) = VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
+			b.block((np + nq + nr) * 2 * i + (np + nq) * 2, 0, nr, 1) = _shared->_R[i] -VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccUpper();
+			b.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, 0, nr, 1) = -_shared->_R[i] + VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
 		}
 		_linearIneqFunc = FunctionPtr(new AffineFunction(A, b));
 
@@ -163,14 +163,15 @@ namespace rovin{
 				initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
 			}
 		}
+		//initX << 0.556274, 0.11917, -0.328995, -0.814881, 0.603234, 0.0932657, -0.130955, -0.064882, 1.14852, 0.774952, 0.2058, -0.233091;
 		//initX << 0.419949, 0.275863, -0.263421, -0.847695, -0.218918, -0.226281, -0.224308, -0.177036, 1.22172, 1.20281, 0.169464, -0.362267;
 		LOG("Initial guess ready.");
-		cout << "Initial X: " << endl;
-		cout << initX << endl;
-		cout << "f(X): " << endl;
-		cout << _objectFunc->func(initX) << endl;
-		cout << "Inequality(X): " << endl;
-		cout << _IneqFunc->func(initX) << endl;
+		//cout << "Initial X: " << endl;
+		//cout << initX << endl;
+		//cout << "f(X): " << endl;
+		//cout << _objectFunc->func(initX) << endl;
+		//cout << "Inequality(X): " << endl;
+		//cout << _IneqFunc->func(initX) << endl;
 
 		_optimizer.setObjectiveFunction(_objectFunc);
 		_optimizer.setInequalityConstraint(_IneqFunc);
@@ -179,6 +180,9 @@ namespace rovin{
 		LOG("Finish optimization.");
 
 		cout << "X : " << _optimizer.resultX << endl;
+		_shared->makeBSpline(_optimizer.resultX);
+		cout << _knot << endl;
+		cout << _shared->_qSpline.getControlPoints() << endl;
 		cout << "Inequality : " << _IneqFunc->func(_optimizer.resultX) << endl;
 		cout << "f(X) : " << _optimizer.resultFunc << endl;
 	}
@@ -196,29 +200,29 @@ namespace rovin{
 
 		// Calculate _dqdp,dqdotdp, dqddotdq
 		// Calculate _dPdP,_dQdP, _dRdP
-		MatrixX cp(1, _PTPOptimizer->_numOfOptCP);
+		MatrixX cp(1, _PTPOptimizer->_numOfOptCP + 6);
 		bool checkMatrixSize = false;
-		_dqdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
-		_dqdotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
-		_dqddotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		_dqdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		_dqdotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		_dqddotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
 		for (unsigned int i = 0; i < _PTPOptimizer->_numOfOptCP; i++)
 		{
 			cp.setZero();
-			cp(0, i) = 1.0;
+			cp(0, 3 + i) = 1.0;
 			_qSpline = BSpline<-1, -1, -1>(_PTPOptimizer->_knot, cp);
 			_qdotSpline = _qSpline.derivative();
 			_qddotSpline = _qdotSpline.derivative();
 
 			if (!checkMatrixSize)
 			{
-				_dPdP.resize(_PTPOptimizer->_numOfOptCP, _PTPOptimizer->_numOfOptCP);
-				_dQdP.resize(_qdotSpline.getControlPoints().cols(), _PTPOptimizer->_numOfOptCP);
-				_dRdP.resize(_qddotSpline.getControlPoints().cols(), _PTPOptimizer->_numOfOptCP);
+				_dPdP.resize(_qSpline.getControlPoints().cols() - 6, _PTPOptimizer->_numOfOptCP);
+				_dQdP.resize(_qdotSpline.getControlPoints().cols() - 4, _PTPOptimizer->_numOfOptCP);
+				_dRdP.resize(_qddotSpline.getControlPoints().cols() - 2, _PTPOptimizer->_numOfOptCP);
 				checkMatrixSize = true;
 			}
-			_dPdP.col(i) = _qSpline.getControlPoints().transpose();
-			_dQdP.col(i) = _qdotSpline.getControlPoints().transpose();
-			_dRdP.col(i) = _qddotSpline.getControlPoints().transpose();
+			_dPdP.col(i) = _qSpline.getControlPoints().block(0, 3, 1, _dPdP.rows()).transpose();
+			_dQdP.col(i) = _qdotSpline.getControlPoints().block(0, 2, 1, _dQdP.rows()).transpose();
+			_dRdP.col(i) = _qddotSpline.getControlPoints().block(0, 1, 1, _dRdP.rows()).transpose();
 
 			for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
 			{
@@ -233,6 +237,34 @@ namespace rovin{
 					_dqddotdp[j](_PTPOptimizer->_optJointIdx[k], _PTPOptimizer->_numOfOptCP*k + i) = dqddotdp[0];
 				}
 			}
+		}
+		cout << "_dPdP" << endl << _dPdP << endl;
+		cout << "_dQdP" << endl << _dQdP << endl;
+		cout << "_dRdP" << endl << _dRdP << endl;
+
+		_P.resize(_PTPOptimizer->_numOfOptJoint);
+		_Q.resize(_PTPOptimizer->_numOfOptJoint);
+		_R.resize(_PTPOptimizer->_numOfOptJoint);
+		for (unsigned int i = 0; i < _PTPOptimizer->_numOfOptJoint; i++)
+		{
+			cp.setZero();
+			cp(0) = _PTPOptimizer->_initialCP[0](_PTPOptimizer->_optJointIdx[i]);
+			cp(1) = _PTPOptimizer->_initialCP[1](_PTPOptimizer->_optJointIdx[i]);
+			cp(2) = _PTPOptimizer->_initialCP[2](_PTPOptimizer->_optJointIdx[i]);
+			cp(_PTPOptimizer->_numOfOptCP + 3) = _PTPOptimizer->_finalCP[2](_PTPOptimizer->_optJointIdx[i]);
+			cp(_PTPOptimizer->_numOfOptCP + 4) = _PTPOptimizer->_finalCP[1](_PTPOptimizer->_optJointIdx[i]);
+			cp(_PTPOptimizer->_numOfOptCP + 5) = _PTPOptimizer->_finalCP[0](_PTPOptimizer->_optJointIdx[i]);
+			cout << cp << endl;
+			_qSpline = BSpline<-1, -1, -1>(_PTPOptimizer->_knot, cp);
+			_qdotSpline = _qSpline.derivative();
+			_qddotSpline = _qdotSpline.derivative();
+			_P[i] = _qSpline.getControlPoints().block(0, 3, 1, _dPdP.rows()).transpose();
+			_Q[i] = _qdotSpline.getControlPoints().block(0, 2, 1, _dQdP.rows()).transpose();
+			_R[i] = _qddotSpline.getControlPoints().block(0, 1, 1, _dRdP.rows()).transpose();
+
+			cout << "_P[" << i << "]" << endl << _P[i] << endl;
+			cout << "_Q[" << i << "]" << endl << _Q[i] << endl;
+			cout << "_R[" << i << "]" << endl << _R[i] << endl;
 		}
 	}
 
