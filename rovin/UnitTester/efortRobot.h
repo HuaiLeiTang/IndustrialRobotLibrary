@@ -144,10 +144,10 @@ public:
 			getMotorJointPtr(i)->setLimitJerk(qdddotmin(i), qdddotmax(i));
 			getMotorJointPtr(i)->setLimitTorque(taumin(i), taumax(i));
 
-			std::cout << "Joint " << i << std::endl;
-			std::cout << "q: " << qmin(i) << " " << qmax(i) << std::endl;
-			std::cout << "qdot: " << qdotmin(i) << " " << qdotmax(i) << std::endl;
-			std::cout << "qddot: " << qddotmin(i) << " " << qddotmax(i) << std::endl;
+			//std::cout << "Joint " << i << std::endl;
+			//std::cout << "q: " << qmin(i) << " " << qmax(i) << std::endl;
+			//std::cout << "qdot: " << qdotmin(i) << " " << qdotmax(i) << std::endl;
+			//std::cout << "qddot: " << qddotmin(i) << " " << qddotmax(i) << std::endl;
 		}
 
 		completeAssembling();
@@ -168,7 +168,8 @@ public:
 			std::shared_ptr<rovin::Mesh> STL_file(new rovin::Mesh(std::string("../Data/CAD/efort_robot/LINK0_0") + std::to_string(i + 1) + std::string(".STL")));
 			STL_file->setFrame(efortState->getLinkStateSE3(0).inverse());
 			STL_file->setDimension(1);
-			STL_file->setColor(orange);
+			//STL_file->setColor(orange);
+			STL_file->setColor(black);
 			getLinkPtr(0)->addDrawingGeomtryInfo(STL_file);
 		}
 		for (unsigned int i = 0; i < 6; i++)
@@ -187,7 +188,8 @@ public:
 			std::shared_ptr<rovin::Mesh> STL_file(new rovin::Mesh(std::string("../Data/CAD/efort_robot/LINK2_0") + std::to_string(i + 1) + std::string(".STL")));
 			STL_file->setFrame(efortState->getLinkStateSE3(2).inverse());
 			STL_file->setDimension(1);
-			STL_file->setColor(orange);
+			//STL_file->setColor(orange);
+			STL_file->setColor(black);
 			getLinkPtr(2)->addDrawingGeomtryInfo(STL_file);
 		}
 		for (unsigned int i = 0; i < 7; i++)
@@ -217,7 +219,8 @@ public:
 			std::shared_ptr<rovin::Mesh> STL_file(new rovin::Mesh(std::string("../Data/CAD/efort_robot/LINK5_0") + std::to_string(i + 1) + std::string(".STL")));
 			STL_file->setFrame(efortState->getLinkStateSE3(5).inverse());
 			STL_file->setDimension(1);
-			STL_file->setColor(orange);
+			//STL_file->setColor(orange);
+			STL_file->setColor(black);
 			getLinkPtr(5)->addDrawingGeomtryInfo(STL_file);
 		}
 		for (unsigned int i = 0; i < 1; i++)

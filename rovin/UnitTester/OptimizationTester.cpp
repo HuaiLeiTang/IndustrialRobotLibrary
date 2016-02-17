@@ -1,11 +1,15 @@
 #include <rovin\Optimizer\NonlinearOptimization.h>
 #include <rovin\Math\Function.h>
 #include <rovin\EnergyOptimization\PTPOptimization.h>
+#include <rovin\EnergyOptimization\PTPWayPointOptimization.h>
 
 #include "efortRobot.h"
 
 #include <iostream>
 #include <conio.h>
+
+#include <string>
+#include <memory>
 
 using namespace rovin;
 using namespace std;
@@ -50,8 +54,40 @@ public:
 	}
 };
 
+class human
+{
+public:
+	string name;
+public:
+	human() { name = "NONE"; }
+	human(string _name) : name(_name) {}
+	void getname()
+	{
+		cout << "Human : " << name << endl;
+	}
+};
+
+class Hong : public human
+{
+public:
+	string name;
+	int age;
+public:
+	Hong() { name = "HONG NONE"; age = 0; }
+	Hong(string _name, int _age) : name(_name), age(_age) {}
+	void getname()
+	{
+		cout << "Hong : " << name << endl;
+	}
+	void getage()
+	{
+		cout << "Hong : " << age << endl;
+	}
+};
+
 int main()
 {
+
 	SerialOpenChainPtr robot(new efortRobot());
 	unsigned int dof = robot->getNumOfJoint();
 
@@ -77,8 +113,37 @@ int main()
 
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
-	PTPOptimization PTPManager(robot, optJoint, 4, 4, 20, 2.0, initState, finalState);
+
+	int orderOfspline = 4;
+	int numOfCP = 4;
+	//int numOfCP = 6;
+	int numOfGQSample = 20;
+	Real tf = 2.0;
+	
+	PTPOptimization PTPManager(robot, optJoint, orderOfspline, numOfCP, numOfGQSample, tf, initState, finalState);
 	PTPManager.generateTrajectory();
+
+	PTPWayPointOptimization PTPWayPointManager(robot, optJoint, orderOfspline, numOfCP, numOfGQSample, tf, initState, finalState, PTPWayPointOptimization::INITIAL_ALL_FINAL_POS);
+	PTPWayPointManager.generateTrajectory();
+
+	VectorX CP = PTPWayPointManager._shared->_qSpline.getControlPoints().row(0);
+	VectorX knot = PTPWayPointManager._knot;
+
+	cout << "CP" << endl;
+	cout << CP << endl;
+	cout << "knot" << endl;
+	cout << knot << endl;
+
+
+	BSpline<-1, -1, -1> tmpSpline(knot, CP.transpose());
+	BSpline<-1, -1, -1> tmpSplinedot = tmpSpline.derivative();
+	BSpline<-1, -1, -1> tmpSplineddot = tmpSplinedot.derivative();
+	
+	cout << tmpSpline.fval(1.99999999) << endl;
+	cout << tmpSplinedot.fval(1.99999999) << endl;
+	cout << tmpSplineddot.fval(1.99999999) << endl;
+
+
 
 	_getch();
 

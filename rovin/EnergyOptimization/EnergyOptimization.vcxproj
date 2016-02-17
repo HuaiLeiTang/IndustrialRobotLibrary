@@ -115,9 +115,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="PTPOptimization.h" />
+    <ClInclude Include="PTPWayPointOptimization.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PTPOptimization.cpp" />
+    <ClCompile Include="PTPWayPointOptimization.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dynamics\Dynamics.vcxproj">

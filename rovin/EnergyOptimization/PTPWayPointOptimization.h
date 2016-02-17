@@ -1,9 +1,9 @@
 /*!
- *	\file	PTPOptimization.h
- *	\date	2016.01.22
- *	\author	Youngsuk (crazyhys@gmail.com)
- *	\brief	PTPOptimization class
- *          this class make a energy efficiency optimization path of PToP problem
+*	\file	PTPWayPointOptimization.h
+*	\date	2016.02.17
+*	\author	Youngsuk (crazyhys@gmail.com)
+*	\brief	PTPWayPointOptimization class
+*          this class make a energy efficiency optimization path of PToP problem with way points
 */
 
 #pragma once
@@ -16,34 +16,41 @@
 
 namespace rovin {
 
-	class PTPOptimization;
-	class sharedResource;
+	class PTPWayPointOptimization;
+	class sharedResourceWayPoint;
 
 
-	class effortFunction;
-	class NonlinearInequalityConstraint;
+	class effortFunctionWayPoint;
+	class NonlinearInequalityConstraintWayPoint;
 
-	class energyLossFunction;
-	class EqualityConstraint;
-	class InequalityConstraint;
-	
+	//class energyLossFunction;
+	//class EqualityConstraint;
+	//class InequalityConstraint;
 
-	typedef std::shared_ptr<sharedResource> sharedResourcePtr;
+
+	typedef std::shared_ptr<sharedResourceWayPoint> sharedResourceWayPointPtr;
 
 	// 제로 속도에서 제로 속도로 가는거..?!!!
 
-	class PTPOptimization
+	class PTPWayPointOptimization
 	{
-		friend class sharedResource;
-		friend class effortFunction;
-		friend class NonlinearInequalityConstraint;
+		friend class sharedResourceWayPoint;
+		friend class effortFunctionWayPoint;
+		friend class NonlinearInequalityConstraintWayPoint;
 
 	public:
 		enum ObjectiveFunctionType { effort, energyloss };
-		
+		enum ConstraintCondition
+		{
+			INITIAL_ALL_FINAL_ALL, ///< initial pos, vel, acc constraint, final pos, vel, acc constraint
+			INITIAL_ALL_FINAL_POS ///< initial pos, vel, acc constraint, final pos acc constraint
+		};
+
 	public:
 		NonlinearOptimization _optimizer;
-		sharedResourcePtr _shared;
+		sharedResourceWayPointPtr _shared;
+
+		ConstraintCondition _constraintCondition;
 
 		// functions
 		FunctionPtr _objectFunc;
@@ -53,11 +60,13 @@ namespace rovin {
 		//equalityConstraint _equlfunc;
 
 		SerialOpenChainPtr _soc; ///< Serial open chain robot
-		
+
 		std::vector<bool> _optJoint;
 		unsigned int _numOfOptJoint;
 		std::vector<unsigned int> _optJointIdx;
 		std::vector<unsigned int> _noptJointIdx;
+
+		unsigned int _numOfConstraintCP;
 
 		unsigned int _orderOfBSpline; ///< order of B spline
 		unsigned int _numOfOptCP; ///< number of B spline control points for optimization except contraint control points
@@ -69,7 +78,7 @@ namespace rovin {
 		StatePtr _finalState; ///< final joint position
 
 		// B spline variables
-		VectorX _knot;
+		VectorX _knot; ///< number of knots = number of control points + order + 1
 		std::vector<VectorX> _initialCP;
 		std::vector<VectorX> _finalCP;
 		MatrixX _noptJointCP;
@@ -78,8 +87,9 @@ namespace rovin {
 		GaussianQuadrature GQ;
 
 	public:
-		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
-			const unsigned int numOfCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState);
+		PTPWayPointOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
+			const unsigned int numOfCP, const unsigned int numOfGQSample, const Real tf, 
+			const StatePtr& initialState, const StatePtr& finalState, ConstraintCondition constraintCondition);
 
 		void makeNonOptJointCP();
 
@@ -96,12 +106,12 @@ namespace rovin {
 	};
 
 	// calculate inverse 
-	class sharedResource
+	class sharedResourceWayPoint
 	{
 
 	private:
 
-		PTPOptimization* _PTPOptimizer;
+		PTPWayPointOptimization* _PTPOptimizer;
 
 		VectorX _params;
 
@@ -127,7 +137,7 @@ namespace rovin {
 		std::vector<VectorX> _R;
 
 	public:
-		sharedResource(PTPOptimization* PTPOptimizer);
+		sharedResourceWayPoint(PTPWayPointOptimization* PTPOptimizer);
 
 		void makeBSpline(const VectorX& params);
 
@@ -138,26 +148,26 @@ namespace rovin {
 
 	};
 
-	class effortFunction : public Function
+	class effortFunctionWayPoint : public Function
 	{
 	public:
-		effortFunction(PTPOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
+		effortFunctionWayPoint(PTPWayPointOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
 
 		VectorX func(const VectorX& params) const;
 		MatrixX Jacobian(const VectorX& params) const;
 
-		PTPOptimization* _PTPOptimizer;
+		PTPWayPointOptimization* _PTPOptimizer;
 	};
 
-	class NonlinearInequalityConstraint : public Function
+	class NonlinearInequalityConstraintWayPoint : public Function
 	{
 	public:
-		NonlinearInequalityConstraint(PTPOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
+		NonlinearInequalityConstraintWayPoint(PTPWayPointOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
 
 		VectorX func(const VectorX& params) const;
 		MatrixX Jacobian(const VectorX& params) const;
 
-		PTPOptimization* _PTPOptimizer;
+		PTPWayPointOptimization* _PTPOptimizer;
 	};
 
 	//class energyLossFunction : public Function
