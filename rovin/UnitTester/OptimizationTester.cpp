@@ -139,9 +139,9 @@ int main()
 	BSpline<-1, -1, -1> tmpSplinedot = tmpSpline.derivative();
 	BSpline<-1, -1, -1> tmpSplineddot = tmpSplinedot.derivative();
 	
-	cout << tmpSpline.fval(1.99999999) << endl;
-	cout << tmpSplinedot.fval(1.99999999) << endl;
-	cout << tmpSplineddot.fval(1.99999999) << endl;
+	cout << tmpSpline.fval(tf- 0.00000001) << endl;
+	cout << tmpSplinedot.fval(tf - 0.00000001) << endl;
+	cout << tmpSplineddot.fval(tf - 0.00000001) << endl;
 
 
 

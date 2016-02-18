@@ -6,6 +6,44 @@ using namespace std;
 
 namespace rovin {
 
+	PTPWayPointOptimizer::PTPWayPointOptimizer(const SerialOpenChainPtr & soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline, const unsigned int numOfCP, const unsigned int numOfGQSample, const std::vector<Real>& tf, const std::vector<StatePtr>& constraintState)
+	{
+		LOGIF(constraintState.size() > 1, "PTPWayPointOptimizer::PTPWayPointOptimizer error : lack of number of constraint states.");
+		LOGIF(constraintState.size() == (tf.size() + 1), "PTPWayPointOptimizer::PTPWayPointOptimizer error : tf size or constraint state size is wrong.");
+
+		_numOfBspline = tf.size();
+		_bsplineResult.resize(_numOfBspline);
+
+		_wayPointOptimizer = PTPWayPointOptimizationPtr(new PTPWayPointOptimization(soc, optJoint, orderOfBSpline,
+			numOfCP, numOfGQSample, tf[0], constraintState[0], constraintState[1], PTPWayPointOptimization::INITIAL_ALL_FINAL_POS));
+	}
+
+	void PTPWayPointOptimizer::generateTrajectory()
+	{
+		for (int i = 0; i < _numOfBspline; i++)
+		{
+
+			if (i == 0)
+			{
+				// first b-spline
+
+
+
+			}
+			else if (i == (_numOfBspline - 1))
+			{
+				// middle b-splines
+
+			}
+			else
+			{
+				// last b-spline
+
+
+			}
+		}
+	}
+
 	PTPWayPointOptimization::PTPWayPointOptimization(const SerialOpenChainPtr & soc, const vector<bool>& optJoint,
 		const unsigned int orderOfBSpline, const unsigned int numOfOptCP, const unsigned int numOfGQSample,
 		const Real tf, const StatePtr& initialState, const StatePtr& finalState, ConstraintCondition constraintCondition)
@@ -49,6 +87,26 @@ namespace rovin {
 				_noptJointIdx.push_back(i);
 			}
 		}
+	}
+
+	void PTPWayPointOptimization::setInitialState(const StatePtr & initState)
+	{
+		_initialState = initState;
+	}
+
+	void PTPWayPointOptimization::setFinalState(const StatePtr & finalState)
+	{
+		_finalState = finalState;
+	}
+
+	void PTPWayPointOptimization::setConstraintCondition(const ConstraintCondition constraintCondition)
+	{
+		_constraintCondition = constraintCondition;
+	}
+
+	void PTPWayPointOptimization::setFinalTime(const Real tf)
+	{
+		_tf = tf;
 	}
 
 	void PTPWayPointOptimization::makeBSplineKnot()
@@ -109,6 +167,12 @@ namespace rovin {
 			_finalCP[0] = _finalState->getJointStatePos();
 		}
 		
+	}
+
+
+	const BSpline<-1, -1, -1>& PTPWayPointOptimization::getResultBSpline() const
+	{
+		return _shared->_qSpline;
 	}
 
 	void PTPWayPointOptimization::makeNonOptJointCP()
@@ -522,4 +586,5 @@ namespace rovin {
 		}
 		return jacobian;
 	}
+	
 }

@@ -16,6 +16,8 @@
 
 namespace rovin {
 
+	class PTPWayPointOptimizer;
+
 	class PTPWayPointOptimization;
 	class sharedResourceWayPoint;
 
@@ -27,10 +29,29 @@ namespace rovin {
 	//class EqualityConstraint;
 	//class InequalityConstraint;
 
-
 	typedef std::shared_ptr<sharedResourceWayPoint> sharedResourceWayPointPtr;
+	typedef std::shared_ptr<PTPWayPointOptimization> PTPWayPointOptimizationPtr;
+	
 
-	// 제로 속도에서 제로 속도로 가는거..?!!!
+	class PTPWayPointOptimizer
+	{
+	private:
+		PTPWayPointOptimizationPtr _wayPointOptimizer;
+		
+		unsigned int _numOfBspline;
+
+		// result variable : b-spline
+		std::vector<BSpline<-1, -1, -1>> _bsplineResult;
+
+	public:
+		PTPWayPointOptimizer(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline, const unsigned int numOfCP, const unsigned int numOfGQSample, const std::vector<Real>& tf, const std::vector<StatePtr>& constraintState);
+		void generateTrajectory();
+
+
+		
+	};
+
+
 
 	class PTPWayPointOptimization
 	{
@@ -91,6 +112,19 @@ namespace rovin {
 			const unsigned int numOfCP, const unsigned int numOfGQSample, const Real tf, 
 			const StatePtr& initialState, const StatePtr& finalState, ConstraintCondition constraintCondition);
 
+		// set function
+		void setInitialState(const StatePtr& initState);
+		void setFinalState(const StatePtr& finalState);
+		void setConstraintCondition(const ConstraintCondition constraintCondition);
+		void setFinalTime(const Real tf);
+
+
+		// get function
+		// Bspline 어케 return? BSpline<-1, -1, -1>&?
+		// Bspline 결과 augment 시킬 수 있나?
+		const BSpline<-1, -1, -1>& getResultBSpline() const;
+
+		//
 		void makeNonOptJointCP();
 
 		// B spline function
