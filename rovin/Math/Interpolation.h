@@ -11,9 +11,16 @@
 #include "Common.h"
 
 #include <rovin/Utils/Diagnostic.h>
+#include <vector>
+#include <memory>
 
 namespace rovin
 {
+	class CubicSpline;
+
+	typedef std::shared_ptr<CubicSpline> CubicSplinePtr;
+
+
 	/*!
 	 *	\class	BSpline
 	 *	\brief	B-Spline, Reference: Wikipedia De Boor's Algorithm https://en.wikipedia.org/wiki/De_Boor%27s_algorithm
@@ -22,13 +29,10 @@ namespace rovin
 	class BSpline
 	{
 	public:
-		BSpline()
-		{
-
-		}
+		BSpline() {}
 
 		/// BSpline construction
-		BSpline(const Math::VectorX& knots, ///< Knot vector
+		BSpline(const VectorX& knots, ///< Knot vector
 			const Eigen::Matrix<Real, Dimension, -1>& controlPoints ///< Control Points is n*m Matrix where n is the size of dimensions, and m is the number of control points
 			)
 		{
@@ -199,4 +203,35 @@ namespace rovin
 		int _D;
 		int _M;
 	};
+
+	class CubicSpline
+	{
+	public:
+		enum bd_type {
+			first_deriv = 1,
+			second_deriv = 2
+		};
+
+	private:
+		std::vector<Real> m_x, m_y;            // x,y coordinates of points
+												 // interpolation parameters
+												 // f(x) = a*(x-x_i)^3 + b*(x-x_i)^2 + c*(x-x_i) + y_i
+		std::vector<Real> m_a, m_b, m_c;        // spline coefficients
+		double  m_b0, m_c0;                     // for left extrapol
+		bd_type m_left, m_right;
+		double  m_left_value, m_right_value;
+		bool    m_force_linear_extrapolation;
+
+	public:
+		// set default boundary condition to be zero curvature at both ends
+		CubicSpline() : m_left(second_deriv), m_right(second_deriv),
+			m_left_value(0.0), m_right_value(0.0),
+			m_force_linear_extrapolation(false){}
+
+		// optional, but if called it has to come be before set_points()
+		void set_boundary(bd_type left, Real left_value, bd_type right, Real right_value, bool force_linear_extrapolation = false);
+		void set_points(const std::vector<Real>& x, const std::vector<Real>& y, bool cubic_spline = true);
+		Real operator() (Real x) const;
+	};
+
 }
