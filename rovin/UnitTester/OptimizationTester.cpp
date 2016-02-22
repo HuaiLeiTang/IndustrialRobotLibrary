@@ -4,12 +4,11 @@
 #include <rovin\EnergyOptimization\PTPWayPointOptimization.h>
 
 #include "efortRobot.h"
-
 #include <iostream>
 #include <conio.h>
 
 #include <string>
-#include <memory>
+#include <memory>s
 
 using namespace rovin;
 using namespace std;
@@ -88,60 +87,60 @@ public:
 int main()
 {
 
-	SerialOpenChainPtr robot(new efortRobot());
-	unsigned int dof = robot->getNumOfJoint();
+	//SerialOpenChainPtr robot(new efortRobot());
+	//unsigned int dof = robot->getNumOfJoint();
 
-	StatePtr initState, finalState;
-	initState = robot->makeState();
-	finalState = robot->makeState();
+	//StatePtr initState, finalState;
+	//initState = robot->makeState();
+	//finalState = robot->makeState();
 
-	VectorX init_q(dof), init_qdot(dof), init_qddot(dof);
-	VectorX final_q(dof), final_qdot(dof), final_qddot(dof);
+	//VectorX init_q(dof), init_qdot(dof), init_qddot(dof);
+	//VectorX final_q(dof), final_qdot(dof), final_qddot(dof);
 
-	init_q << 1.0854, 1.02654, 0.798359, 2.97849, 1.50724, 1.45496;
-	init_qdot.setZero(); init_qddot.setZero();
-	final_q << -1.31465, 0.128787, -0.546992, 2.83671, -1.8583, 2.95029;
-	final_qdot.setZero(); final_qddot.setZero();
+	//init_q << 1.0854, 1.02654, 0.798359, 2.97849, 1.50724, 1.45496;
+	//init_qdot.setZero(); init_qddot.setZero();
+	//final_q << -1.31465, 0.128787, -0.546992, 2.83671, -1.8583, 2.95029;
+	//final_qdot.setZero(); final_qddot.setZero();
 
-	initState->setJointStatePos(init_q);
-	initState->setJointStateVel(init_qdot);
-	initState->setJointStateAcc(init_qddot);
+	//initState->setJointStatePos(init_q);
+	//initState->setJointStateVel(init_qdot);
+	//initState->setJointStateAcc(init_qddot);
 
-	finalState->setJointStatePos(final_q);
-	finalState->setJointStateVel(final_qdot);
-	finalState->setJointStateAcc(final_qddot);
+	//finalState->setJointStatePos(final_q);
+	//finalState->setJointStateVel(final_qdot);
+	//finalState->setJointStateAcc(final_qddot);
 
-	vector<bool> optJoint(robot->getNumOfJoint());
-	optJoint[0] = optJoint[1] = optJoint[2] = true;
+	//vector<bool> optJoint(robot->getNumOfJoint());
+	//optJoint[0] = optJoint[1] = optJoint[2] = true;
 
-	int orderOfspline = 4;
-	int numOfCP = 4;
-	//int numOfCP = 6;
-	int numOfGQSample = 20;
-	Real tf = 2.0;
-	
-	PTPOptimization PTPManager(robot, optJoint, orderOfspline, numOfCP, numOfGQSample, tf, initState, finalState);
-	PTPManager.generateTrajectory();
+	//int orderOfspline = 4;
+	//int numOfCP = 4;
+	////int numOfCP = 6;
+	//int numOfGQSample = 20;
+	//Real tf = 2.0;
+	//
+	//PTPOptimization PTPManager(robot, optJoint, orderOfspline, numOfCP, numOfGQSample, tf, initState, finalState);
+	//PTPManager.generateTrajectory();
 
-	PTPWayPointOptimization PTPWayPointManager(robot, optJoint, orderOfspline, numOfCP, numOfGQSample, tf, initState, finalState, PTPWayPointOptimization::INITIAL_ALL_FINAL_POS);
-	PTPWayPointManager.generateTrajectory();
+	//PTPWayPointOptimization PTPWayPointManager(robot, optJoint, orderOfspline, numOfCP, numOfGQSample, tf, initState, finalState, PTPWayPointOptimization::INITIAL_ALL_FINAL_POS);
+	//PTPWayPointManager.generateTrajectory();
 
-	VectorX CP = PTPWayPointManager._shared->_qSpline.getControlPoints().row(0);
-	VectorX knot = PTPWayPointManager._knot;
+	//VectorX CP = PTPWayPointManager._shared->_qSpline.getControlPoints().row(0);
+	//VectorX knot = PTPWayPointManager._knot;
 
-	cout << "CP" << endl;
-	cout << CP << endl;
-	cout << "knot" << endl;
-	cout << knot << endl;
+	//cout << "CP" << endl;
+	//cout << CP << endl;
+	//cout << "knot" << endl;
+	//cout << knot << endl;
 
 
-	BSpline<-1, -1, -1> tmpSpline(knot, CP.transpose());
-	BSpline<-1, -1, -1> tmpSplinedot = tmpSpline.derivative();
-	BSpline<-1, -1, -1> tmpSplineddot = tmpSplinedot.derivative();
-	
-	cout << tmpSpline.fval(tf- 0.00000001) << endl;
-	cout << tmpSplinedot.fval(tf - 0.00000001) << endl;
-	cout << tmpSplineddot.fval(tf - 0.00000001) << endl;
+	//BSpline<-1, -1, -1> tmpSpline(knot, CP.transpose());
+	//BSpline<-1, -1, -1> tmpSplinedot = tmpSpline.derivative();
+	//BSpline<-1, -1, -1> tmpSplineddot = tmpSplinedot.derivative();
+	//
+	//cout << tmpSpline.fval(tf- 0.00000001) << endl;
+	//cout << tmpSplinedot.fval(tf - 0.00000001) << endl;
+	//cout << tmpSplineddot.fval(tf - 0.00000001) << endl;
 
 
 

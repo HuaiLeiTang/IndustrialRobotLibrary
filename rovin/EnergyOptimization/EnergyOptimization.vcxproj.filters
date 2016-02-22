@@ -21,12 +21,18 @@
     <ClInclude Include="PTPWayPointOptimization.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="PTPOptimizer.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PTPOptimization.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="PTPWayPointOptimization.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="PTPOptimizer.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
