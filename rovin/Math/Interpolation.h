@@ -16,9 +16,7 @@
 
 namespace rovin
 {
-	class CubicSpline;
-
-	typedef std::shared_ptr<CubicSpline> CubicSplinePtr;
+	class Spline;
 
 
 	/*!
@@ -204,34 +202,26 @@ namespace rovin
 		int _M;
 	};
 
-	class CubicSpline
+	class Spline
 	{
-	public:
-		enum bd_type {
-			first_deriv = 1,
-			second_deriv = 2
-		};
-
 	private:
-		std::vector<Real> m_x, m_y;            // x,y coordinates of points
-												 // interpolation parameters
-												 // f(x) = a*(x-x_i)^3 + b*(x-x_i)^2 + c*(x-x_i) + y_i
-		std::vector<Real> m_a, m_b, m_c;        // spline coefficients
-		double  m_b0, m_c0;                     // for left extrapol
-		bd_type m_left, m_right;
-		double  m_left_value, m_right_value;
-		bool    m_force_linear_extrapolation;
+		MatrixX _data;
+		Real _ti;
+		Real _tf;
 
 	public:
-		// set default boundary condition to be zero curvature at both ends
-		CubicSpline() : m_left(second_deriv), m_right(second_deriv),
-			m_left_value(0.0), m_right_value(0.0),
-			m_force_linear_extrapolation(false){}
+		Spline() {}
+		Spline(const MatrixX& data, Real ti, Real tf) 
+		{
+			_data = data;
+			_ti = ti;
+			_tf = tf;
+		}
+		VectorX operator()(const Real& x) { return VectorX(); }
+		VectorX operator()(const VectorX& x) { return VectorX(); }
 
-		// optional, but if called it has to come be before set_points()
-		void set_boundary(bd_type left, Real left_value, bd_type right, Real right_value, bool force_linear_extrapolation = false);
-		void set_points(const std::vector<Real>& x, const std::vector<Real>& y, bool cubic_spline = true);
-		Real operator() (Real x) const;
+		Spline derivative() const { return Spline(); }
+
 	};
 
 }
