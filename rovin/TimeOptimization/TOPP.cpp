@@ -13,7 +13,6 @@ namespace rovin {
 		_vi = vi;
 		_vf = vf;
 
-
 		// insert torque constraint
 		_torqueConstraint.resize(_dof * 2);
 		for (int i = 0; i < _dof; i++)
@@ -43,7 +42,7 @@ namespace rovin {
 		return false;
 	}
 
-	VectorX& TOPP::calculateA(Real s, Real sdot)
+	VectorX& TOPP::calculateA(Real s)
 	{
 		VectorX a(_dof * 2);
 		VectorX q = _q(s);
@@ -120,15 +119,18 @@ namespace rovin {
 
 	Real TOPP::calulateMVCPoint(Real s)
 	{
-		//std::pair<dReal, dReal> sddlimits = SddLimits(s, 0);
-		//if (sddlimits.first > sddlimits.second) {
-		//	return 0;
-		//}
+		Real sdot_MVC = std::numeric_limits<Real>::max();
 
-		//dReal sdmin = INF;
-		//for (int k = 0; k<nconstraints; k++) {
-		//	for (int m = k + 1; m<nconstraints; m++) {
-		//		dReal num, denum, r;
+		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		if (alphabeta[0] > alphabeta[1])
+			return 0;
+
+		int nconstraints = _dof * 2;
+
+
+		//for (int k = 0; k < nconstraints; k++) {
+		//	for (int m = k + 1; m < nconstraints; m++) {
+		//		Real num, denum, r;
 		//		// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
 		//		if (a[k] * a[m]<0) {
 		//			num = a[k] * c[m] - a[m] * c[k];
@@ -144,14 +146,14 @@ namespace rovin {
 		//}
 		//return sdmin;
 
-		Real sdot_MVC;
+		
 
 		return sdot_MVC;
 	}
 
 	Vector2& TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
-		VectorX a = calculateA(s, sdot);
+		VectorX a = calculateA(s);
 
 		// zero-inertia point check
 		bool zero_inertia_swi = false;
@@ -234,10 +236,10 @@ namespace rovin {
 		sdot = sqrt(tmp);
 	}
 
-	Vector2 & TOPP::findNearestSwitchPoint(Real s, Real sdot)
+	void TOPP::findNearestSwitchPoint(Real s, Real sdot)
 	{
+		//
 		// TODO: 여기에 반환 구문을 삽입합니다
-		return Vector2();
 	}
 
 	void TOPP::generateTrajectory()

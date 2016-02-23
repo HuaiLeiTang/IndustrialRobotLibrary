@@ -9,9 +9,12 @@
 namespace rovin {
 
 	class TOPP;
+	class SwitchPoint;
 
 	class TOPP
 	{
+
+
 	private:
 		MatrixX _q_data;
 		
@@ -29,8 +32,10 @@ namespace rovin {
 		
 		Real _ds;
 
-		std::vector<Vector2> _switchPoint;
-		std::vector<Vector2> _sdotTrajectory;
+		
+		std::vector<SwitchPoint> _switchPoint;
+		
+		//std::vector<Vector2> _sdotTrajectory;
 
 		SerialOpenChainPtr _soc;
 
@@ -43,7 +48,7 @@ namespace rovin {
 
 		bool checkMVCCondition(Real alpha, Real beta);
 		
-		VectorX& calculateA(Real s, Real sdot);
+		VectorX& calculateA(Real s);
 		std::vector<VectorX>& calculateBandC(Real s, Real sdot);
 
 		bool checkDynamicSingularity(const VectorX& a);
@@ -52,13 +57,29 @@ namespace rovin {
 		void farwardIntegrate(Real& s, Real& sdot, Real sddot);
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
 		
-		Vector2& findNearestSwitchPoint(Real s, Real sdot);
+		void findNearestSwitchPoint(Real s, Real sdot);
 		Real calulateMVCPoint(Real s);
 
 		void generateTrajectory();
+	};
 
-		
+	class SwitchPoint
+	{
+	public:
+		enum SPID
+		{
+			SINGULAR, TANGENT, DISCONTIUOUS
+		};
+	public:
+		Real _s;
+		Real _sdot;
+		SPID _id;
+		Real _lambda;
 
+	public:
+		SwitchPoint(){}
+		SwitchPoint(Real s, Real sdot, SPID id, Real lambda) : _s(s), _sdot(sdot),
+			_id(id), _lambda(lambda) {}
 	};
 
 }
