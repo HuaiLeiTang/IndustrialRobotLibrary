@@ -81,6 +81,11 @@ int main()
 	}
 	cout << "End" << endl;
 	cout << "Size : " << a.size() << endl;
+	
+	cout << "RealEps : " << RealEps << endl;
+	cout << "RealMax : " << RealMax << endl;
+	cout << "RealMin : " << RealMin << endl;
+	
 	_getch();
 
 	return 0;

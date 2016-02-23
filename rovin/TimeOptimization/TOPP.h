@@ -25,9 +25,6 @@ namespace rovin {
 		std::list<Real> _s;
 		std::list<Real> _sdot;
 
-		//std::vector<Real> _s;
-		//std::vector<Real> _sdot;
-
 		VectorX _torqueConstraint;
 		
 		Real _ds;
@@ -47,11 +44,16 @@ namespace rovin {
 		bool checkMVCCondition(Real alpha, Real beta);
 		
 		VectorX& calculateA(Real s, Real sdot);
+		std::vector<VectorX>& calculateBandC(Real s, Real sdot);
+
 		bool checkDynamicSingularity(const VectorX& a);
 		Vector2& determineAlphaBeta(Real s, Real sdot);
+
+		void farwardIntegrate(Real& s, Real& sdot, Real sddot);
+		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
 		
 		Vector2& findNearestSwitchPoint(Real s, Real sdot);
-
+		Real calulateMVCPoint(Real s);
 
 		void generateTrajectory();
 
