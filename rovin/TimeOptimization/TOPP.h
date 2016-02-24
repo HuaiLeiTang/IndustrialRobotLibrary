@@ -3,6 +3,7 @@
 #include <rovin\Dynamics\SerialOpenChain.h>
 #include <rovin\Math\Interpolation.h>
 #include <rovin\Optimizer\NonlinearOptimization.h>
+#include <rovin\Math\GaussianQuadrature.h>
 
 #include <list>
 
@@ -13,7 +14,7 @@ namespace rovin {
 
 	class TOPP
 	{
-	private:
+	public:
 		MatrixX _q_data;
 		
 		Spline _q;
@@ -41,7 +42,11 @@ namespace rovin {
 
 		unsigned int _dof;
 
-		NonlinearOptimization _nop;
+		//NonlinearOptimization _nop;
+
+		// TOPP Result
+		Real _tf_result;
+		std::vector<VectorX> _torque_result;
 
 	public:
 		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real ds, 
@@ -60,6 +65,9 @@ namespace rovin {
 		
 		bool findNearestSwitchPoint(Real s);
 		Real calulateMVCPoint(Real s);
+
+		void calculateFinalTime();
+		void calculateTorqueTrajectory();
 
 		void generateTrajectory();
 	};

@@ -66,24 +66,27 @@ int main()
 	a.push_back(1);
 	a.push_back(2);
 	a.push_back(3);
+	
 
-	list<int>::iterator it = a.end();
+	list<int>::reverse_iterator it = a.rend();
+	it++;
+	cout << *(++it) << endl;
 
-	list<int> b;
-	b.push_front(100);
-	b.push_front(200);
-	b.push_front(300);
+	//list<int> b;
+	//b.push_front(100);
+	//b.push_front(200);
+	//b.push_front(300);
 
-	it = b.begin();
+	//it = b.begin();
 
 	//a.merge(b);
 
-	while (!a.empty())
-	{
-		cout << a.front() << endl;
-		a.pop_front();
-	}
-	cout << "End" << endl;
+	//while (!a.empty())
+	//{
+	//	cout << a.front() << endl;
+	//	a.pop_front();
+	//}
+	//cout << "End" << endl;
 	cout << "Size : " << a.size() << endl;
 
 	_getch();

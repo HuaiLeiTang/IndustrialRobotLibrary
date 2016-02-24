@@ -163,6 +163,41 @@ namespace rovin {
 		return sdot_MVC;
 	}
 
+	void TOPP::calculateFinalTime()
+	{
+		int integrateType = 1; // 1 : GQ, 2 : Euler
+
+		if (integrateType == 1)
+		{
+			// Spline 만들고 다시 짜야징!
+			// TODO
+			GaussianQuadrature GQ(30, _si, _sf);
+
+		}
+		else if (integrateType == 2)
+		{
+			Real sum = 0;
+			Real s_cur;
+			while (_s.empty())
+			{
+				s_cur = _s.front();
+				_s.pop_front();
+				if (!_s.empty())
+					sum += 1 / (_sdot.front()) * (_s.front() - s_cur);
+				else
+					sum += 1 / (_sdot.front()) * (_sf - s_cur);
+				_sdot.front();
+			}
+			_tf_result = sum;
+		}
+		
+	}
+
+	void TOPP::calculateTorqueTrajectory()
+	{
+		// TODO
+	}
+
 	Vector2& TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
 		VectorX a = calculateA(s);
@@ -267,11 +302,16 @@ namespace rovin {
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
 
+		// list used when backward integration
+		std::list<Real> _s_tmp;
+		std::list<Real> _sdot_tmp;
+
 		bool FI_SW = true; ///< forward integration switch
 		bool BI_SW = false; ///< backward integration switch
 		bool I_SW = true; ///< integration switch
 
 		bool swiPoint_swi;
+		unsigned int numOfSPInt = 1;
 		
 		while (I_SW)
 		{
@@ -289,50 +329,62 @@ namespace rovin {
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				beta_cur = alphabeta(1);
 
-				if (!checkMVCCondition(alpha_cur, beta_cur)) // go to backward integration
+				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
-					FI_SW = false;
-					BI_SW = true;
-
 					// fine nearest switch point
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
-					s_cur = _switchPoint[_switchPoint.size() - 1]._s;
-					sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
-
 					// if swtich point doesn't exist until s_end --> go to step 3
-					if (swiPoint_swi)
+					if (!swiPoint_swi)
 					{
 						//std::cout << "Can not find switching point." << std::endl;
 						FI_SW = false;
 						BI_SW = false;
 						I_SW = false;
 					}
-				}
-				else if (sdot_cur < 1e-10) ///< Debugging 요소
-				{
-					FI_SW = false;
-					BI_SW = false;
+					else // if switch point exist --> go to backward integration
+					{
 
+						s_cur = _switchPoint[_switchPoint.size() - 1]._s;
+						sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
+
+						_s_tmp.push_front(s_cur);
+						_sdot_tmp.push_front(sdot_cur);
+
+						if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+						{
+							Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+							for (int i = 0; i < numOfSPInt; i++)
+							{
+								s_cur -= _ds;
+								sdot_cur -= -lambda * _ds / s_cur;
+								_s_tmp.push_front(s_cur);
+								_sdot_tmp.push_front(sdot_cur);
+							}
+						}
+						FI_SW = false;
+						BI_SW = true;
+					}
+					
 				}
-				else if ((_sf - s_cur) < _ds) ///< go to step 3
+				else if (s_cur > _sf) ///< go to step 3, case (a), s_cur 가 무조건 s_end 넘어갔을 때!!
 				{
 					FI_SW = false;
 					BI_SW = false;
 					I_SW = false;
 				}
+				else if (sdot_cur < 1e-10) ///< Debugging 요소, case (a)
+				{
+					FI_SW = false;
+					BI_SW = false;
+
+				}
+				
 			}
 
 			// Backward intergration
 			while (BI_SW)
 			{
-				std::list<Real> _s_tmp;
-				std::list<Real> _sdot_tmp;
-
-				// save trajectory points
-				_s_tmp.push_front(s_cur);
-				_sdot_tmp.push_front(sdot_cur);
-
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
@@ -340,20 +392,122 @@ namespace rovin {
 				// backward integration
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 
+				// save trajectory points
+				_s_tmp.push_front(s_cur);
+				_sdot_tmp.push_front(sdot_cur);
+
 				if (s_cur <= _s.back())
 				{
+					_s_tmp.pop_front();
+					_sdot_tmp.pop_front();
+
+					sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 					s_cur = _s.back();
+
+					LOGIF(_sdot.back() > sdot_cur,"Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+
+					_s_tmp.push_front(s_cur);
+					_sdot_tmp.push_front(sdot_cur);
+
+					while (_sdot.back() > sdot_cur)
+					{
+						_s.pop_back();
+						_sdot.pop_back();
+						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+						alpha_cur = alphabeta(0);
+
+						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
+						_s_tmp.push_front(s_cur);
+						_sdot_tmp.push_front(sdot_cur);
+					}
+					_s_tmp.pop_front();
+					_sdot_tmp.pop_front();
+
+					// switching point 저장 할 필요 없나요??
+
+					_s.merge(_s_tmp);
+					_sdot.merge(_sdot_tmp);
+
+					_s_tmp.clear();
+					_sdot_tmp.clear();
+
+					FI_SW = true;
+					BI_SW = false;
 				}
-				
-
 			}
-
 		}
 
-		// Step 3
-		
+		// Step 3 : there exist two cases.
+		s_cur = _sf;
+		sdot_cur = _vf / _dqds(_sf).norm();
 
+		_s_tmp.push_front(s_cur);
+		_sdot_tmp.push_front(sdot_cur);
 
+		if (!swiPoint_swi) // case 1. when can't find switching point until final s
+		{
+			LOGIF(_sdot.back() > sdot_cur, "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
+			
+			while (s_cur <= _s.back())
+			{
+				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+				alpha_cur = alphabeta(0);
+				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+				_s_tmp.push_front(s_cur);
+				_sdot_tmp.push_front(sdot_cur);
+			}
 
+			_s_tmp.pop_front();
+			_sdot_tmp.pop_front();
+
+			sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
+			s_cur = _s.back();
+
+			LOGIF(_sdot.back() > sdot_cur, "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+		}
+		else // case 2. when forward integration reach final s
+		{
+			LOGIF(_sdot.back() > sdot_cur, "step 3 error(swiPoint_swi) : s_end has to be smaller than _sdot.back().");
+
+			_s.pop_back();
+			_sdot.pop_back();
+
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0);
+
+			Real delta = std::abs((s_cur-_s.back()));
+			Real tmp = -2 * alpha_cur*delta + sdot_cur*sdot_cur;
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+
+			s_cur -= delta;
+			sdot_cur = sqrt(tmp);
+		}
+		_s_tmp.push_front(s_cur);
+		_sdot_tmp.push_front(sdot_cur);
+
+		while (_sdot.back() > sdot_cur)
+		{
+			_s.pop_back();
+			_sdot.pop_back();
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0);
+			backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+			_s_tmp.push_front(s_cur);
+			_sdot_tmp.push_front(sdot_cur);
+		}
+
+		_s_tmp.pop_front();
+		_sdot_tmp.pop_front();
+		// switching point 저장 할 필요 없나요??
+		_s.merge(_s_tmp);
+		_sdot.merge(_sdot_tmp);
+		_s_tmp.clear();
+		_sdot_tmp.clear();
+		_s.pop_back();
+		_sdot.pop_back();
+
+		// calculate tf and torque trajectory
+		calculateFinalTime();
+		calculateTorqueTrajectory();
 	}
 }
