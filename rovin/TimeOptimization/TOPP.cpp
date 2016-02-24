@@ -121,7 +121,7 @@ namespace rovin {
 		return result;
 	}
 
-	Real TOPP::calulateMVCPoint(Real s)
+	Real TOPP::calculateMVCPoint(Real s)
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
@@ -135,9 +135,9 @@ namespace rovin {
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
 
-		LOGIF(((a.size()==b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
 
-		int nconstraints = _dof * 2;
+			int nconstraints = _dof * 2;
 
 		for (int k = 0; k < nconstraints; k++)
 		{
@@ -159,9 +159,58 @@ namespace rovin {
 				}
 			}
 		}
-			
+
 		return sdot_MVC;
 	}
+
+	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
+	{
+
+		Real sdot_MVC = std::numeric_limits<Real>::max();
+
+		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		if (alphabeta[0] > alphabeta[1])
+			return 0;
+
+
+		VectorX a = calculateA(s);
+		std::vector<VectorX> BandC = calculateBandC(s);
+		VectorX b = BandC[0];
+		VectorX c = BandC[1];
+
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
+
+			int nconstraints = _dof * 2;
+
+		for (int k = 0; k < nconstraints; k++)
+		{
+			for (int m = k + 1; m < nconstraints; m++)
+			{
+				// exclude iExclude-th inequality constraint
+				if (k == iExclude || m == iExclude) {
+					continue;
+				}
+
+				Real num, denum, r;
+
+				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
+				if (a(k)*a(m) < 0)
+				{
+					num = a(k) * c(m) - a(m) * c(k);
+					denum = -a(k) * b(m) + a(m) * b(k);
+					if (std::abs(denum) > 1e-10)
+					{
+						r = num / denum;
+						if (r >= 0)
+							sdot_MVC = std::min(sdot_MVC, sqrt(r));
+					}
+				}
+			}
+		}
+
+		return sdot_MVC;
+	}
+
 
 	Vector2& TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
@@ -250,9 +299,138 @@ namespace rovin {
 
 	bool TOPP::findNearestSwitchPoint(Real s)
 	{
-		//
-		// TODO: 여기에 반환 구문을 삽입합니다
-		return true;
+
+		Real ds = 0.01;
+
+		Real s_bef = s;
+		Real sdot_bef = calculateMVCPoint(s_bef);
+		Real s_cur = s + ds;
+		Real sdot_cur = calculateMVCPoint(s_cur);
+		Real s_next = s + 2 * ds;
+		Real sdot_next = calculateMVCPoint(s_next);
+
+		// 원래 topp 코드에는 tan_bef/tan_cur 로 discontinous 포인트 추가하는데 그거 이해 안감
+		// 안넣어도 될것같은데 그럴거면 tan_bef/tan_cur 따로 구할 필요 없음
+		//Real tan_bef = (sdot_cur - sdot_bef) / ds;
+		//Real tan_cur = (sdot_next - sdot_cur) / ds;
+		Real diff_bef = determineAlphaBeta(s_bef, sdot_bef)[0] / sdot_bef - (sdot_cur - sdot_bef) / ds;
+		Real diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
+
+		VectorX a_bef = calculateA(s_bef);
+		VectorX a_cur = calculateA(s_cur);
+		std::vector<VectorX> bc_cur = calculateBandC(s_cur);
+
+
+		// end criterion
+		// TODO: check!
+		if (s_next >= _sf)
+			return false;
+
+
+		while (true)
+		{
+			// 원래 코드는 singular -> tangent -> discontinuity 순서임... 왜지... 왜그런거지...
+			// step 0: check whether a_k(s) is zero or not
+
+
+			// step 1: discontinuous point check
+			if (std::abs(sdot_next - sdot_cur) > 100 * std::abs(sdot_cur - sdot_bef))
+			{
+				if (sdot_next > sdot_cur)
+				{
+					SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::DISCONTIUOUS, 0.0);
+					_switchPoint.push_back(sw);
+					return true;
+				}
+				else
+				{
+					SwitchPoint sw(s_next, sdot_next, SwitchPoint::DISCONTIUOUS, 0.0);
+					_switchPoint.push_back(sw);
+					return true;
+				}
+			}
+			// step 1 -END-
+
+
+			// step 2: singular point check
+			// include calculating \lambda
+			for (unsigned int i = 0; i < 2 * _dof; i++) // number of inequality
+			{
+				if (a_bef[i] * a_cur[i] <= 0)
+				{
+					// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
+					// 여기 말고 위아래 step 1, 3에도 비슷한 알고리즘 필요할듯
+					Real f = bc_cur[1][i] / bc_cur[0][i]; // \frac{c}{b}
+					if (f < 0)
+					{
+						Real sdot_star = sqrt(-f);
+						Real sdot_plus = calculateMVCPointExclude(s_cur, i);
+						if (sdot_plus <= 0 && sdot_star < sdot_plus) // 첫번째 조건....
+						{
+							// calculate lambda
+							Real diffeps = 1E-5;
+							Real ap, bp, cp; // p for prime, differentiated to s
+							ap = (calculateA(s_cur + diffeps)[i] - a_cur[i]) / diffeps;
+							std::vector<VectorX> tmpbc = calculateBandC(s_cur + diffeps);
+							bp = (tmpbc[0][i] - bc_cur[0][i]) / diffeps;
+							cp = (tmpbc[1][i] - bc_cur[1][i]) / diffeps;
+
+							Real lambda;
+
+							if ((2 * bc_cur[0][i] + ap)*sdot_cur > 1E-10)
+								lambda = (-bp*sdot_cur*sdot_cur - cp) / ((2 * bc_cur[0][i] + ap)*sdot_cur);
+							else
+								lambda = 0.0; // 이렇게 되면 어떡하징.. 원래 코드가 왜이렇지 흠 이거 들어오기는 할까..
+
+							SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::SINGULAR, lambda);
+							_switchPoint.push_back(sw);
+							return true;
+						}
+					}
+
+				}
+			}
+
+
+
+
+			// step 3: tanget point check
+			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
+			{
+				SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);
+				_switchPoint.push_back(sw);
+				return true;
+			}
+			// step 3 -END-
+
+
+
+
+
+
+
+			// if any kinds of switch point is not detected, proceed to next s
+			s_bef = s_cur;
+			sdot_bef = sdot_cur;
+			s_cur = s_next;
+			sdot_cur = sdot_next;
+			s_next += ds;
+			sdot_next = calculateMVCPoint(s_next);
+
+			//tan_bef = tan_cur;
+			//tan_cur = (sdot_next - sdot_cur) / ds;
+			diff_bef = diff_cur;
+			diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
+
+			a_bef = a_cur;
+			a_cur = calculateA(s_cur);
+			bc_cur = calculateBandC(s_cur);
+
+			// end criterion
+			if (s_next >= _sf)
+				return false;
+
+		}
 	}
 
 	void TOPP::generateTrajectory()

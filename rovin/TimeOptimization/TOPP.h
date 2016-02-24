@@ -59,7 +59,8 @@ namespace rovin {
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
 		
 		bool findNearestSwitchPoint(Real s);
-		Real calulateMVCPoint(Real s);
+		Real calculateMVCPoint(Real s);
+		Real calculateMVCPointExclude(Real s, int iExclude);
 
 		void generateTrajectory();
 	};
