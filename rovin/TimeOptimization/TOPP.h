@@ -17,9 +17,9 @@ namespace rovin {
 	public:
 		MatrixX _q_data;
 		
-		Spline _q;
-		Spline _dqds;
-		Spline _ddqdds;
+		BSpline<-1, -1, -1> _q;
+		BSpline<-1, -1, -1> _dqds;
+		BSpline<-1, -1, -1> _ddqdds;
 
 		Real _vi;
 		Real _vf;

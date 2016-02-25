@@ -23,8 +23,8 @@ namespace rovin {
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitAccLower();
 		}
 
-		// make spline
-		_q = Spline(_q_data, _si, _sf);
+		// make b-spline
+		_q = BSpline<-1, -1, -1>();
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
 
