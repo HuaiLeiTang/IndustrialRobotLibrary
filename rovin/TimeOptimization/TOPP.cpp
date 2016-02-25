@@ -24,6 +24,12 @@ namespace rovin {
 		}
 
 		// make b-spline
+		VectorX knot;
+		unsigned int degreeOfBSpline = 4;
+		unsigned int numOfCP;
+
+		LOGIF(degreeOfBSpline + numOfCP + 6 > 2 * degreeOfBSpline, "The number of control points is not enough.");
+
 		_q = BSpline<-1, -1, -1>();
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();

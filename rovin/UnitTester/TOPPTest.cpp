@@ -10,8 +10,8 @@ using namespace rovin;
 
 int main()
 {	
-	efortRobot robot;
-	StatePtr state = robot.makeState();
+	SerialOpenChainPtr robot(new efortRobot());
+	StatePtr state = robot->makeState();
 
 	// data 
 	ifstream input("trajectory.txt");
@@ -48,6 +48,13 @@ int main()
 		q_data(6, j) = q(299, j);
 
 	// Time optimization
+	Real ds = 1e-3;
+	Real vi = 0;
+	Real vf = 0;
+	Real si = 0;
+	Real sf = 0;
+
+	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
 
 
 	_getch();
