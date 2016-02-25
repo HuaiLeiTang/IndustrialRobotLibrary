@@ -49,35 +49,28 @@ public:
 
 int main()
 {
-	//NonlinearOptimization nop;
-	//VectorX initX(2);
+	NonlinearOptimization nop;
+	VectorX initX(2);
 
-	//initX.setRandom();
+	initX.setRandom();
 
-	//nop.setObjectiveFunction(FunctionPtr(new TestObjFunction));
-	//nop.setEqualityConstraint(FunctionPtr(new TestEqFunction));
-	//nop.setInequalityConstraint(FunctionPtr(new TestIneqFunction));
-	//nop.solve(initX);
+	nop.setObjectiveFunction(FunctionPtr(new TestObjFunction));
+	nop.setEqualityConstraint(FunctionPtr(new TestEqFunction));
+	nop.setInequalityConstraint(FunctionPtr(new TestIneqFunction));
+	nop.solve(initX);
 
-	//cout << nop.resultX << endl;
-	//cout << "f(x) = " << nop.resultFunc << endl;
+	cout << nop.resultX << endl;
+	cout << "f(x) = " << nop.resultFunc << endl;
 
-	list<int> a;
-	a.push_back(1);
-	a.push_back(2);
-	a.push_back(3);
-	
-
-	list<int>::reverse_iterator it = a.rend();
-	it++;
-	cout << *(++it) << endl;
+	//list<int> a;
+	//a.push_back(1);
+	//a.push_back(2);
+	//a.push_back(3);
 
 	//list<int> b;
 	//b.push_front(100);
 	//b.push_front(200);
 	//b.push_front(300);
-
-	//it = b.begin();
 
 	//a.merge(b);
 
@@ -87,7 +80,7 @@ int main()
 	//	a.pop_front();
 	//}
 	//cout << "End" << endl;
-	cout << "Size : " << a.size() << endl;
+	//cout << "Size : " << a.size() << endl;
 
 	_getch();
 
