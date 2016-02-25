@@ -13,6 +13,7 @@ int main()
 	efortRobot robot;
 	StatePtr state = robot.makeState();
 
+	// data 
 	ifstream input("trajectory.txt");
 	if (input.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
@@ -39,14 +40,14 @@ int main()
 	
 	trajectory.close();
 
-	MatrixX q_data(6, dof);
+	MatrixX q_data(7, dof);
 	for (int i = 0; i < 6; i++)
-	{
 		for (int j = 0; j < dof; j++)
-		{
 			q_data(i, j) = q(50*i, j);
-		}
-	}
+	for (int j = 0; j < dof; j++)
+		q_data(6, j) = q(299, j);
+
+	// Time optimization
 
 
 	_getch();

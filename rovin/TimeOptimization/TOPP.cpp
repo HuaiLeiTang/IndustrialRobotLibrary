@@ -425,9 +425,6 @@ namespace rovin {
 				}
 			}
 
-
-
-
 			// step 3: tanget point check
 			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
 			{
