@@ -428,6 +428,12 @@ namespace rovin {
 		Real s_next = s + 2 * ds;
 		Real sdot_next = calculateMVCPoint(s_next);
 
+
+		// end criterion
+		if (s_next >= _sf)
+			return false;
+
+
 		// 원래 topp 코드에는 tan_bef/tan_cur 로 discontinous 포인트 추가하는데 그거 이해 안감
 		// 안넣어도 될것같은데 그럴거면 tan_bef/tan_cur 따로 구할 필요 없음
 		//Real tan_bef = (sdot_cur - sdot_bef) / ds;
@@ -436,23 +442,88 @@ namespace rovin {
 		Real diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
 
 		VectorX a_bef = calculateA(s_bef);
+		std::vector<VectorX> bc_bef = calculateBandC(s_bef);
 		VectorX a_cur = calculateA(s_cur);
 		std::vector<VectorX> bc_cur = calculateBandC(s_cur);
 
 
-		// end criterion
-		// TODO: check!
-		if (s_next >= _sf)
-			return false;
 
 
 		while (true)
 		{
-			// 원래 코드는 singular -> tangent -> discontinuity 순서임... 왜지... 왜그런거지...
-			// step 0: check whether a_k(s) is zero or not
+			
+			// step 1: singular point check
+			// include calculating \lambda
+			for (unsigned int i = 0; i < 2 * _dof; i++) // number of inequality
+			{
+				if (a_bef[i] * a_cur[i] <= 0)
+				{
+					// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
+					// 여기 말고 위아래 step 2, 3에도 비슷한 알고리즘 필요할듯
+					Real adiff = a_cur[i] - a_bef[i];
+					Real s_sing, a_sing, b_sing, c_sing; // variables for finding singular points
+					if (std::abs(adiff) > 1E-10)
+					{
+						// calculate '_sing' variables as internal dividing points
+						// abc도 선형보간으로?? 새로 구한 s_sing 에서 구하는게 아니고??
+						Real tmpalpha = -a_bef[i] / adiff;
+						s_sing = tmpalpha*s_cur + (1 - tmpalpha)*s_bef;
+						a_sing = tmpalpha*a_cur[i] + (1 - tmpalpha)*a_bef[i];
+						b_sing = tmpalpha*bc_cur[0][i] + (1 - tmpalpha)*bc_bef[0][i];
+						c_sing = tmpalpha*bc_cur[1][i] + (1 - tmpalpha)*bc_bef[1][i];
+					}
+					else
+					{
+						s_sing = s_cur;
+						a_sing = a_cur[i];
+						b_sing = bc_cur[0][i];
+						c_sing = bc_cur[1][i];
+					}
+
+					Real f = c_sing / b_sing; // \frac{c}{b}
+					if (f < 0)
+					{
+						Real sdot_star = sqrt(-f);
+						Real sdot_plus = calculateMVCPointExclude(s_sing, i);
+						Real sdot_sing = calculateMVCPoint(s_sing);
+						if (sdot_plus <= 0 && sdot_star < sdot_plus) // why sdot_plus should be smaller than 0??
+						{
+							// calculate lambda
+							Real diffeps = 1E-5;
+							Real ap, bp, cp; // p for prime, differentiated to s
+							ap = (calculateA(s_sing + diffeps)[i] - calculateA(s_sing)[i]) / diffeps;
+							std::vector<VectorX> tmpbc = calculateBandC(s_sing);
+							std::vector<VectorX> tmpbc_eps = calculateBandC(s_sing + diffeps);
+							bp = (tmpbc_eps[0][i] - tmpbc[0][i]) / diffeps;
+							cp = (tmpbc_eps[1][i] - tmpbc[1][i]) / diffeps;
+
+							Real lambda;
+
+							if ((2 * b_sing + ap)*sdot_sing > 1E-10)
+								lambda = (-bp*sdot_sing*sdot_sing - cp) / ((2 * b_sing + ap)*sdot_sing);
+							else
+								lambda = 0.0; // 이렇게 되면 어떡하징.. 원래 코드가 왜이렇지 흠 이거 들어오기는 할까..
+
+							SwitchPoint sw(s_sing, sdot_sing, SwitchPoint::SINGULAR, lambda);
+							_switchPoint.push_back(sw);
+							return true;
+						}
+					}
+				}
+			}
 
 
-			// step 1: discontinuous point check
+			// step 2: tanget point check
+			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
+			{
+				SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);
+				_switchPoint.push_back(sw);
+				return true;
+			}
+			// step 2 -END-
+
+
+			// step 3: discontinuous point check
 			if (std::abs(sdot_next - sdot_cur) > 100 * std::abs(sdot_cur - sdot_bef))
 			{
 				if (sdot_next > sdot_cur)
@@ -468,57 +539,7 @@ namespace rovin {
 					return true;
 				}
 			}
-			// step 1 -END-
-
-
-			// step 2: singular point check
-			// include calculating \lambda
-			for (unsigned int i = 0; i < 2 * _dof; i++) // number of inequality
-			{
-				if (a_bef[i] * a_cur[i] <= 0)
-				{
-					// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
-					// 여기 말고 위아래 step 1, 3에도 비슷한 알고리즘 필요할듯
-					Real f = bc_cur[1][i] / bc_cur[0][i]; // \frac{c}{b}
-					if (f < 0)
-					{
-						Real sdot_star = sqrt(-f);
-						Real sdot_plus = calculateMVCPointExclude(s_cur, i);
-						if (sdot_plus <= 0 && sdot_star < sdot_plus) // 첫번째 조건....
-						{
-							// calculate lambda
-							Real diffeps = 1E-5;
-							Real ap, bp, cp; // p for prime, differentiated to s
-							ap = (calculateA(s_cur + diffeps)[i] - a_cur[i]) / diffeps;
-							std::vector<VectorX> tmpbc = calculateBandC(s_cur + diffeps);
-							bp = (tmpbc[0][i] - bc_cur[0][i]) / diffeps;
-							cp = (tmpbc[1][i] - bc_cur[1][i]) / diffeps;
-
-							Real lambda;
-
-							if ((2 * bc_cur[0][i] + ap)*sdot_cur > 1E-10)
-								lambda = (-bp*sdot_cur*sdot_cur - cp) / ((2 * bc_cur[0][i] + ap)*sdot_cur);
-							else
-								lambda = 0.0; // 이렇게 되면 어떡하징.. 원래 코드가 왜이렇지 흠 이거 들어오기는 할까..
-
-							SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::SINGULAR, lambda);
-							_switchPoint.push_back(sw);
-							return true;
-						}
-					}
-				}
-			}
-
-			// step 3: tanget point check
-			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
-			{
-				SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);
-				_switchPoint.push_back(sw);
-				return true;
-			}
 			// step 3 -END-
-
-
 
 
 
@@ -538,6 +559,7 @@ namespace rovin {
 			diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
 
 			a_bef = a_cur;
+			bc_bef = bc_cur;
 			a_cur = calculateA(s_cur);
 			bc_cur = calculateBandC(s_cur);
 
