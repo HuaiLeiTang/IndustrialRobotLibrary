@@ -10,8 +10,8 @@ using namespace rovin;
 
 int main()
 {	
-	efortRobot robot;
-	StatePtr state = robot.makeState();
+	SerialOpenChainPtr robot(new efortRobot());
+	StatePtr state = robot->makeState();
 
 	// data 
 	ifstream input("trajectory.txt");
@@ -40,15 +40,29 @@ int main()
 	
 	trajectory.close();
 
-	MatrixX q_data(7, dof);
-	for (int i = 0; i < 6; i++)
+	MatrixX q_data(dof, 7);
+	for (int i = 0; i < 7; i++)
 		for (int j = 0; j < dof; j++)
-			q_data(i, j) = q(50*i, j);
-	for (int j = 0; j < dof; j++)
-		q_data(6, j) = q(299, j);
+			q_data(j, i) = q(80*i, j);
 
 	// Time optimization
+	Real ds = 1e-3;
+	Real vi = 0;
+	Real vf = 0;
+	Real si = 0;
+	Real sf = 1;
 
+	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
+	
+	// torque constraint value certification
+	cout << topp._torqueConstraint << endl;
+
+	// MVCPoint function certification
+	std::vector<Real> s_MVC;
+	std::vector<Real> sdot_MVC;
+
+	// generate trajectory
+	topp.generateTrajectory();
 
 	_getch();
 	return 0;
