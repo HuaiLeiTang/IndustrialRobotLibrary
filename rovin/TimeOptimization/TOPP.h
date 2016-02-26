@@ -7,6 +7,9 @@
 
 #include <list>
 
+//// temp
+#include <fstream>
+
 namespace rovin {
 
 	class TOPP;
@@ -70,6 +73,22 @@ namespace rovin {
 		void calculateTorqueTrajectory();
 
 		void generateTrajectory();
+
+
+	public:
+		// test for MVC curve and switching point
+		void calcMVC();
+		void calcSPs();
+		void saveRealVector2txt(std::vector<Real> in, std::string filename);
+		void saveMVCandSP2txt();
+
+		std::vector<Real> s_MVC_jk;
+		std::vector<Real> sd_MVC_jk;
+		std::vector<Real> s_SW_jk;
+		std::vector<Real> sd_SW_jk;
+
+		std::vector<Real> s_FI_jk;
+		std::vector<Real> sd_FI_jk;
 	};
 
 	class SwitchPoint

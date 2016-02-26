@@ -138,8 +138,8 @@ public:
 		taumin = -taumax;
 		for (unsigned int i = 0; i < 6; i++)
 		{
-			getMotorJointPtr(i)->setDamperConstant(kv(i));
-			getMotorJointPtr(i)->setCoulombFrictionConstant(kc(i));
+			//getMotorJointPtr(i)->setDamperConstant(kv(i));
+			//getMotorJointPtr(i)->setCoulombFrictionConstant(kc(i));
 			getMotorJointPtr(i)->setLimitPos(qmin(i), qmax(i));
 			getMotorJointPtr(i)->setLimitVel(qdotmin(i), qdotmax(i));
 			getMotorJointPtr(i)->setLimitAcc(qddotmin(i), qddotmax(i));

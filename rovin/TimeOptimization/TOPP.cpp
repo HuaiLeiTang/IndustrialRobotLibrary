@@ -27,8 +27,8 @@ namespace rovin {
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
 		}
 
-		cout << "torque constraint : " << endl;
-		cout << _torqueConstraint << endl;
+		//cout << "torque constraint : " << endl;
+		//cout << _torqueConstraint << endl;
 
 		// make b-spline
 		//unsigned int degreeOfBSpline = 3;
@@ -192,24 +192,99 @@ namespace rovin {
 		result.push_back(b);
 		result.push_back(c);
 
-		cout << "b : " << b << endl;
-		cout << "c : " << c << endl;
-		cout << "b+c : " << b + c << endl;
+		//cout << "b : " << b << endl;
+		//cout << "c : " << c << endl;
+		//cout << "b+c : " << b + c << endl;
 
 		return result;
+	}
+
+	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
+	{
+		VectorX a = calculateA(s);
+		//cout << "a : " << a << endl;
+
+		// zero-inertia point check
+		bool zero_inertia_swi = false;
+		for (int i = 0; i < a.size(); i++)
+		{
+			//cout << a[i] << endl;
+			if (std::abs(a[i]) < RealEps)
+			{
+				zero_inertia_swi = true;
+				break;
+			}
+		}
+
+		//if (!checkDynamicSingularity(a))
+		if (!zero_inertia_swi)
+		{
+			VectorX q = _q(s);
+			VectorX qdot = _dqds(s)*sdot;
+			VectorX qddot = _ddqdds(s)*sdot*sdot;
+			StatePtr state = _soc->makeState();
+
+			state->setJointStatePos(q);
+			state->setJointStateVel(qdot);
+			state->setJointStateAcc(qddot);
+
+			_soc->solveInverseDynamics(*state);
+
+			VectorX tau = state->getJointStateTorque();
+			//cout << "tau : " << tau << endl;
+			VectorX left_vec(_dof * 2);
+			for (int i = 0; i < _dof; i++)
+			{
+				left_vec(i) = -tau(i) + _torqueConstraint(i);
+				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
+				//a_agg[i] = a[i];
+				//a_agg[i + _dof] = a[i];
+			}
+
+			//cout << "a : " << a << endl;
+			//cout << "left_vec(b*sdot^(2) + c) : " << left_vec << endl;
+
+			Vector2 result; // result[0] is alpha, result[1] is beta
+			result[0] = -std::numeric_limits<Real>::max();
+			result[1] = std::numeric_limits<Real>::max();
+
+			for (int i = 0; i < _dof * 2; i++)
+			{
+				Real tmp = left_vec(i) / a(i);
+				if (a[i] > 0) // upper bound beta
+				{
+					if (tmp < result[1])
+						result[1] = tmp;
+				}
+				else // lower bound alpha
+				{
+					if (tmp > result[0])
+						result[0] = tmp;
+				}
+			}
+
+			//cout << "result : " << result << endl;
+
+			return result;
+		}
+		else // Dynamic  singularity
+		{
+			// TODO
+			return Vector2();
+		}
 	}
 
 	Real TOPP::calculateMVCPoint(Real s)
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
-		Vector2 alphabeta = determineAlphaBeta(s, 0);
-		if (alphabeta[0] > alphabeta[1])
-			return 0;
+		//Vector2 alphabeta = determineAlphaBeta(s, 0);
+		//if (alphabeta[0] > alphabeta[1])
+		//	return 0;
 
 		VectorX a = calculateA(s);
-		cout << endl;
-		cout << "a : " << a << endl;
+		//cout << endl;
+		//cout << "a : " << a << endl;
 
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0];
@@ -247,15 +322,21 @@ namespace rovin {
 				}
 			}
 		}
-		cout << "kk : " << kk << endl;
-		cout << "mm : " << mm << endl;
-		cout << "a(kk) : " << a(kk) << endl;
-		cout << "a(mm) : " << a(mm) << endl;
-		cout << "b(kk) : " << b(kk) << endl;
-		cout << "b(mm) : " << b(mm) << endl;
-		cout << "c(kk) : " << c(kk) << endl;
-		cout << "c(mm) : " << c(mm) << endl;
 
+		//cout << "b : " << b << endl;
+		//cout << "c : " << c << endl;
+		//cout << "b*sdot^(2) + c : " << b*sdot_MVC*sdot_MVC + c << endl;
+
+		//cout << "kk : " << kk << endl;
+		//cout << "mm : " << mm << endl;
+		//cout << "a(kk) : " << a(kk) << endl;
+		//cout << "a(mm) : " << a(mm) << endl;
+		//cout << "b(kk) : " << b(kk) << endl;
+		//cout << "b(mm) : " << b(mm) << endl;
+		//cout << "c(kk) : " << c(kk) << endl;
+		//cout << "c(mm) : " << c(mm) << endl;
+
+		//cout << "sdot result : " << sdot_MVC << endl;
 		return sdot_MVC;
 	}
 
@@ -372,81 +453,6 @@ namespace rovin {
 		}
 
 		return sdot_MVC;
-	}
-
-	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
-	{
-		VectorX a = calculateA(s);
-		//cout << "a : " << a << endl;
-
-		// zero-inertia point check
-		bool zero_inertia_swi = false;
-		for (int i = 0; i < a.size(); i++)
-		{
-			//cout << a[i] << endl;
-			if (std::abs(a[i]) < RealEps)
-			{
-				zero_inertia_swi = true;
-				break;
-			}
-		}
-
-		//if (!checkDynamicSingularity(a))
-		if(!zero_inertia_swi)
-		{
-			VectorX q = _q(s);
-			VectorX qdot = _dqds(s)*sdot;
-			VectorX qddot = _ddqdds(s)*sdot*sdot;
-			StatePtr state = _soc->makeState();
-
-			state->setJointStatePos(q);
-			state->setJointStateVel(qdot);
-			state->setJointStateAcc(qddot);
-
-			_soc->solveInverseDynamics(*state);
-			
-			VectorX tau = state->getJointStateTorque();
-			//cout << "tau : " << tau << endl;
-			VectorX left_vec(_dof * 2);
-			for (int i = 0; i < _dof; i++)
-			{
-				left_vec(i) = -tau(i) + _torqueConstraint(i);
-				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
-				//a_agg[i] = a[i];
-				//a_agg[i + _dof] = a[i];
-			}
-
-			cout << "a : " << a << endl;
-			cout << "left_vec : " << left_vec << endl;
-			
-			Vector2 result; // result[0] is alpha, result[1] is beta
-			result[0] = -std::numeric_limits<Real>::max();
-			result[1] = std::numeric_limits<Real>::max();
-
-			for (int i = 0; i < _dof * 2; i++)
-			{
-				Real tmp = left_vec(i) / a(i);
-				if (a[i] > 0) // upper bound beta
-				{
-					if (tmp < result[1])
-						result[1] = tmp;
-				}
-				else // lower bound alpha
-				{
-					if (tmp > result[0])
-						result[0] = tmp;
-				}
-			}
-
-			cout << "result : " << result << endl;
-
-			return result;
-		}
-		else // Dynamic  singularity
-		{
-			// TODO
-			return Vector2();
-		}
 	}
 
 	void TOPP::farwardIntegrate(Real & s, Real & sdot, Real sddot)
@@ -648,6 +654,9 @@ namespace rovin {
 			// Forward integration
 			while (FI_SW)
 			{
+				s_FI_jk.push_back(s_cur);
+				sd_FI_jk.push_back(sdot_cur);
+
 				//std::cout << "FI_SW" << endl;
 				//std::cout << "s_cur : " << s_cur << endl;
 				//std::cout << "sdot_cur : " << sdot_cur << endl;
@@ -660,14 +669,22 @@ namespace rovin {
 
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+				alpha_cur = alphabeta(0);
 				beta_cur = alphabeta(1);
 				//std::cout << "alpha_cur : " << alphabeta(0) << endl;
 				//std::cout << "beta_cur : " << alphabeta(1) << endl;
 
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
+					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+
 					// fine nearest switch point
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
+
+					//cout << "switching point" << endl;
+					//cout << swiPoint_swi << endl;
+					//cout << _switchPoint.size() << endl;
 
 					// if swtich point doesn't exist until s_end --> go to step 3
 					if (!swiPoint_swi)
@@ -863,5 +880,78 @@ namespace rovin {
 		calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
+	}
+
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+
+	void TOPP::calcMVC()
+	{
+		Real ds = 1E-3;
+		Real s = _si;
+		Real sdot;
+		while (true)
+		{
+			sdot = calculateMVCPoint(s);
+
+			s_MVC_jk.push_back(s);
+			sd_MVC_jk.push_back(sdot);
+
+			std::cout << s << std::endl;
+
+			s += ds;
+			if (s > _sf)
+				break;
+		}
+
+	}
+	void TOPP::calcSPs()
+	{
+		Real ds = 1E-3;
+		Real s = _si;
+		Real sd;
+		while (findNearestSwitchPoint(s))
+		{
+			std::cout << s << std::endl;
+
+			s = _switchPoint[_switchPoint.size() - 1]._s;
+			sd = _switchPoint[_switchPoint.size() - 1]._sdot;
+
+			s_SW_jk.push_back(s);
+			sd_SW_jk.push_back(sd);
+
+			s += ds;
+			if (s > _sf)
+				break;
+		}
+
+	}
+	void TOPP::saveRealVector2txt(std::vector<Real> in, std::string filename)
+	{
+		std::ofstream fout;
+		fout.open(filename);
+
+		for (unsigned int i = 0; i < in.size(); i++)
+			fout << in[i] << std::endl;
+
+		fout.close();
+
+	}
+
+
+	void TOPP::saveMVCandSP2txt()
+	{
+		calcMVC();
+		saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+		saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
+
+
+		//calcSPs();
+
+		//saveRealVector2txt(s_SW_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+		//saveRealVector2txt(sd_SW_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+
 	}
 }

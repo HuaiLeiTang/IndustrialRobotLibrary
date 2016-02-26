@@ -53,22 +53,110 @@ int main()
 	Real sf = 1;
 
 	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
-	
-	// torque constraint value certification
+
 	// cout << topp._torqueConstraint << endl;
 
-	// MVCPoint function certification
-	std::vector<Real> s_MVC;
-	std::vector<Real> sdot_MVC;
+	//topp.saveMVCandSP2txt();
 
 	// generate trajectory
-	//topp.generateTrajectory();
+	topp.generateTrajectory();
+	
 
-	Vector2 result1 = topp.determineAlphaBeta(0.23, 2.795);
+	/////////////////////////////////////////////////////// experiment
+	//cout << "determintAlphaBeta" << endl;
+	//Vector2 result1 = topp.determineAlphaBeta(0.23, 2.795);
+
+	//cout << endl;
+	//cout << "calculateBandC" << endl;
 	//std::vector<VectorX> result2 = topp.calculateBandC(0.23);
-	Real result2 = topp.calculateMVCPoint(0.23);
+
+	//cout << "result2[0]" << endl;
+	//cout << "result2[0] : " << result2[0].size() << endl;
+	//cout << result2[0] << endl;
+	//cout << "result2[1]" << endl;
+	//cout << "result2[1] : " << result2[1].size() << endl;
+	//cout << result2[1] << endl;
+
+	//cout << "result2[0] * 2.795*2.795 + result2[1]" << endl;
+	//cout << -result2[0] * 2.795*2.795 - result2[1] << endl;
+
+
+
+	//cout << endl;
+	//cout << "calculateMVCPoint" << endl;
+	//Real result2 = topp.calculateMVCPoint(0.23);
 	
 	//cout << topp._tf_result << endl;
+
+
+
+
+
+	//////////////////////////////////////////
+	//VectorX q(6), dq(6), ddq(6);
+	//q.setOnes();
+	//dq.setOnes();
+	//ddq.setOnes();
+	//state->setJointStatePos(q);
+	//state->setJointStateVel(dq);
+	//state->setJointStateAcc(ddq);
+	//robot->solveInverseDynamics(*state);
+	//VectorX MCg = state->getJointStateTorque();
+	//
+	//dq.setZero(); ddq.setZero();
+	//state->setJointStatePos(q);
+	//state->setJointStateVel(dq);
+	//state->setJointStateAcc(ddq);
+	//robot->solveInverseDynamics(*state);
+	//VectorX g = state->getJointStateTorque();
+
+	//dq.setOnes();
+	//state->setJointStatePos(q);
+	//state->setJointStateVel(dq);
+	//state->setJointStateAcc(ddq);
+	//robot->solveInverseDynamics(*state);
+	//VectorX Cg = state->getJointStateTorque();
+
+	//VectorX C = Cg - g;
+	//VectorX MC = MCg - g;
+
+	//Real s = 1.5;
+	//q.setOnes();
+	//dq.setOnes(); dq = dq * s;
+	//ddq.setOnes(); ddq = ddq * s *s;
+	//state->setJointStatePos(q);
+	//state->setJointStateVel(dq);
+	//state->setJointStateAcc(ddq);
+	//robot->solveInverseDynamics(*state);
+	//VectorX _MCg = state->getJointStateTorque();
+
+	//dq.setZero(); ddq.setZero();
+	//state->setJointStatePos(q);
+	//state->setJointStateVel(dq);
+	//state->setJointStateAcc(ddq);
+	//robot->solveInverseDynamics(*state);
+	//VectorX _g = state->getJointStateTorque();
+
+	//dq.setOnes();
+	//dq = dq*s;
+	//state->setJointStatePos(q);
+	//state->setJointStateVel(dq);
+	//state->setJointStateAcc(ddq);
+	//robot->solveInverseDynamics(*state);
+	//VectorX _Cg = state->getJointStateTorque();
+
+	//VectorX _C = _Cg - _g;
+	//VectorX _MC = _MCg - _g;
+	//
+	//cout << "MC" << endl;
+	//cout << MC*s*s << endl;
+	//cout << "_MC" << endl;
+	//cout << _MC << endl;
+
+	//cout << "g" << endl;
+	//cout << g << endl;
+	//cout << "_g" << endl;
+	//cout << _g << endl;
 
 	_getch();
 	return 0;
