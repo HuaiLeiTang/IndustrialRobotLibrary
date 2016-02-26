@@ -55,7 +55,7 @@ int main()
 	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
 	
 	// torque constraint value certification
-	cout << topp._torqueConstraint << endl;
+	// cout << topp._torqueConstraint << endl;
 
 	// MVCPoint function certification
 	std::vector<Real> s_MVC;
@@ -63,6 +63,8 @@ int main()
 
 	// generate trajectory
 	topp.generateTrajectory();
+
+	cout << topp._tf_result << endl;
 
 	_getch();
 	return 0;

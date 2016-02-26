@@ -1,5 +1,7 @@
 #include "TOPP.h"
 
+using namespace std;
+
 namespace rovin {
 
 	TOPP::TOPP(const MatrixX & q_data, const SerialOpenChainPtr & soc, 
@@ -37,7 +39,6 @@ namespace rovin {
 			knot[knot.size() - i - 1] = _sf;
 		}
 		Real delta = _sf / (numOfCP + 4 - degreeOfBSpline);
-		std::cout << "delta : " << delta << std::endl;
 		for (unsigned int i = 0; i < numOfCP + 4 - degreeOfBSpline; i++)
 		{
 			knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
@@ -59,9 +60,6 @@ namespace rovin {
 		data.col(10) = q_data.col(6);
 		data.col(9) = -delta / (degreeOfBSpline - 1)*qdot0 + data.col(10);
 		data.col(8) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(9) * (1 / (2 * delta) + 1 / delta) - data.col(10) / delta);
-		
-		std::cout << knot << std::endl;
-		std::cout << data << std::endl;
 
 		_q = BSpline<-1, -1, -1>(knot, data);
 		_dqds = _q.derivative();
@@ -83,7 +81,7 @@ namespace rovin {
 		return false;
 	}
 
-	VectorX& TOPP::calculateA(Real s)
+	VectorX TOPP::calculateA(Real s)
 	{
 		VectorX a(_dof * 2);
 		VectorX q = _q(s);
@@ -101,9 +99,7 @@ namespace rovin {
 		VectorX tau = state->getJointStateTorque();
 
 		qs.setZero();
-
 		state->setJointStateAcc(qs);
-
 		_soc->solveInverseDynamics(*state);
 
 		VectorX tmp_a = tau - state->getJointStateTorque();
@@ -114,10 +110,12 @@ namespace rovin {
 			a[i + _dof] = -tmp_a[i];
 		}
 
+		cout << "calculateA a : " << endl;
+		cout << a << endl;
 		return a;
 	}
 
-	std::vector<VectorX>& TOPP::calculateBandC(Real s)
+	std::vector<VectorX> TOPP::calculateBandC(Real s)
 	{
 		std::vector<VectorX> result;
 		VectorX b(_dof * 2);
@@ -168,16 +166,13 @@ namespace rovin {
 		if (alphabeta[0] > alphabeta[1])
 			return 0;
 
-
 		VectorX a = calculateA(s);
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
 
-		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
-
-			int nconstraints = _dof * 2;
-
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
+		int nconstraints = _dof * 2;
 		for (int k = 0; k < nconstraints; k++)
 		{
 			for (int m = k + 1; m < nconstraints; m++)
@@ -198,7 +193,6 @@ namespace rovin {
 				}
 			}
 		}
-
 		return sdot_MVC;
 	}
 
@@ -219,12 +213,16 @@ namespace rovin {
 				cnt++;
 			}
 
+			///////////////////////////// TODO /////////////////////////////
+
 			BSpline<-1, -1, -1> f;
-			VectorX sum(1);
-			sum(0) = 0;
+			VectorX sum = VectorX::Zero(1);
+			const VectorX& weights = GQ.getWeights();
+			const VectorX& QueryPoints = GQ.getQueryPoints();
+
 			for (int i = 0; i < numOfGQPoint; i++)
 			{
-				sum = sum + f(GQ.getQueryPoints()(i)).transpose()*GQ.getWeights()(i);
+				sum(0) += f(QueryPoints(i))(0,0) * weights(i);
 			}
 			_tf_result = sum(0);
 		}
@@ -249,19 +247,21 @@ namespace rovin {
 
 	void TOPP::calculateTorqueTrajectory()
 	{
-		VectorX tau(_dof), q(_dof), qdot(_dof), qddot(_dof);
-		std::list<Real>::iterator s_it = _s.begin();
-		std::list<Real>::iterator sdot_it = _sdot.begin();
-		for (int i = 0; i < _s.size(); i++)
-		{
-			q = _q(*(s_it));
-			qdot = (*(sdot_it))*_dqds(*(s_it));
-			
-			//TODO
+		//TODO
 
-			s_it++;
-			sdot_it++;
-		}
+		//VectorX tau(_dof), q(_dof), qdot(_dof), qddot(_dof);
+		//std::list<Real>::iterator s_it = _s.begin();
+		//std::list<Real>::iterator sdot_it = _sdot.begin();
+		//for (int i = 0; i < _s.size(); i++)
+		//{
+		//	q = _q(*(s_it));
+		//	qdot = (*(sdot_it))*_dqds(*(s_it));
+		//	
+		//	//TODO
+
+		//	s_it++;
+		//	sdot_it++;
+		//}
 	}
 
 	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
@@ -273,15 +273,13 @@ namespace rovin {
 		if (alphabeta[0] > alphabeta[1])
 			return 0;
 
-
 		VectorX a = calculateA(s);
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
 
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
-
-			int nconstraints = _dof * 2;
+		int nconstraints = _dof * 2;
 
 		for (int k = 0; k < nconstraints; k++)
 		{
@@ -315,6 +313,8 @@ namespace rovin {
 	Vector2& TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
 		VectorX a = calculateA(s);
+		cout << "a : " << endl;
+		cout << a << endl;
 
 		// zero-inertia point check
 		bool zero_inertia_swi = false;
@@ -331,8 +331,15 @@ namespace rovin {
 		if(!zero_inertia_swi)
 		{
 			VectorX q = _q(s);
+			cout << "q" << endl;
+			cout << q << endl;
 			VectorX qdot = _dqds(s)*sdot;
+			cout << "sdot : " << sdot << endl;
+			cout << "qdot" << endl;
+			cout << qdot << endl;
 			VectorX qddot = _ddqdds(s)*sdot*sdot;
+			cout << "qddot" << endl;
+			cout << qddot << endl;
 			StatePtr state = _soc->makeState();
 
 			state->setJointStatePos(q);
@@ -342,12 +349,14 @@ namespace rovin {
 			_soc->solveInverseDynamics(*state);
 			
 			VectorX tau = state->getJointStateTorque();
+			cout << "torque" << endl;
+			cout << tau << endl;
 			VectorX left_vec(_dof * 2);
 			//VectorX a_agg(_dof * 2);
 			for (int i = 0; i < _dof; i++)
 			{
-				left_vec[i] = -tau[i] + _torqueConstraint[i];
-				left_vec[i + _dof] = tau[i] - _torqueConstraint[i + _dof];
+				left_vec(i) = -tau(i) + _torqueConstraint(i);
+				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
 				//a_agg[i] = a[i];
 				//a_agg[i + _dof] = a[i];
 			}
@@ -356,9 +365,19 @@ namespace rovin {
 			result[0] = -std::numeric_limits<Real>::max();
 			result[1] = std::numeric_limits<Real>::max();
 
+			cout << "left_vec : " << endl;
+			cout << left_vec << endl;
+			cout << "a : " << endl;
+			cout << a << endl;
+
 			for (int i = 1; i < _dof * 2; i++)
 			{
-				Real tmp = left_vec[i] / a[i];
+				cout << i << endl;
+				cout << "left_vec : " << endl;
+				cout << left_vec(i) << endl;
+				cout << "a : " << endl;
+				cout << a(i) << endl;
+				Real tmp = left_vec(i) / a(i);
 				if (a[i] > 0) // upper bound beta
 				{
 					if (tmp < result[1])
@@ -487,7 +506,6 @@ namespace rovin {
 							return true;
 						}
 					}
-
 				}
 			}
 
@@ -534,7 +552,7 @@ namespace rovin {
 	{
 		// initialization
 		Real s_cur = 0;
-		Real sdot_cur = _vi / _dqds(0).norm();
+		Real sdot_cur = _vi / _dqds(0.0001).norm();
 		_s.push_back(s_cur);
 		_sdot.push_back(sdot_cur);
 
@@ -572,7 +590,9 @@ namespace rovin {
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
 					// fine nearest switch point
-					swiPoint_swi = findNearestSwitchPoint(s_cur);
+					// swiPoint_swi = findNearestSwitchPoint(s_cur);
+
+					swiPoint_swi = true;
 
 					// if swtich point doesn't exist until s_end --> go to step 3
 					if (!swiPoint_swi)
@@ -617,9 +637,7 @@ namespace rovin {
 				{
 					FI_SW = false;
 					BI_SW = false;
-
 				}
-				
 			}
 
 			// Backward intergration
