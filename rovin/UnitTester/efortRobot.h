@@ -130,6 +130,8 @@ public:
 
 		rovin::VectorX temptau = (imax.cwiseProduct(gearRatio)).cwiseProduct(kt);
 		rovin::VectorX tempvel = smax.cwiseQuotient(gearRatio);
+		//taumax = taumax.cwiseMin(temptau);
+		//qdotmax = qdotmax.cwiseMin(tempvel);
 		taumax = taumax.cwiseMax(temptau);
 		qdotmax = qdotmax.cwiseMax(tempvel);
 		qdotmin = -qdotmax;

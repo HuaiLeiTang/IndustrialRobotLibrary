@@ -27,8 +27,22 @@ namespace rovin {
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
 		}
 
-		//cout << "torque constraint : " << endl;
-		//cout << _torqueConstraint << endl;
+		cout << "torque constraint : " << endl;
+		cout << _torqueConstraint << endl;
+
+		// make b-spline
+		//unsigned int degreeOfBSpline = 3;
+		//unsigned int orderOfBSpline = degreeOfBSpline + 1;
+		//unsigned int MaxNumOfCP = 7;
+		//unsigned int numData = _q_data.cols();
+
+		//if (numData > MaxNumOfCP)
+		//	_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
+		//else
+		//	_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
+
+		//_dqds = _q.derivative();
+		//_ddqdds = _dqds.derivative();
 
 		// make b-spline
 		VectorX knot;
@@ -163,13 +177,18 @@ namespace rovin {
 		
 		for (int i = 0; i < _dof; i++)
 		{
-			b[i] = tmp_b[i];
-			b[i + _dof] = -tmp_b[i];
-			c[i] = tmp_c[i];
-			c[i + _dof] = -tmp_c[i];
+			b[i] = -tmp_b[i];
+			b[i + _dof] = tmp_b[i];
+			c[i] = -tmp_c[i];
+			c[i + _dof] = tmp_c[i];
 		}
-		c = c + _torqueConstraint;
 
+		for (int i = 0; i < _dof; i++)
+		{
+			c[i] += _torqueConstraint[i];
+			c[i + _dof] -= _torqueConstraint[i + _dof];
+		}
+		
 		result.push_back(b);
 		result.push_back(c);
 
@@ -189,6 +208,7 @@ namespace rovin {
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
 
+		
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
 		int nconstraints = _dof * 2;
 		for (int k = 0; k < nconstraints; k++)
@@ -378,7 +398,7 @@ namespace rovin {
 			result[0] = -std::numeric_limits<Real>::max();
 			result[1] = std::numeric_limits<Real>::max();
 
-			for (int i = 1; i < _dof * 2; i++)
+			for (int i = 0; i < _dof * 2; i++)
 			{
 				Real tmp = left_vec(i) / a(i);
 				if (a[i] > 0) // upper bound beta
@@ -392,6 +412,7 @@ namespace rovin {
 						result[0] = tmp;
 				}
 			}
+
 			return result;
 		}
 		else // Dynamic  singularity
@@ -569,7 +590,6 @@ namespace rovin {
 			// end criterion
 			if (s_next >= _sf)
 				return false;
-
 		}
 	}
 
@@ -595,7 +615,7 @@ namespace rovin {
 		bool BI_SW = false; ///< backward integration switch
 		bool I_SW = true; ///< integration switch
 
-		bool swiPoint_swi;
+		bool swiPoint_swi = false;
 		unsigned int numOfSPInt = 1;
 		
 		while (I_SW)
@@ -604,9 +624,9 @@ namespace rovin {
 			// Forward integration
 			while (FI_SW)
 			{
-				std::cout << "FI_SW" << endl;
-				std::cout << "s_cur : " << s_cur << endl;
-				std::cout << "sdot_cur : " << sdot_cur << endl;
+				//std::cout << "FI_SW" << endl;
+				//std::cout << "s_cur : " << s_cur << endl;
+				//std::cout << "sdot_cur : " << sdot_cur << endl;
 				// forward intergration
 				farwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
 
@@ -617,8 +637,8 @@ namespace rovin {
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				beta_cur = alphabeta(1);
-				std::cout << "alpha_cur : " << alphabeta(0) << endl;
-				std::cout << "beta_cur : " << alphabeta(1) << endl;
+				//std::cout << "alpha_cur : " << alphabeta(0) << endl;
+				//std::cout << "beta_cur : " << alphabeta(1) << endl;
 
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
@@ -732,8 +752,11 @@ namespace rovin {
 		}
 
 		// Step 3 : there exist two cases.
-		s_cur = _sf;
-		sdot_cur = _vf / _dqds(_sf).norm();
+		s_cur = _sf-1e-3;
+		sdot_cur = _vf / _dqds(_sf-1e-3).norm();
+
+		std::cout << "s_cur : " << s_cur << endl;
+		std::cout << "sdot_cur : " << sdot_cur << endl;
 
 		std::cout << s_cur << endl;
 		std::cout << sdot_cur << endl;
@@ -745,11 +768,18 @@ namespace rovin {
 		{
 			LOGIF(_sdot.back() > sdot_cur, "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
 			
-			while (s_cur <= _s.back())
+			while (s_cur >= _s.back())
 			{
+				cout << "_s_back() : " << _s.back() << endl;
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
+				cout << "alpha_cur : " << alpha_cur << endl;
+				cout << "beta_cur : " << beta_cur << endl;
+
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+				cout << "s_cur : " << s_cur << endl;
+				cout << "sdot_cur : " << sdot_cur << endl;
+
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
 			}
@@ -806,5 +836,7 @@ namespace rovin {
 		// calculate tf and torque trajectory
 		calculateFinalTime();
 		calculateTorqueTrajectory();
+
+		cout << "trajectory generation finished." << endl;
 	}
 }
