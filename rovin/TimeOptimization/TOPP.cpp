@@ -21,47 +21,65 @@ namespace rovin {
 		_torqueConstraint.resize(_dof * 2);
 		for (int i = 0; i < _dof; i++)
 		{
-			_torqueConstraint[i] = -(_soc->getMotorJointPtr(i)->getLimitTorqueUpper());
-			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitAccLower();
+			//_torqueConstraint[i] = -(_soc->getMotorJointPtr(i)->getLimitTorqueUpper());
+			//_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
+			_torqueConstraint[i] = (_soc->getMotorJointPtr(i)->getLimitTorqueUpper());
+			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
 		}
+
+		//cout << "torque constraint : " << endl;
+		//cout << _torqueConstraint << endl;
 
 		// make b-spline
 		VectorX knot;
 		unsigned int degreeOfBSpline = 4;
 		unsigned int numOfCP = 7;
-
-		// make knot
-		LOGIF((degreeOfBSpline + numOfCP + 4) > (2 * degreeOfBSpline), "The number of control points is not enough.");
-		knot.resize(degreeOfBSpline + numOfCP + 4 + 1);
+		MatrixX data(_dof, 7);
+		//MatrixX data(_dof, 11);
+		knot.resize(degreeOfBSpline + numOfCP + 1);
 		for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
 		{
 			knot[i] = _si;
 			knot[knot.size() - i - 1] = _sf;
 		}
-		Real delta = _sf / (numOfCP + 4 - degreeOfBSpline);
-		for (unsigned int i = 0; i < numOfCP + 4 - degreeOfBSpline; i++)
+		Real delta = _sf / (numOfCP - degreeOfBSpline);
+		for (unsigned int i = 0; i < numOfCP - degreeOfBSpline; i++)
 		{
 			knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
 		}
-		// initial value
-		MatrixX data(_dof, 11);
-		VectorX qdot0(_dof);
-		qdot0.setZero();
-		VectorX qddot0(_dof);
-		qddot0.setZero();
 
-		data.col(0) = q_data.col(0);
-		data.col(1) = delta / (degreeOfBSpline - 1)*qdot0 + data.col(0);
-		data.col(2) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(1) * (1 / (2 * delta) + 1 / delta) - data.col(0) / delta);
+		// make knot
+		//LOGIF((degreeOfBSpline + numOfCP + 4) > (2 * degreeOfBSpline), "The number of control points is not enough.");
+		//knot.resize(degreeOfBSpline + numOfCP + 4 + 1);
+		//for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
+		//{
+		//	knot[i] = _si;
+		//	knot[knot.size() - i - 1] = _sf;
+		//}
+		//Real delta = _sf / (numOfCP + 4 - degreeOfBSpline);
+		//for (unsigned int i = 0; i < numOfCP + 4 - degreeOfBSpline; i++)
+		//{
+		//	knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
+		//}
+		//// initial value
+		//VectorX qdot0(_dof);
+		//qdot0.setZero();
+		//VectorX qddot0(_dof);
+		//qddot0.setZero();
 
-		for (int i = 3; i < 8; i++)
-			data.col(i) = q_data.col(i - 2);
+		//data.col(0) = q_data.col(0);
+		//data.col(1) = delta / (degreeOfBSpline - 1)*qdot0 + data.col(0);
+		//data.col(2) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(1) * (1 / (2 * delta) + 1 / delta) - data.col(0) / delta);
 
-		data.col(10) = q_data.col(6);
-		data.col(9) = -delta / (degreeOfBSpline - 1)*qdot0 + data.col(10);
-		data.col(8) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(9) * (1 / (2 * delta) + 1 / delta) - data.col(10) / delta);
+		//for (int i = 3; i < 8; i++)
+		//	data.col(i) = q_data.col(i - 2);
 
-		_q = BSpline<-1, -1, -1>(knot, data);
+		//data.col(10) = q_data.col(6);
+		//data.col(9) = -delta / (degreeOfBSpline - 1)*qdot0 + data.col(10);
+		//data.col(8) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(9) * (1 / (2 * delta) + 1 / delta) - data.col(10) / delta);
+
+		//_q = BSpline<-1, -1, -1>(knot, data);
+		_q = BSpline<-1, -1, -1>(knot, _q_data);
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
 
@@ -75,17 +93,13 @@ namespace rovin {
 			return false;
 	}
 
-	bool TOPP::checkDynamicSingularity(const VectorX & a)
-	{
-		// TODO
-		return false;
-	}
-
 	VectorX TOPP::calculateA(Real s)
 	{
 		VectorX a(_dof * 2);
 		VectorX q = _q(s);
+		//cout << "q : " << q << endl;
 		VectorX qs = _dqds(s);
+		//cout << "qs : " << qs << endl;
 		VectorX qdot(q.size());
 		qdot.setZero();
 
@@ -97,12 +111,17 @@ namespace rovin {
 		_soc->solveInverseDynamics(*state);
 
 		VectorX tau = state->getJointStateTorque();
+		//cout << "torque : " << tau << endl;
 
 		qs.setZero();
+		state->setJointStatePos(q);
+		state->setJointStateVel(qdot);
 		state->setJointStateAcc(qs);
 		_soc->solveInverseDynamics(*state);
 
 		VectorX tmp_a = tau - state->getJointStateTorque();
+		//cout << "tmp torque : " << tmp_a << endl;
+		
 
 		for (int i = 0; i < _dof; i++)
 		{
@@ -110,8 +129,7 @@ namespace rovin {
 			a[i + _dof] = -tmp_a[i];
 		}
 
-		cout << "calculateA a : " << endl;
-		cout << a << endl;
+		//cout << "a : " << a << endl;
 		return a;
 	}
 
@@ -310,17 +328,17 @@ namespace rovin {
 		return sdot_MVC;
 	}
 
-	Vector2& TOPP::determineAlphaBeta(Real s, Real sdot)
+	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
 		VectorX a = calculateA(s);
-		cout << "a : " << endl;
-		cout << a << endl;
+		//cout << "a : " << a << endl;
 
 		// zero-inertia point check
 		bool zero_inertia_swi = false;
 		for (int i = 0; i < a.size(); i++)
 		{
-			if (a[i] < RealEps)
+			//cout << a[i] << endl;
+			if (std::abs(a[i]) < RealEps)
 			{
 				zero_inertia_swi = true;
 				break;
@@ -331,15 +349,8 @@ namespace rovin {
 		if(!zero_inertia_swi)
 		{
 			VectorX q = _q(s);
-			cout << "q" << endl;
-			cout << q << endl;
 			VectorX qdot = _dqds(s)*sdot;
-			cout << "sdot : " << sdot << endl;
-			cout << "qdot" << endl;
-			cout << qdot << endl;
 			VectorX qddot = _ddqdds(s)*sdot*sdot;
-			cout << "qddot" << endl;
-			cout << qddot << endl;
 			StatePtr state = _soc->makeState();
 
 			state->setJointStatePos(q);
@@ -349,8 +360,7 @@ namespace rovin {
 			_soc->solveInverseDynamics(*state);
 			
 			VectorX tau = state->getJointStateTorque();
-			cout << "torque" << endl;
-			cout << tau << endl;
+			//cout << "tau : " << tau << endl;
 			VectorX left_vec(_dof * 2);
 			//VectorX a_agg(_dof * 2);
 			for (int i = 0; i < _dof; i++)
@@ -360,23 +370,16 @@ namespace rovin {
 				//a_agg[i] = a[i];
 				//a_agg[i + _dof] = a[i];
 			}
+
+			//cout << "a : " << a << endl;
+			//cout << "left_vec : " << left_vec << endl;
 			
 			Vector2 result; // result[0] is alpha, result[1] is beta
 			result[0] = -std::numeric_limits<Real>::max();
 			result[1] = std::numeric_limits<Real>::max();
 
-			cout << "left_vec : " << endl;
-			cout << left_vec << endl;
-			cout << "a : " << endl;
-			cout << a << endl;
-
 			for (int i = 1; i < _dof * 2; i++)
 			{
-				cout << i << endl;
-				cout << "left_vec : " << endl;
-				cout << left_vec(i) << endl;
-				cout << "a : " << endl;
-				cout << a(i) << endl;
 				Real tmp = left_vec(i) / a(i);
 				if (a[i] > 0) // upper bound beta
 				{
@@ -578,9 +581,11 @@ namespace rovin {
 		_s.push_back(s_cur);
 		_sdot.push_back(sdot_cur);
 
-		Vector2& alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
+		//cout << "alpha initial : " << alpha_cur << endl;
+		//cout << "beta initial : " << beta_cur << endl;
 
 		// list used when backward integration
 		std::list<Real> _s_tmp;
@@ -595,9 +600,13 @@ namespace rovin {
 		
 		while (I_SW)
 		{
+			//cout << "I_SW" << endl;
 			// Forward integration
 			while (FI_SW)
 			{
+				std::cout << "FI_SW" << endl;
+				std::cout << "s_cur : " << s_cur << endl;
+				std::cout << "sdot_cur : " << sdot_cur << endl;
 				// forward intergration
 				farwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
 
@@ -608,13 +617,13 @@ namespace rovin {
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				beta_cur = alphabeta(1);
+				std::cout << "alpha_cur : " << alphabeta(0) << endl;
+				std::cout << "beta_cur : " << alphabeta(1) << endl;
 
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
 					// fine nearest switch point
-					// swiPoint_swi = findNearestSwitchPoint(s_cur);
-
-					swiPoint_swi = true;
+					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
 					// if swtich point doesn't exist until s_end --> go to step 3
 					if (!swiPoint_swi)
@@ -659,12 +668,17 @@ namespace rovin {
 				{
 					FI_SW = false;
 					BI_SW = false;
+					I_SW = false;
 				}
 			}
 
 			// Backward intergration
 			while (BI_SW)
 			{
+				std::cout << "BI_SW" << endl;
+				std::cout << "s_cur : " << s_cur << endl;
+				std::cout << "sdot_cur : " << sdot_cur << endl;
+
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
@@ -720,6 +734,9 @@ namespace rovin {
 		// Step 3 : there exist two cases.
 		s_cur = _sf;
 		sdot_cur = _vf / _dqds(_sf).norm();
+
+		std::cout << s_cur << endl;
+		std::cout << sdot_cur << endl;
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);

@@ -30,10 +30,6 @@ namespace rovin {
 		std::list<Real> _s;
 		std::list<Real> _sdot;
 
-		// torque trajectory 구하려면 있어야할듯??
-		//std::list<Real> _alpha;
-		//std::list<Real> _beta;
-
 		VectorX _torqueConstraint;
 		
 		Real _ds;
@@ -61,8 +57,7 @@ namespace rovin {
 		VectorX calculateA(Real s);
 		std::vector<VectorX> calculateBandC(Real s);
 
-		bool checkDynamicSingularity(const VectorX& a);
-		Vector2& determineAlphaBeta(Real s, Real sdot);
+		Vector2 determineAlphaBeta(Real s, Real sdot);
 
 		void farwardIntegrate(Real& s, Real& sdot, Real sddot);
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
