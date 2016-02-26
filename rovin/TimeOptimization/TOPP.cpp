@@ -192,6 +192,10 @@ namespace rovin {
 		result.push_back(b);
 		result.push_back(c);
 
+		cout << "b : " << b << endl;
+		cout << "c : " << c << endl;
+		cout << "b+c : " << b + c << endl;
+
 		return result;
 	}
 
@@ -204,6 +208,9 @@ namespace rovin {
 			return 0;
 
 		VectorX a = calculateA(s);
+		cout << endl;
+		cout << "a : " << a << endl;
+
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
@@ -211,6 +218,10 @@ namespace rovin {
 		
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
 		int nconstraints = _dof * 2;
+
+		unsigned int kk;
+		unsigned int mm;
+
 		for (int k = 0; k < nconstraints; k++)
 		{
 			for (int m = k + 1; m < nconstraints; m++)
@@ -226,11 +237,25 @@ namespace rovin {
 					{
 						r = num / denum;
 						if (r >= 0)
+						{
 							sdot_MVC = std::min(sdot_MVC, sqrt(r));
+							kk = k;
+							mm = m;
+						}
+							
 					}
 				}
 			}
 		}
+		cout << "kk : " << kk << endl;
+		cout << "mm : " << mm << endl;
+		cout << "a(kk) : " << a(kk) << endl;
+		cout << "a(mm) : " << a(mm) << endl;
+		cout << "b(kk) : " << b(kk) << endl;
+		cout << "b(mm) : " << b(mm) << endl;
+		cout << "c(kk) : " << c(kk) << endl;
+		cout << "c(mm) : " << c(mm) << endl;
+
 		return sdot_MVC;
 	}
 
@@ -295,7 +320,8 @@ namespace rovin {
 		//	q = _q(*(s_it));
 		//	qdot = (*(sdot_it))*_dqds(*(s_it));
 		//	
-		//	//TODO
+		
+		//TODO
 
 		//	s_it++;
 		//	sdot_it++;
@@ -382,7 +408,6 @@ namespace rovin {
 			VectorX tau = state->getJointStateTorque();
 			//cout << "tau : " << tau << endl;
 			VectorX left_vec(_dof * 2);
-			//VectorX a_agg(_dof * 2);
 			for (int i = 0; i < _dof; i++)
 			{
 				left_vec(i) = -tau(i) + _torqueConstraint(i);
@@ -391,8 +416,8 @@ namespace rovin {
 				//a_agg[i + _dof] = a[i];
 			}
 
-			//cout << "a : " << a << endl;
-			//cout << "left_vec : " << left_vec << endl;
+			cout << "a : " << a << endl;
+			cout << "left_vec : " << left_vec << endl;
 			
 			Vector2 result; // result[0] is alpha, result[1] is beta
 			result[0] = -std::numeric_limits<Real>::max();
@@ -412,6 +437,8 @@ namespace rovin {
 						result[0] = tmp;
 				}
 			}
+
+			cout << "result : " << result << endl;
 
 			return result;
 		}
@@ -469,9 +496,6 @@ namespace rovin {
 		std::vector<VectorX> bc_bef = calculateBandC(s_bef);
 		VectorX a_cur = calculateA(s_cur);
 		std::vector<VectorX> bc_cur = calculateBandC(s_cur);
-
-
-
 
 		while (true)
 		{
@@ -787,6 +811,7 @@ namespace rovin {
 			_s_tmp.pop_front();
 			_sdot_tmp.pop_front();
 
+			// 이 부분 에러남
 			sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 			s_cur = _s.back();
 

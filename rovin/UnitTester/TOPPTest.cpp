@@ -62,9 +62,13 @@ int main()
 	std::vector<Real> sdot_MVC;
 
 	// generate trajectory
-	topp.generateTrajectory();
+	//topp.generateTrajectory();
 
-	cout << topp._tf_result << endl;
+	Vector2 result1 = topp.determineAlphaBeta(0.23, 2.795);
+	//std::vector<VectorX> result2 = topp.calculateBandC(0.23);
+	Real result2 = topp.calculateMVCPoint(0.23);
+	
+	//cout << topp._tf_result << endl;
 
 	_getch();
 	return 0;
