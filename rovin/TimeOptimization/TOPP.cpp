@@ -23,8 +23,47 @@ namespace rovin {
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitAccLower();
 		}
 
-		// make spline
-		_q = Spline(_q_data, _si, _sf);
+		// make b-spline
+		VectorX knot;
+		unsigned int degreeOfBSpline = 4;
+		unsigned int numOfCP = 7;
+
+		// make knot
+		LOGIF((degreeOfBSpline + numOfCP + 4) > (2 * degreeOfBSpline), "The number of control points is not enough.");
+		knot.resize(degreeOfBSpline + numOfCP + 4 + 1);
+		for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
+		{
+			knot[i] = _si;
+			knot[knot.size() - i - 1] = _sf;
+		}
+		Real delta = _sf / (numOfCP + 4 - degreeOfBSpline);
+		std::cout << "delta : " << delta << std::endl;
+		for (unsigned int i = 0; i < numOfCP + 4 - degreeOfBSpline; i++)
+		{
+			knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
+		}
+		// initial value
+		MatrixX data(_dof, 11);
+		VectorX qdot0(_dof);
+		qdot0.setZero();
+		VectorX qddot0(_dof);
+		qddot0.setZero();
+
+		data.col(0) = q_data.col(0);
+		data.col(1) = delta / (degreeOfBSpline - 1)*qdot0 + data.col(0);
+		data.col(2) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(1) * (1 / (2 * delta) + 1 / delta) - data.col(0) / delta);
+
+		for (int i = 3; i < 8; i++)
+			data.col(i) = q_data.col(i - 2);
+
+		data.col(10) = q_data.col(6);
+		data.col(9) = -delta / (degreeOfBSpline - 1)*qdot0 + data.col(10);
+		data.col(8) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(9) * (1 / (2 * delta) + 1 / delta) - data.col(10) / delta);
+		
+		std::cout << knot << std::endl;
+		std::cout << data << std::endl;
+
+		_q = BSpline<-1, -1, -1>(knot, data);
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
 
@@ -121,7 +160,7 @@ namespace rovin {
 		return result;
 	}
 
-	Real TOPP::calulateMVCPoint(Real s)
+	Real TOPP::calculateMVCPoint(Real s)
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
@@ -135,9 +174,9 @@ namespace rovin {
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
 
-		LOGIF(((a.size()==b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
 
-		int nconstraints = _dof * 2;
+			int nconstraints = _dof * 2;
 
 		for (int k = 0; k < nconstraints; k++)
 		{
@@ -159,7 +198,117 @@ namespace rovin {
 				}
 			}
 		}
+
+		return sdot_MVC;
+	}
+
+	void TOPP::calculateFinalTime()
+	{
+		int integrateType = 2; // 1 : GQ, 2 : Euler
+
+		if (integrateType == 1)
+		{
+			int numOfGQPoint = 30;
+			GaussianQuadrature GQ(numOfGQPoint, _si, _sf);
+
+			VectorX reverse_sdot(_sdot.size());
+			int cnt = 0;
+			for (std::list<Real>::iterator it = _sdot.begin(); it != _sdot.end(); ++it)
+			{
+				reverse_sdot(cnt) = 1.0 / (*it);
+				cnt++;
+			}
+
+			BSpline<-1, -1, -1> f;
+			VectorX sum(1);
+			sum(0) = 0;
+			for (int i = 0; i < numOfGQPoint; i++)
+			{
+				sum = sum + f(GQ.getQueryPoints()(i)).transpose()*GQ.getWeights()(i);
+			}
+			_tf_result = sum(0);
+		}
+		else if (integrateType == 2)
+		{
+			Real sum = 0;
+			Real s_cur;
+			while (_s.empty())
+			{
+				s_cur = _s.front();
+				_s.pop_front();
+				if (!_s.empty())
+					sum += 1 / (_sdot.front()) * (_s.front() - s_cur);
+				else
+					sum += 1 / (_sdot.front()) * (_sf - s_cur);
+				_sdot.front();
+			}
+			_tf_result = sum;
+		}
+		
+	}
+
+	void TOPP::calculateTorqueTrajectory()
+	{
+		VectorX tau(_dof), q(_dof), qdot(_dof), qddot(_dof);
+		std::list<Real>::iterator s_it = _s.begin();
+		std::list<Real>::iterator sdot_it = _sdot.begin();
+		for (int i = 0; i < _s.size(); i++)
+		{
+			q = _q(*(s_it));
+			qdot = (*(sdot_it))*_dqds(*(s_it));
 			
+			//TODO
+
+			s_it++;
+			sdot_it++;
+		}
+	}
+
+	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
+	{
+
+		Real sdot_MVC = std::numeric_limits<Real>::max();
+
+		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		if (alphabeta[0] > alphabeta[1])
+			return 0;
+
+
+		VectorX a = calculateA(s);
+		std::vector<VectorX> BandC = calculateBandC(s);
+		VectorX b = BandC[0];
+		VectorX c = BandC[1];
+
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
+
+			int nconstraints = _dof * 2;
+
+		for (int k = 0; k < nconstraints; k++)
+		{
+			for (int m = k + 1; m < nconstraints; m++)
+			{
+				// exclude iExclude-th inequality constraint
+				if (k == iExclude || m == iExclude) {
+					continue;
+				}
+
+				Real num, denum, r;
+
+				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
+				if (a(k)*a(m) < 0)
+				{
+					num = a(k) * c(m) - a(m) * c(k);
+					denum = -a(k) * b(m) + a(m) * b(k);
+					if (std::abs(denum) > 1e-10)
+					{
+						r = num / denum;
+						if (r >= 0)
+							sdot_MVC = std::min(sdot_MVC, sqrt(r));
+					}
+				}
+			}
+		}
+
 		return sdot_MVC;
 	}
 
@@ -250,9 +399,135 @@ namespace rovin {
 
 	bool TOPP::findNearestSwitchPoint(Real s)
 	{
-		//
-		// TODO: 여기에 반환 구문을 삽입합니다
-		return true;
+
+		Real ds = 0.01;
+
+		Real s_bef = s;
+		Real sdot_bef = calculateMVCPoint(s_bef);
+		Real s_cur = s + ds;
+		Real sdot_cur = calculateMVCPoint(s_cur);
+		Real s_next = s + 2 * ds;
+		Real sdot_next = calculateMVCPoint(s_next);
+
+		// 원래 topp 코드에는 tan_bef/tan_cur 로 discontinous 포인트 추가하는데 그거 이해 안감
+		// 안넣어도 될것같은데 그럴거면 tan_bef/tan_cur 따로 구할 필요 없음
+		//Real tan_bef = (sdot_cur - sdot_bef) / ds;
+		//Real tan_cur = (sdot_next - sdot_cur) / ds;
+		Real diff_bef = determineAlphaBeta(s_bef, sdot_bef)[0] / sdot_bef - (sdot_cur - sdot_bef) / ds;
+		Real diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
+
+		VectorX a_bef = calculateA(s_bef);
+		VectorX a_cur = calculateA(s_cur);
+		std::vector<VectorX> bc_cur = calculateBandC(s_cur);
+
+
+		// end criterion
+		// TODO: check!
+		if (s_next >= _sf)
+			return false;
+
+
+		while (true)
+		{
+			// 원래 코드는 singular -> tangent -> discontinuity 순서임... 왜지... 왜그런거지...
+			// step 0: check whether a_k(s) is zero or not
+
+
+			// step 1: discontinuous point check
+			if (std::abs(sdot_next - sdot_cur) > 100 * std::abs(sdot_cur - sdot_bef))
+			{
+				if (sdot_next > sdot_cur)
+				{
+					SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::DISCONTIUOUS, 0.0);
+					_switchPoint.push_back(sw);
+					return true;
+				}
+				else
+				{
+					SwitchPoint sw(s_next, sdot_next, SwitchPoint::DISCONTIUOUS, 0.0);
+					_switchPoint.push_back(sw);
+					return true;
+				}
+			}
+			// step 1 -END-
+
+
+			// step 2: singular point check
+			// include calculating \lambda
+			for (unsigned int i = 0; i < 2 * _dof; i++) // number of inequality
+			{
+				if (a_bef[i] * a_cur[i] <= 0)
+				{
+					// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
+					// 여기 말고 위아래 step 1, 3에도 비슷한 알고리즘 필요할듯
+					Real f = bc_cur[1][i] / bc_cur[0][i]; // \frac{c}{b}
+					if (f < 0)
+					{
+						Real sdot_star = sqrt(-f);
+						Real sdot_plus = calculateMVCPointExclude(s_cur, i);
+						if (sdot_plus <= 0 && sdot_star < sdot_plus) // 첫번째 조건....
+						{
+							// calculate lambda
+							Real diffeps = 1E-5;
+							Real ap, bp, cp; // p for prime, differentiated to s
+							ap = (calculateA(s_cur + diffeps)[i] - a_cur[i]) / diffeps;
+							std::vector<VectorX> tmpbc = calculateBandC(s_cur + diffeps);
+							bp = (tmpbc[0][i] - bc_cur[0][i]) / diffeps;
+							cp = (tmpbc[1][i] - bc_cur[1][i]) / diffeps;
+
+							Real lambda;
+
+							if ((2 * bc_cur[0][i] + ap)*sdot_cur > 1E-10)
+								lambda = (-bp*sdot_cur*sdot_cur - cp) / ((2 * bc_cur[0][i] + ap)*sdot_cur);
+							else
+								lambda = 0.0; // 이렇게 되면 어떡하징.. 원래 코드가 왜이렇지 흠 이거 들어오기는 할까..
+
+							SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::SINGULAR, lambda);
+							_switchPoint.push_back(sw);
+							return true;
+						}
+					}
+
+				}
+			}
+
+			// step 3: tanget point check
+			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
+			{
+				SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);
+				_switchPoint.push_back(sw);
+				return true;
+			}
+			// step 3 -END-
+
+
+
+
+
+
+
+			// if any kinds of switch point is not detected, proceed to next s
+			s_bef = s_cur;
+			sdot_bef = sdot_cur;
+			s_cur = s_next;
+			sdot_cur = sdot_next;
+			s_next += ds;
+			sdot_next = calculateMVCPoint(s_next);
+
+			//tan_bef = tan_cur;
+			//tan_cur = (sdot_next - sdot_cur) / ds;
+			diff_bef = diff_cur;
+			diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
+
+			a_bef = a_cur;
+			a_cur = calculateA(s_cur);
+			bc_cur = calculateBandC(s_cur);
+
+			// end criterion
+			if (s_next >= _sf)
+				return false;
+
+		}
 	}
 
 	void TOPP::generateTrajectory()
@@ -267,11 +542,16 @@ namespace rovin {
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
 
+		// list used when backward integration
+		std::list<Real> _s_tmp;
+		std::list<Real> _sdot_tmp;
+
 		bool FI_SW = true; ///< forward integration switch
 		bool BI_SW = false; ///< backward integration switch
 		bool I_SW = true; ///< integration switch
 
 		bool swiPoint_swi;
+		unsigned int numOfSPInt = 1;
 		
 		while (I_SW)
 		{
@@ -289,50 +569,62 @@ namespace rovin {
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				beta_cur = alphabeta(1);
 
-				if (!checkMVCCondition(alpha_cur, beta_cur)) // go to backward integration
+				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
-					FI_SW = false;
-					BI_SW = true;
-
 					// fine nearest switch point
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
-					s_cur = _switchPoint[_switchPoint.size() - 1]._s;
-					sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
-
 					// if swtich point doesn't exist until s_end --> go to step 3
-					if (swiPoint_swi)
+					if (!swiPoint_swi)
 					{
 						//std::cout << "Can not find switching point." << std::endl;
 						FI_SW = false;
 						BI_SW = false;
 						I_SW = false;
 					}
-				}
-				else if (sdot_cur < 1e-10) ///< Debugging 요소
-				{
-					FI_SW = false;
-					BI_SW = false;
+					else // if switch point exist --> go to backward integration
+					{
 
+						s_cur = _switchPoint[_switchPoint.size() - 1]._s;
+						sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
+
+						_s_tmp.push_front(s_cur);
+						_sdot_tmp.push_front(sdot_cur);
+
+						if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+						{
+							Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+							for (int i = 0; i < numOfSPInt; i++)
+							{
+								s_cur -= _ds;
+								sdot_cur -= -lambda * _ds / s_cur;
+								_s_tmp.push_front(s_cur);
+								_sdot_tmp.push_front(sdot_cur);
+							}
+						}
+						FI_SW = false;
+						BI_SW = true;
+					}
+					
 				}
-				else if ((_sf - s_cur) < _ds) ///< go to step 3
+				else if (s_cur > _sf) ///< go to step 3, case (a), s_cur 가 무조건 s_end 넘어갔을 때!!
 				{
 					FI_SW = false;
 					BI_SW = false;
 					I_SW = false;
 				}
+				else if (sdot_cur < 1e-10) ///< Debugging 요소, case (a)
+				{
+					FI_SW = false;
+					BI_SW = false;
+
+				}
+				
 			}
 
 			// Backward intergration
 			while (BI_SW)
 			{
-				std::list<Real> _s_tmp;
-				std::list<Real> _sdot_tmp;
-
-				// save trajectory points
-				_s_tmp.push_front(s_cur);
-				_sdot_tmp.push_front(sdot_cur);
-
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
@@ -340,20 +632,122 @@ namespace rovin {
 				// backward integration
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 
+				// save trajectory points
+				_s_tmp.push_front(s_cur);
+				_sdot_tmp.push_front(sdot_cur);
+
 				if (s_cur <= _s.back())
 				{
+					_s_tmp.pop_front();
+					_sdot_tmp.pop_front();
+
+					sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 					s_cur = _s.back();
+
+					LOGIF(_sdot.back() > sdot_cur,"Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+
+					_s_tmp.push_front(s_cur);
+					_sdot_tmp.push_front(sdot_cur);
+
+					while (_sdot.back() > sdot_cur)
+					{
+						_s.pop_back();
+						_sdot.pop_back();
+						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+						alpha_cur = alphabeta(0);
+
+						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
+						_s_tmp.push_front(s_cur);
+						_sdot_tmp.push_front(sdot_cur);
+					}
+					_s_tmp.pop_front();
+					_sdot_tmp.pop_front();
+
+					// switching point 저장 할 필요 없나요??
+
+					_s.merge(_s_tmp);
+					_sdot.merge(_sdot_tmp);
+
+					_s_tmp.clear();
+					_sdot_tmp.clear();
+
+					FI_SW = true;
+					BI_SW = false;
 				}
-				
-
 			}
-
 		}
 
-		// Step 3
-		
+		// Step 3 : there exist two cases.
+		s_cur = _sf;
+		sdot_cur = _vf / _dqds(_sf).norm();
 
+		_s_tmp.push_front(s_cur);
+		_sdot_tmp.push_front(sdot_cur);
 
+		if (!swiPoint_swi) // case 1. when can't find switching point until final s
+		{
+			LOGIF(_sdot.back() > sdot_cur, "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
+			
+			while (s_cur <= _s.back())
+			{
+				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+				alpha_cur = alphabeta(0);
+				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+				_s_tmp.push_front(s_cur);
+				_sdot_tmp.push_front(sdot_cur);
+			}
 
+			_s_tmp.pop_front();
+			_sdot_tmp.pop_front();
+
+			sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
+			s_cur = _s.back();
+
+			LOGIF(_sdot.back() > sdot_cur, "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+		}
+		else // case 2. when forward integration reach final s
+		{
+			LOGIF(_sdot.back() > sdot_cur, "step 3 error(swiPoint_swi) : s_end has to be smaller than _sdot.back().");
+
+			_s.pop_back();
+			_sdot.pop_back();
+
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0);
+
+			Real delta = std::abs((s_cur-_s.back()));
+			Real tmp = -2 * alpha_cur*delta + sdot_cur*sdot_cur;
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+
+			s_cur -= delta;
+			sdot_cur = sqrt(tmp);
+		}
+		_s_tmp.push_front(s_cur);
+		_sdot_tmp.push_front(sdot_cur);
+
+		while (_sdot.back() > sdot_cur)
+		{
+			_s.pop_back();
+			_sdot.pop_back();
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0);
+			backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+			_s_tmp.push_front(s_cur);
+			_sdot_tmp.push_front(sdot_cur);
+		}
+
+		_s_tmp.pop_front();
+		_sdot_tmp.pop_front();
+		// switching point 저장 할 필요 없나요??
+		_s.merge(_s_tmp);
+		_sdot.merge(_sdot_tmp);
+		_s_tmp.clear();
+		_sdot_tmp.clear();
+		_s.pop_back();
+		_sdot.pop_back();
+
+		// calculate tf and torque trajectory
+		calculateFinalTime();
+		calculateTorqueTrajectory();
 	}
 }
