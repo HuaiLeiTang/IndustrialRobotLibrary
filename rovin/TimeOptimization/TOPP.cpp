@@ -32,14 +32,23 @@ namespace rovin {
 		//unsigned int numData = _q_data.cols();
 
 		//if (numData > MaxNumOfCP)
+		//{
+		//	cout << "B-spline fitting" << endl;
 		//	_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
+		//}
+		//	
 		//else
+		//{
+		//	cout << "B-splien interpolation" << endl;
 		//	_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
+		//}
+		//cout << _q(0.1) << endl;
 
 		//_dqds = _q.derivative();
 		//_ddqdds = _dqds.derivative();
 
-		// B-spline experiment 1
+		
+		////////////////////// B-spline experiment 1
 		VectorX knot;
 		unsigned int degreeOfBSpline = 4;
 		unsigned int numOfCP = 7;
@@ -303,7 +312,13 @@ namespace rovin {
 
 	void TOPP::calculateFinalTime()
 	{
-		int integrateType = 1; // 1 : GQ, 2 : Euler
+		// 수정 필요............ 귀찮아 ㅠㅠ
+		// sdot(0) sdot(final) 처리?
+		// sdot(final)의 경우 없애면 될듯
+		// sdot(0)=0 일경우 1/sdot = inf, 어떤식으로 처리?
+
+
+		int integrateType = 2; // 1 : GQ, 2 : Euler
 
 		if (integrateType == 1)
 		{
@@ -315,20 +330,19 @@ namespace rovin {
 			for (std::list<Real>::iterator it = ++(_sdot.begin()); it != --(_sdot.end()); ++it)
 			{
 				reverse_sdot(0, cnt) = 1.0 / (*it);
-				cout << "reverse_sdot : " << reverse_sdot(0, cnt) << endl;
+				//cout << "reverse_sdot : " << reverse_sdot(0, cnt) << endl;
 				cnt++;
 			}
-			cout << "cnt : " << cnt << endl;
-			cout << endl;
+			//cout << "cnt : " << cnt << endl;
+			//cout << endl;
 
 			unsigned int degreeOfBSpline = 3;
 			unsigned int orderOfBSpline = degreeOfBSpline + 1;
 			unsigned int MaxNumOfCP = 7;
-			cout << _s.front() << endl;
-			cout << _s.back() << endl;
 			BSpline<-1, -1, -1> f;
 			f = BSplineFitting(reverse_sdot, orderOfBSpline, MaxNumOfCP, _s.front(), _s.back());
 
+			// release로 하면 값이 나오고 debug로 하면 inf 나온다
 			cout << f(0.1) << endl;
 			cout << f(0.2) << endl;
 			cout << f(0.3) << endl;
@@ -343,14 +357,14 @@ namespace rovin {
 			const VectorX& weights = GQ.getWeights();
 			const VectorX& QueryPoints = GQ.getQueryPoints();
 
-			cout << "Weight" << endl;
-			cout << weights << endl;
+			//cout << "Weight" << endl;
+			//cout << weights << endl;
+			//cout << endl;
+			//cout << "QueryPoints" << endl;
 
-			cout << endl;
-			cout << "QueryPoints" << endl;
 			for (int i = 0; i < numOfGQPoint; i++)
 			{
-				cout << f(QueryPoints(i))(0, 0) << endl;
+				//cout << f(QueryPoints(i))(0, 0) << endl;
 				sum(0) += f(QueryPoints(i))(0,0) * weights(i);
 			}
 			_tf_result = sum(0);
@@ -359,19 +373,20 @@ namespace rovin {
 		{
 			Real sum = 0;
 			Real s_cur;
-			while (_s.empty())
+			_s.pop_front();
+			_sdot.pop_front();
+			while (!_s.empty())
 			{
 				s_cur = _s.front();
 				_s.pop_front();
 				if (!_s.empty())
 					sum += 1 / (_sdot.front()) * (_s.front() - s_cur);
-				else
-					sum += 1 / (_sdot.front()) * (_sf - s_cur);
+				//else
+				//	sum += 1 / (_sdot.front()) * (_sf - s_cur);
 				_sdot.front();
 			}
 			_tf_result = sum;
 		}
-		
 	}
 
 	void TOPP::calculateTorqueTrajectory()
@@ -580,10 +595,6 @@ namespace rovin {
 			}
 			// step 3 -END-
 
-
-
-
-
 			// if any kinds of switch point is not detected, proceed to next s
 			s_bef = s_cur;
 			sdot_bef = sdot_cur;
@@ -765,8 +776,16 @@ namespace rovin {
 
 					// switching point 저장 할 필요 없나요??
 
-					_s.merge(_s_tmp);
-					_sdot.merge(_sdot_tmp);
+					//_s.merge(_s_tmp);
+					//_sdot.merge(_sdot_tmp);
+
+					_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
+					_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
+
+					s_cur = _s.back();
+					sdot_cur = _sdot.back();
+					alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+					beta_cur = alphabeta(1);
 
 					_s_tmp.clear();
 					_sdot_tmp.clear();
