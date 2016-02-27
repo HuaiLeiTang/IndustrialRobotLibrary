@@ -9,15 +9,23 @@ using namespace std;
 using namespace rovin;
 
 void loadData(MatrixX& data);
+void generateTrajectory(MatrixX& data);
+
+SerialOpenChainPtr robot(new efortRobot());
+StatePtr state;
+unsigned int dof;
 
 int main()
 {	
-	SerialOpenChainPtr robot(new efortRobot());
-	StatePtr state = robot->makeState();
+	state = robot->makeState();
+	dof = robot->getNumOfJoint();
 
-	// load data
+	// generate trajectory
 	MatrixX q_data;
-	loadData(q_data);
+
+
+	// rendering
+
 	
 	// Time optimization
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
@@ -28,6 +36,10 @@ int main()
 	_getch();
 	return 0;
 }
+
+
+
+
 
 void loadData(MatrixX& data)
 {
@@ -61,4 +73,19 @@ void loadData(MatrixX& data)
 	for (int i = 0; i < 7; i++)
 		for (int j = 0; j < dof; j++)
 			data(j, i) = q(j, 80 * i);
+}
+
+void generateTrajectory(MatrixX& data)
+{
+	VectorX q(dof), qdot(dof), qddot(dof);
+	SE3 GaolT;
+
+	q << 1.5, 0.8, 1.0, -1.5, 0.1, 1.4;
+	qdot.setZero(); qddot.setZero();
+	state->setJointStatePos(q);
+	state->setJointStateVel(qdot);
+	state->setJointStateAcc(qddot);
+
+
+
 }
