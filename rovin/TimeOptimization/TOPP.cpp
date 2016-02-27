@@ -26,39 +26,39 @@ namespace rovin {
 		}
 
 		// make b-spline by wooyoung
-		//unsigned int degreeOfBSpline = 3;
-		//unsigned int orderOfBSpline = degreeOfBSpline + 1;
-		//unsigned int MaxNumOfCP = 7;
-		//unsigned int numData = _q_data.cols();
+		unsigned int degreeOfBSpline = 3;
+		unsigned int orderOfBSpline = degreeOfBSpline + 1;
+		unsigned int MaxNumOfCP = 7;
+		unsigned int numData = _q_data.cols();
 
-		//if (numData > MaxNumOfCP)
-		//	_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
-		//else
-		//	_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
+		if (numData > MaxNumOfCP)
+			_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
+		else
+			_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
 
-		//_dqds = _q.derivative();
-		//_ddqdds = _dqds.derivative();
-
-		// B-spline experiment 1
-		VectorX knot;
-		unsigned int degreeOfBSpline = 4;
-		unsigned int numOfCP = 7;
-		MatrixX data(_dof, 7);
-		knot.resize(degreeOfBSpline + numOfCP + 1);
-		for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
-		{
-			knot[i] = _si;
-			knot[knot.size() - i - 1] = _sf;
-		}
-		Real delta = _sf / (numOfCP - degreeOfBSpline);
-		for (unsigned int i = 0; i < numOfCP - degreeOfBSpline; i++)
-		{
-			knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
-		}
-
-		_q = BSpline<-1, -1, -1>(knot, _q_data);
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
+
+		// B-spline experiment 1
+		//VectorX knot;
+		//unsigned int degreeOfBSpline = 4;
+		//unsigned int numOfCP = 7;
+		//MatrixX data(_dof, 7);
+		//knot.resize(degreeOfBSpline + numOfCP + 1);
+		//for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
+		//{
+		//	knot[i] = _si;
+		//	knot[knot.size() - i - 1] = _sf;
+		//}
+		//Real delta = _sf / (numOfCP - degreeOfBSpline);
+		//for (unsigned int i = 0; i < numOfCP - degreeOfBSpline; i++)
+		//{
+		//	knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
+		//}
+
+		//_q = BSpline<-1, -1, -1>(knot, _q_data);
+		//_dqds = _q.derivative();
+		//_ddqdds = _dqds.derivative();
 
 	}
 
@@ -178,7 +178,7 @@ namespace rovin {
 			}
 		}
 
-		if (!zero_inertia_swi)
+		if (true)//!zero_inertia_swi)
 		{
 			VectorX q = _q(s);
 			VectorX qdot = _dqds(s)*sdot;
@@ -202,8 +202,8 @@ namespace rovin {
 				//a_agg[i + _dof] = a[i];
 			}
 
-			//cout << "a : " << a << endl;
-			//cout << "left_vec(b*sdot^(2) + c) : " << left_vec << endl;
+			cout << "a : " << a << endl;
+			cout << "left_vec(b*sdot^(2) + c) : " << left_vec << endl;
 
 			Vector2 result; // result[0] is alpha, result[1] is beta
 			result[0] = -std::numeric_limits<Real>::max();
@@ -212,16 +212,21 @@ namespace rovin {
 			for (int i = 0; i < _dof * 2; i++)
 			{
 				Real tmp = left_vec(i) / a(i);
-				if (a[i] > 0) // upper bound beta
+				if (a[i] > RealEps) // upper bound beta
 				{
 					if (tmp < result[1])
 						result[1] = tmp;
 				}
-				else // lower bound alpha
+				else if (a[i] <-RealEps)// lower bound alpha
 				{
 					if (tmp > result[0])
 						result[0] = tmp;
 				}
+		//else // lower bound alpha
+		//{
+		//	if (tmp > result[0])
+		//		result[0] = tmp;
+		//}
 			}
 
 			//cout << "result : " << result << endl;
@@ -461,13 +466,14 @@ namespace rovin {
 	bool TOPP::findNearestSwitchPoint(Real s)
 	{
 
-		Real ds = 0.01;
+		Real ds = 0.0005;
 
-		Real s_bef = s;
+		//Real s_bef = s;
+		Real s_bef = 0.534;
 		Real sdot_bef = calculateMVCPoint(s_bef);
-		Real s_cur = s + ds;
+		Real s_cur = s_bef + ds;
 		Real sdot_cur = calculateMVCPoint(s_cur);
-		Real s_next = s + 2 * ds;
+		Real s_next = s_bef + 2 * ds;
 		Real sdot_next = calculateMVCPoint(s_next);
 
 
@@ -645,6 +651,7 @@ namespace rovin {
 				//std::cout << "FI_SW" << endl;
 				//std::cout << "s_cur : " << s_cur << endl;
 				//std::cout << "sdot_cur : " << sdot_cur << endl;
+
 				// forward intergration
 				farwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
 
@@ -658,6 +665,12 @@ namespace rovin {
 				beta_cur = alphabeta(1);
 				//std::cout << "alpha_cur : " << alphabeta(0) << endl;
 				//std::cout << "beta_cur : " << alphabeta(1) << endl;
+
+				if (s_cur > 0.183)
+				{
+					int aaaa = 3;
+				}
+//				cout << alpha_cur << '\t' << beta_cur << endl;
 
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
@@ -718,6 +731,10 @@ namespace rovin {
 				}
 			}
 
+			saveRealVector2txt(s_FI_jk, "D:/jkkim/Documents/matlabTest/sFI.txt");
+			saveRealVector2txt(sd_FI_jk, "D:/jkkim/Documents/matlabTest/sdotFI.txt");
+
+
 			// Backward intergration
 			while (BI_SW)
 			{
@@ -728,9 +745,16 @@ namespace rovin {
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
+				beta_cur = alphabeta(1);
+
+				cout << "s_cur : " << s_cur << endl;
+				cout << "sdot_cur : " << sdot_cur << endl;
+				cout << "alpha_cur : " << alpha_cur << endl;
+				cout << "beta_cur : " << beta_cur << endl;
 
 				// backward integration
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
+				
 
 				// save trajectory points
 				_s_tmp.push_front(s_cur);
@@ -756,6 +780,10 @@ namespace rovin {
 						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 						alpha_cur = alphabeta(0);
 
+						cout << "s_cur : " << s_cur << endl;
+						cout << "sdot_cur : " << sdot_cur << endl;
+						cout << "alpha_cur : " << alpha_cur << endl;
+
 						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 						_s_tmp.push_front(s_cur);
 						_sdot_tmp.push_front(sdot_cur);
@@ -767,6 +795,10 @@ namespace rovin {
 
 					_s.merge(_s_tmp);
 					_sdot.merge(_sdot_tmp);
+
+					s_cur = _s.back();
+					sdot_cur = _sdot.back();
+					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
 
 					_s_tmp.clear();
 					_sdot_tmp.clear();
@@ -856,8 +888,10 @@ namespace rovin {
 		s_BI_jk.push_back(s_cur);
 		sd_BI_jk.push_back(sdot_cur);
 
-		saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
-		saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+		//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
+		//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+		saveRealVector2txt(s_BI_jk, "D:/jkkim/Documents/matlabTest/sBI.txt");
+		saveRealVector2txt(sd_BI_jk, "D:/jkkim/Documents/matlabTest/sdotBI.txt");
 
 		_s_tmp.pop_front();
 		_sdot_tmp.pop_front();
@@ -888,8 +922,10 @@ namespace rovin {
 			sdot_jk.push_back(*(sdot_it));
 			sdot_it++;
 		}
-		saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
-		saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
+		//saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
+		//saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
+		saveRealVector2txt(s_jk, "D:/jkkim/Documents/matlabTest/s_result.txt");
+		saveRealVector2txt(sdot_jk, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
 
 
 		
@@ -966,15 +1002,26 @@ namespace rovin {
 
 	void TOPP::saveMVCandSP2txt()
 	{
-		calcMVC();
-		saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
-		saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
+		//calcMVC();
+		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
 
 
-		//calcSPs();
+		////calcSPs();
 
-		//saveRealVector2txt(s_SW_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
-		//saveRealVector2txt(sd_SW_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+		////saveRealVector2txt(s_SW_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+		////saveRealVector2txt(sd_SW_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+
+
+		//calcMVC();
+		//saveRealVector2txt(s_MVC_jk, "D:/jkkim/Documents/matlabTest/sMVC.txt");
+		//saveRealVector2txt(sd_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotMVC.txt");
+
+
+		calcSPs();
+
+		saveRealVector2txt(s_SW_jk, "D:/jkkim/Documents/matlabTest/sSW.txt");
+		saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
 
 	}
 }
