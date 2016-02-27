@@ -89,6 +89,9 @@ namespace rovin {
 
 		std::vector<Real> s_FI_jk;
 		std::vector<Real> sd_FI_jk;
+
+		std::vector<Real> s_BI_jk;
+		std::vector<Real> sd_BI_jk;
 	};
 
 	class SwitchPoint

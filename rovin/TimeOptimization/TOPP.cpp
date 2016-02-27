@@ -21,14 +21,9 @@ namespace rovin {
 		_torqueConstraint.resize(_dof * 2);
 		for (int i = 0; i < _dof; i++)
 		{
-			//_torqueConstraint[i] = -(_soc->getMotorJointPtr(i)->getLimitTorqueUpper());
-			//_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
 			_torqueConstraint[i] = (_soc->getMotorJointPtr(i)->getLimitTorqueUpper());
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
 		}
-
-		//cout << "torque constraint : " << endl;
-		//cout << _torqueConstraint << endl;
 
 		// make b-spline
 		//unsigned int degreeOfBSpline = 3;
@@ -44,12 +39,11 @@ namespace rovin {
 		//_dqds = _q.derivative();
 		//_ddqdds = _dqds.derivative();
 
-		// make b-spline
+		// B-spline experiment 1
 		VectorX knot;
 		unsigned int degreeOfBSpline = 4;
 		unsigned int numOfCP = 7;
 		MatrixX data(_dof, 7);
-		//MatrixX data(_dof, 11);
 		knot.resize(degreeOfBSpline + numOfCP + 1);
 		for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
 		{
@@ -62,37 +56,6 @@ namespace rovin {
 			knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
 		}
 
-		// make knot
-		//LOGIF((degreeOfBSpline + numOfCP + 4) > (2 * degreeOfBSpline), "The number of control points is not enough.");
-		//knot.resize(degreeOfBSpline + numOfCP + 4 + 1);
-		//for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
-		//{
-		//	knot[i] = _si;
-		//	knot[knot.size() - i - 1] = _sf;
-		//}
-		//Real delta = _sf / (numOfCP + 4 - degreeOfBSpline);
-		//for (unsigned int i = 0; i < numOfCP + 4 - degreeOfBSpline; i++)
-		//{
-		//	knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
-		//}
-		//// initial value
-		//VectorX qdot0(_dof);
-		//qdot0.setZero();
-		//VectorX qddot0(_dof);
-		//qddot0.setZero();
-
-		//data.col(0) = q_data.col(0);
-		//data.col(1) = delta / (degreeOfBSpline - 1)*qdot0 + data.col(0);
-		//data.col(2) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(1) * (1 / (2 * delta) + 1 / delta) - data.col(0) / delta);
-
-		//for (int i = 3; i < 8; i++)
-		//	data.col(i) = q_data.col(i - 2);
-
-		//data.col(10) = q_data.col(6);
-		//data.col(9) = -delta / (degreeOfBSpline - 1)*qdot0 + data.col(10);
-		//data.col(8) = 2 * delta*(delta / (degreeOfBSpline - 1) / (degreeOfBSpline - 2)*qddot0 + data.col(9) * (1 / (2 * delta) + 1 / delta) - data.col(10) / delta);
-
-		//_q = BSpline<-1, -1, -1>(knot, data);
 		_q = BSpline<-1, -1, -1>(knot, _q_data);
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
@@ -796,12 +759,6 @@ namespace rovin {
 		s_cur = _sf-1e-3;
 		sdot_cur = _vf / _dqds(_sf-1e-3).norm();
 
-		std::cout << "s_cur : " << s_cur << endl;
-		std::cout << "sdot_cur : " << sdot_cur << endl;
-
-		std::cout << s_cur << endl;
-		std::cout << sdot_cur << endl;
-
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
 
@@ -811,15 +768,18 @@ namespace rovin {
 			
 			while (s_cur >= _s.back())
 			{
-				cout << "_s_back() : " << _s.back() << endl;
+				s_BI_jk.push_back(s_cur);
+				sd_BI_jk.push_back(sdot_cur);
+
+				//cout << "_s_back() : " << _s.back() << endl;
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
-				cout << "alpha_cur : " << alpha_cur << endl;
-				cout << "beta_cur : " << beta_cur << endl;
+				//cout << "alpha_cur : " << alpha_cur << endl;
+				//cout << "beta_cur : " << beta_cur << endl;
 
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				cout << "s_cur : " << s_cur << endl;
-				cout << "sdot_cur : " << sdot_cur << endl;
+				//cout << "s_cur : " << s_cur << endl;
+				//cout << "sdot_cur : " << sdot_cur << endl;
 
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
@@ -828,7 +788,6 @@ namespace rovin {
 			_s_tmp.pop_front();
 			_sdot_tmp.pop_front();
 
-			// 이 부분 에러남
 			sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 			s_cur = _s.back();
 
@@ -856,6 +815,9 @@ namespace rovin {
 
 		while (_sdot.back() > sdot_cur)
 		{
+			s_BI_jk.push_back(s_cur);
+			sd_BI_jk.push_back(sdot_cur);
+
 			_s.pop_back();
 			_sdot.pop_back();
 			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
@@ -864,6 +826,13 @@ namespace rovin {
 			_s_tmp.push_front(s_cur);
 			_sdot_tmp.push_front(sdot_cur);
 		}
+
+		s_BI_jk.push_back(s_cur);
+		sd_BI_jk.push_back(sdot_cur);
+
+		saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
+		saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+
 
 		_s_tmp.pop_front();
 		_sdot_tmp.pop_front();
