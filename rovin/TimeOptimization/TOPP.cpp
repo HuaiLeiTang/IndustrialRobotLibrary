@@ -25,7 +25,7 @@ namespace rovin {
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
 		}
 
-		// make b-spline
+		// make b-spline by wooyoung
 		//unsigned int degreeOfBSpline = 3;
 		//unsigned int orderOfBSpline = degreeOfBSpline + 1;
 		//unsigned int MaxNumOfCP = 7;
@@ -99,7 +99,6 @@ namespace rovin {
 		VectorX tmp_a = tau - state->getJointStateTorque();
 		//cout << "tmp torque : " << tmp_a << endl;
 		
-
 		for (int i = 0; i < _dof; i++)
 		{
 			a[i] = tmp_a[i];
@@ -179,7 +178,6 @@ namespace rovin {
 			}
 		}
 
-		//if (!checkDynamicSingularity(a))
 		if (!zero_inertia_swi)
 		{
 			VectorX q = _q(s);
@@ -241,9 +239,9 @@ namespace rovin {
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
-		//Vector2 alphabeta = determineAlphaBeta(s, 0);
-		//if (alphabeta[0] > alphabeta[1])
-		//	return 0;
+		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		if (alphabeta[0] > alphabeta[1])
+			return 0;
 
 		VectorX a = calculateA(s);
 		//cout << endl;
@@ -305,30 +303,54 @@ namespace rovin {
 
 	void TOPP::calculateFinalTime()
 	{
-		int integrateType = 2; // 1 : GQ, 2 : Euler
+		int integrateType = 1; // 1 : GQ, 2 : Euler
 
 		if (integrateType == 1)
 		{
 			int numOfGQPoint = 30;
 			GaussianQuadrature GQ(numOfGQPoint, _si, _sf);
 
-			VectorX reverse_sdot(_sdot.size());
+			MatrixX reverse_sdot(1, _sdot.size());
 			int cnt = 0;
-			for (std::list<Real>::iterator it = _sdot.begin(); it != _sdot.end(); ++it)
+			for (std::list<Real>::iterator it = ++(_sdot.begin()); it != --(_sdot.end()); ++it)
 			{
-				reverse_sdot(cnt) = 1.0 / (*it);
+				reverse_sdot(0, cnt) = 1.0 / (*it);
+				cout << "reverse_sdot : " << reverse_sdot(0, cnt) << endl;
 				cnt++;
 			}
+			cout << "cnt : " << cnt << endl;
+			cout << endl;
 
-			///////////////////////////// TODO /////////////////////////////
-
+			unsigned int degreeOfBSpline = 3;
+			unsigned int orderOfBSpline = degreeOfBSpline + 1;
+			unsigned int MaxNumOfCP = 7;
+			cout << _s.front() << endl;
+			cout << _s.back() << endl;
 			BSpline<-1, -1, -1> f;
+			f = BSplineFitting(reverse_sdot, orderOfBSpline, MaxNumOfCP, _s.front(), _s.back());
+
+			cout << f(0.1) << endl;
+			cout << f(0.2) << endl;
+			cout << f(0.3) << endl;
+			cout << f(0.4) << endl;
+			cout << f(0.5) << endl;
+			cout << f(0.6) << endl;
+			cout << f(0.7) << endl;
+			cout << f(0.8) << endl;
+			cout << f(0.9) << endl;
+
 			VectorX sum = VectorX::Zero(1);
 			const VectorX& weights = GQ.getWeights();
 			const VectorX& QueryPoints = GQ.getQueryPoints();
 
+			cout << "Weight" << endl;
+			cout << weights << endl;
+
+			cout << endl;
+			cout << "QueryPoints" << endl;
 			for (int i = 0; i < numOfGQPoint; i++)
 			{
+				cout << f(QueryPoints(i))(0, 0) << endl;
 				sum(0) += f(QueryPoints(i))(0,0) * weights(i);
 			}
 			_tf_result = sum(0);
@@ -756,8 +778,12 @@ namespace rovin {
 		}
 
 		// Step 3 : there exist two cases.
-		s_cur = _sf-1e-3;
-		sdot_cur = _vf / _dqds(_sf-1e-3).norm();
+		//s_cur = _sf-1e-3;
+		s_cur = _sf-0.0001;
+		sdot_cur = _vf / _dqds(_sf-0.0001).norm();
+
+		//cout << "s_cur : " << s_cur << endl;
+		//cout << "sdot_cur : " << sdot_cur << endl;
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
@@ -833,22 +859,50 @@ namespace rovin {
 		saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
 		saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
-
 		_s_tmp.pop_front();
 		_sdot_tmp.pop_front();
 		// switching point 저장 할 필요 없나요??
-		_s.merge(_s_tmp);
-		_sdot.merge(_sdot_tmp);
+
+		_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
+		_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
+
+		//_s.merge(_s_tmp);
+		//_sdot.merge(_sdot_tmp);
 		_s_tmp.clear();
 		_sdot_tmp.clear();
-		_s.pop_back();
-		_sdot.pop_back();
+		//_s.pop_back();
+		//_sdot.pop_back();
 
 		// calculate tf and torque trajectory
 		calculateFinalTime();
-		calculateTorqueTrajectory();
+		//calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
+
+		std::list<Real>::iterator s_it;
+		std::list<Real>::iterator sdot_it = _sdot.begin();
+
+		for (s_it = _s.begin(); s_it != _s.end(); ++s_it)
+		{
+			s_jk.push_back(*(s_it));
+			sdot_jk.push_back(*(sdot_it));
+			sdot_it++;
+		}
+		saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
+		saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
+
+
+		
+	}
+
+	const Real TOPP::getFinalTime() const
+	{
+		return _tf_result;
+	}
+
+	const std::vector<VectorX>& TOPP::getTorqueTrajectory() const
+	{
+		return _torque_result;
 	}
 
 	////////////////////////////////////////////////////////////////////////

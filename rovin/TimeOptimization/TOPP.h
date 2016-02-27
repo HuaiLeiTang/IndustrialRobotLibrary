@@ -74,6 +74,9 @@ namespace rovin {
 
 		void generateTrajectory();
 
+		const Real getFinalTime() const;
+		const std::vector<VectorX>& getTorqueTrajectory() const;
+
 
 	public:
 		// test for MVC curve and switching point
@@ -92,6 +95,9 @@ namespace rovin {
 
 		std::vector<Real> s_BI_jk;
 		std::vector<Real> sd_BI_jk;
+
+		std::vector<Real> s_jk;
+		std::vector<Real> sdot_jk;
 	};
 
 	class SwitchPoint
