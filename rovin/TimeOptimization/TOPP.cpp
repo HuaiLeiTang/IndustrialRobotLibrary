@@ -292,79 +292,47 @@ namespace rovin {
 				}
 			}
 		}
-
-		//cout << "b : " << b << endl;
-		//cout << "c : " << c << endl;
-		//cout << "b*sdot^(2) + c : " << b*sdot_MVC*sdot_MVC + c << endl;
-
-		//cout << "kk : " << kk << endl;
-		//cout << "mm : " << mm << endl;
-		//cout << "a(kk) : " << a(kk) << endl;
-		//cout << "a(mm) : " << a(mm) << endl;
-		//cout << "b(kk) : " << b(kk) << endl;
-		//cout << "b(mm) : " << b(mm) << endl;
-		//cout << "c(kk) : " << c(kk) << endl;
-		//cout << "c(mm) : " << c(mm) << endl;
-
-		//cout << "sdot result : " << sdot_MVC << endl;
 		return sdot_MVC;
 	}
 
 	void TOPP::calculateFinalTime()
 	{
-		// 수정 필요............ 귀찮아 ㅠㅠ
-		// sdot(0) sdot(final) 처리?
-		// sdot(final)의 경우 없애면 될듯
-		// sdot(0)=0 일경우 1/sdot = inf, 어떤식으로 처리?
-
-
-		int integrateType = 2; // 1 : GQ, 2 : Euler
+		int integrateType = 3; // 1 : GQ, 2 : Euler, 3 : Trapz
 
 		if (integrateType == 1)
 		{
-			int numOfGQPoint = 30;
+			int numOfGQPoint = 40;
 			GaussianQuadrature GQ(numOfGQPoint, _si, _sf);
 
-			MatrixX reverse_sdot(1, _sdot.size());
+			MatrixX reverse_sdot;
+			if (_sdot.front() < RealEps)
+			{
+				reverse_sdot = MatrixX(1, _sdot.size() - 2);
+				_sdot.pop_front();
+				_s.pop_front();
+			}
+			else
+				reverse_sdot = MatrixX(1, _sdot.size() - 1);
+
 			int cnt = 0;
-			for (std::list<Real>::iterator it = ++(_sdot.begin()); it != --(_sdot.end()); ++it)
+			for (std::list<Real>::iterator it = (_sdot.begin()); it != --(_sdot.end()); ++it)
 			{
 				reverse_sdot(0, cnt) = 1.0 / (*it);
-				//cout << "reverse_sdot : " << reverse_sdot(0, cnt) << endl;
 				cnt++;
 			}
-			//cout << "cnt : " << cnt << endl;
-			//cout << endl;
-
+		
 			unsigned int degreeOfBSpline = 3;
 			unsigned int orderOfBSpline = degreeOfBSpline + 1;
-			unsigned int MaxNumOfCP = 7;
+			unsigned int MaxNumOfCP = 10;
 			BSpline<-1, -1, -1> f;
 			f = BSplineFitting(reverse_sdot, orderOfBSpline, MaxNumOfCP, _s.front(), _s.back());
-
-			// release로 하면 값이 나오고 debug로 하면 inf 나온다
-			cout << f(0.1) << endl;
-			cout << f(0.2) << endl;
-			cout << f(0.3) << endl;
-			cout << f(0.4) << endl;
-			cout << f(0.5) << endl;
-			cout << f(0.6) << endl;
-			cout << f(0.7) << endl;
-			cout << f(0.8) << endl;
-			cout << f(0.9) << endl;
 
 			VectorX sum = VectorX::Zero(1);
 			const VectorX& weights = GQ.getWeights();
 			const VectorX& QueryPoints = GQ.getQueryPoints();
 
-			//cout << "Weight" << endl;
-			//cout << weights << endl;
-			//cout << endl;
-			//cout << "QueryPoints" << endl;
-
 			for (int i = 0; i < numOfGQPoint; i++)
 			{
-				//cout << f(QueryPoints(i))(0, 0) << endl;
 				sum(0) += f(QueryPoints(i))(0,0) * weights(i);
 			}
 			_tf_result = sum(0);
@@ -373,17 +341,42 @@ namespace rovin {
 		{
 			Real sum = 0;
 			Real s_cur;
-			_s.pop_front();
-			_sdot.pop_front();
+			if (_sdot.front() < RealEps)
+			{
+				_sdot.pop_front();
+				_s.pop_front();
+			}
 			while (!_s.empty())
 			{
 				s_cur = _s.front();
 				_s.pop_front();
 				if (!_s.empty())
 					sum += 1 / (_sdot.front()) * (_s.front() - s_cur);
-				//else
-				//	sum += 1 / (_sdot.front()) * (_sf - s_cur);
 				_sdot.front();
+			}
+			_tf_result = sum;
+		}
+		else if (integrateType == 3)
+		{
+			if (_sdot.front() < RealEps)
+			{
+				_sdot.pop_front();
+				_s.pop_front();
+			}
+			Real sum = 0;;
+			std::vector<Real> reverse_sdot;
+			std::vector<Real> s;
+			std::list<Real>::iterator it_s = _s.begin();
+			for (std::list<Real>::iterator it = (_sdot.begin()); it != --(_sdot.end()); ++it)
+			{
+				reverse_sdot.push_back(1.0 / (*it));
+				s.push_back((*it_s));
+				it_s++;
+			}
+
+			for (int i = 0; i < reverse_sdot.size() - 1; i++)
+			{
+				sum += 0.5 * (reverse_sdot[i + 1] + reverse_sdot[i]) * (s[i + 1] - s[i]);
 			}
 			_tf_result = sum;
 		}
@@ -392,6 +385,8 @@ namespace rovin {
 	void TOPP::calculateTorqueTrajectory()
 	{
 		//TODO
+
+
 
 		//VectorX tau(_dof), q(_dof), qdot(_dof), qddot(_dof);
 		//std::list<Real>::iterator s_it = _s.begin();
@@ -411,7 +406,6 @@ namespace rovin {
 
 	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
 	{
-
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
 		Vector2 alphabeta = determineAlphaBeta(s, 0);

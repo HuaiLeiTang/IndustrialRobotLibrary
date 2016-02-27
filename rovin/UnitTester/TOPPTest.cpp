@@ -22,7 +22,7 @@ int main()
 
 	// generate trajectory
 	MatrixX q_data;
-
+	loadData(q_data);
 
 	// rendering
 
@@ -85,7 +85,33 @@ void generateTrajectory(MatrixX& data)
 	state->setJointStatePos(q);
 	state->setJointStateVel(qdot);
 	state->setJointStateAcc(qddot);
-
-
-
 }
+
+//void GivenPathTimeOptimization::InputGivenPath(const std::vector<SE3, Eigen::aligned_allocator<SE3>>& givenPath)
+//{
+//	_givenPath = givenPath;
+//
+//	int pathsize = givenPath.size();
+//	_s.resize(pathsize);
+//	for (int i = 0; i < pathsize; i++)
+//		_s[i] = Real(i) / Real(pathsize - 1);
+//
+//	_sdot.resize(pathsize);
+//	_sddot.resize(pathsize);
+//
+//	solveInvKinAll();
+
+	//int pathsize = _givenPath.size();
+	//LOGIF((pathsize != 0), "GivenPathTimeOptimization::solveInvKinAll error : No given path trajectory");
+
+	//StatePtr statePtr = _socRobotPtr->makeState();
+	//int dof = statePtr->getDof();
+
+	/////< calculate qs: inverse kinematics at each given location(SE3)
+	//_q.resize(pathsize);
+	//for (int i = 0; i < pathsize; i++)
+	//{
+	//	_socRobotPtr->solveInverseKinematics(*statePtr, _givenPath[i]);
+	//	_q[i] = statePtr->getJointStatePos();
+	//}
+//}
