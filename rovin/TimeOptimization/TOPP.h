@@ -49,7 +49,7 @@ namespace rovin {
 
 		// TOPP Result
 		Real _tf_result;
-		std::vector<VectorX> _torque_result;
+		MatrixX _torque_result;
 
 	public:
 		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real ds, 
@@ -75,7 +75,7 @@ namespace rovin {
 		void generateTrajectory();
 
 		const Real getFinalTime() const;
-		const std::vector<VectorX>& getTorqueTrajectory() const;
+		const MatrixX& getTorqueTrajectory() const;
 
 
 	public:

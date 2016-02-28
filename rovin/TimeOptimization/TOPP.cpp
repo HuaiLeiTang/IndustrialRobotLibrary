@@ -26,41 +26,41 @@ namespace rovin {
 		}
 
 		// make b-spline by wooyoung
-		unsigned int degreeOfBSpline = 3;
-		unsigned int orderOfBSpline = degreeOfBSpline + 1;
-		unsigned int MaxNumOfCP = 7;
-		unsigned int numData = _q_data.cols();
+		//unsigned int degreeOfBSpline = 3;
+		//unsigned int orderOfBSpline = degreeOfBSpline + 1;
+		//unsigned int MaxNumOfCP = 7;
+		//unsigned int numData = _q_data.cols();
 
-		if (numData > MaxNumOfCP)
-			_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
-		else
-			_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
+		//if (numData > MaxNumOfCP)
+		//	_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
+		//else
+		//	_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
 
 
-		_dqds = _q.derivative();
-		_ddqdds = _dqds.derivative();
+		//_dqds = _q.derivative();
+		//_ddqdds = _dqds.derivative();
 
 
 		// B-spline experiment 1
-		//VectorX knot;
-		//unsigned int degreeOfBSpline = 4;
-		//unsigned int numOfCP = 7;
-		//MatrixX data(_dof, 7);
-		//knot.resize(degreeOfBSpline + numOfCP + 1);
-		//for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
-		//{
-		//	knot[i] = _si;
-		//	knot[knot.size() - i - 1] = _sf;
-		//}
-		//Real delta = _sf / (numOfCP - degreeOfBSpline);
-		//for (unsigned int i = 0; i < numOfCP - degreeOfBSpline; i++)
-		//{
-		//	knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
-		//}
+		VectorX knot;
+		unsigned int degreeOfBSpline = 4;
+		unsigned int numOfCP = 7;
+		MatrixX data(_dof, 7);
+		knot.resize(degreeOfBSpline + numOfCP + 1);
+		for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
+		{
+			knot[i] = _si;
+			knot[knot.size() - i - 1] = _sf;
+		}
+		Real delta = _sf / (numOfCP - degreeOfBSpline);
+		for (unsigned int i = 0; i < numOfCP - degreeOfBSpline; i++)
+		{
+			knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
+		}
 
-		//_q = BSpline<-1, -1, -1>(knot, _q_data);
-		//_dqds = _q.derivative();
-		//_ddqdds = _dqds.derivative();
+		_q = BSpline<-1, -1, -1>(knot, _q_data);
+		_dqds = _q.derivative();
+		_ddqdds = _dqds.derivative();
 
 	}
 
@@ -204,8 +204,8 @@ namespace rovin {
 				//a_agg[i + _dof] = a[i];
 			}
 
-			cout << "a : " << a << endl;
-			cout << "left_vec(b*sdot^(2) + c) : " << left_vec << endl;
+			//cout << "a : " << a << endl;
+			//cout << "left_vec(b*sdot^(2) + c) : " << left_vec << endl;
 
 			Vector2 result; // result[0] is alpha, result[1] is beta
 			result[0] = -std::numeric_limits<Real>::max();
@@ -295,9 +295,25 @@ namespace rovin {
 
 	void TOPP::calculateFinalTime()
 	{
-		int integrateType = 3; // 1 : GQ, 2 : Euler, 3 : Trapz
+		int integrateType = 0; // 0 : Wooyoung, 1 : GQ, 2 : Euler, 3 : Trapz
 
-		if (integrateType == 1)
+		if (integrateType == 0)
+		{
+			std::list<Real>::iterator it_sdot = ++(_sdot.begin());
+
+			Real s_k = _s.front(), sdot_k = _sdot.front();
+			Real s_k1, sdot_k1;
+			Real sum = 0;
+			for (std::list<Real>::iterator it_s = ++(_s.begin()); it_s != (_s.end()); ++it_s)
+			{
+				s_k1 = *(it_s); sdot_k1 = *(it_sdot);
+				sum += 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
+				s_k = s_k1; sdot_k = sdot_k1;
+				it_sdot++;
+			}
+			_tf_result = sum;
+		}
+		else if (integrateType == 1)
 		{
 			int numOfGQPoint = 40;
 			GaussianQuadrature GQ(numOfGQPoint, _si, _sf);
@@ -382,24 +398,46 @@ namespace rovin {
 
 	void TOPP::calculateTorqueTrajectory()
 	{
-		//TODO
+		// calculate time and joint angle
+		VectorX t(_s.size());
+		t(0) = 0;
 
+		std::list<Real>::iterator it_s = ++(_s.begin());
+		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
+		Real s_k = _s.front(), sdot_k = _sdot.front();
+		Real s_k1, sdot_k1, dt;
 
+		for (int i = 1; i < _s.size(); i++)
+		{
+			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
+			dt = 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
+			t(i) = t(i - 1) + dt;
+			s_k = s_k1; sdot_k = sdot_k1;
+			it_s++; it_sdot++;
+		}
 
-		//VectorX tau(_dof), q(_dof), qdot(_dof), qddot(_dof);
-		//std::list<Real>::iterator s_it = _s.begin();
-		//std::list<Real>::iterator sdot_it = _sdot.begin();
-		//for (int i = 0; i < _s.size(); i++)
-		//{
-		//	q = _q(*(s_it));
-		//	qdot = (*(sdot_it))*_dqds(*(s_it));
-		//	
-		
-		//TODO
+		MatrixX q_data(_dof, t.size());
+		it_s = _s.begin();
+		for (int i = 0; i < t.size(); i++)
+			q_data.col(i) = _q((*it_s)++);
 
-		//	s_it++;
-		//	sdot_it++;
-		//}
+		// make b-spline
+		// TODO --> Woo young
+		BSpline<-1, -1, -1> q;
+		BSpline<-1, -1, -1> qdot = q.derivative();
+		BSpline<-1, -1, -1> qddot = qdot.derivative();
+
+		// solve inverse dynamics
+		_torque_result = MatrixX(_dof, t.size());
+		StatePtr state = _soc->makeState();
+		for (int i = 0; i < t.size(); i++)
+		{
+			state->setJointStatePos(q(t(i)));
+			state->setJointStateVel(qdot(t(i)));
+			state->setJointStateAcc(qddot(t(i)));
+			_soc->solveInverseDynamics(*state);
+			_torque_result.col(i) = state->getJointStateTorque();
+		}
 	}
 
 	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
@@ -478,11 +516,9 @@ namespace rovin {
 		Real s_next = s_bef + 2 * ds;
 		Real sdot_next = calculateMVCPoint(s_next);
 
-
 		// end criterion
 		if (s_next >= _sf)
 			return false;
-
 
 		// 원래 topp 코드에는 tan_bef/tan_cur 로 discontinous 포인트 추가하는데 그거 이해 안감
 		// 안넣어도 될것같은데 그럴거면 tan_bef/tan_cur 따로 구할 필요 없음
@@ -558,7 +594,6 @@ namespace rovin {
 					}
 				}
 			}
-
 
 			// step 2: tanget point check
 			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
@@ -643,8 +678,8 @@ namespace rovin {
 			// Forward integration
 			while (FI_SW)
 			{
-				s_FI_jk.push_back(s_cur);
-				sd_FI_jk.push_back(sdot_cur);
+				//s_FI_jk.push_back(s_cur);
+				//sd_FI_jk.push_back(sdot_cur);
 
 				//std::cout << "FI_SW" << endl;
 				//std::cout << "s_cur : " << s_cur << endl;
@@ -664,11 +699,11 @@ namespace rovin {
 				//std::cout << "alpha_cur : " << alphabeta(0) << endl;
 				//std::cout << "beta_cur : " << alphabeta(1) << endl;
 
-				if (s_cur > 0.183)
-				{
-					int aaaa = 3;
-				}
-//				cout << alpha_cur << '\t' << beta_cur << endl;
+				//if (s_cur > 0.183)
+				//{
+				//	int aaaa = 3;
+				//}
+				//cout << alpha_cur << '\t' << beta_cur << endl;
 
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
@@ -713,7 +748,6 @@ namespace rovin {
 						FI_SW = false;
 						BI_SW = true;
 					}
-					
 				}
 				else if (s_cur > _sf) ///< go to step 3, case (a), s_cur 가 무조건 s_end 넘어갔을 때!!
 				{
@@ -729,26 +763,26 @@ namespace rovin {
 				}
 			}
 
-			saveRealVector2txt(s_FI_jk, "D:/jkkim/Documents/matlabTest/sFI.txt");
-			saveRealVector2txt(sd_FI_jk, "D:/jkkim/Documents/matlabTest/sdotFI.txt");
+			//saveRealVector2txt(s_FI_jk, "D:/jkkim/Documents/matlabTest/sFI.txt");
+			//saveRealVector2txt(sd_FI_jk, "D:/jkkim/Documents/matlabTest/sdotFI.txt");
 
 
 			// Backward intergration
 			while (BI_SW)
 			{
-				std::cout << "BI_SW" << endl;
-				std::cout << "s_cur : " << s_cur << endl;
-				std::cout << "sdot_cur : " << sdot_cur << endl;
+				//std::cout << "BI_SW" << endl;
+				//std::cout << "s_cur : " << s_cur << endl;
+				//std::cout << "sdot_cur : " << sdot_cur << endl;
 
 				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
 				beta_cur = alphabeta(1);
 
-				cout << "s_cur : " << s_cur << endl;
-				cout << "sdot_cur : " << sdot_cur << endl;
-				cout << "alpha_cur : " << alpha_cur << endl;
-				cout << "beta_cur : " << beta_cur << endl;
+				//cout << "s_cur : " << s_cur << endl;
+				//cout << "sdot_cur : " << sdot_cur << endl;
+				//cout << "alpha_cur : " << alpha_cur << endl;
+				//cout << "beta_cur : " << beta_cur << endl;
 
 				// backward integration
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
@@ -778,9 +812,9 @@ namespace rovin {
 						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 						alpha_cur = alphabeta(0);
 
-						cout << "s_cur : " << s_cur << endl;
-						cout << "sdot_cur : " << sdot_cur << endl;
-						cout << "alpha_cur : " << alpha_cur << endl;
+						//cout << "s_cur : " << s_cur << endl;
+						//cout << "sdot_cur : " << sdot_cur << endl;
+						//cout << "alpha_cur : " << alpha_cur << endl;
 
 						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 						_s_tmp.push_front(s_cur);
@@ -789,25 +823,15 @@ namespace rovin {
 					_s_tmp.pop_front();
 					_sdot_tmp.pop_front();
 
-					// switching point 저장 할 필요 없나요??
-
-					//_s.merge(_s_tmp);
-					//_sdot.merge(_sdot_tmp);
-
 					_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
 					_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
 
-					s_cur = _s.back();
-					sdot_cur = _sdot.back();
-					alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-					beta_cur = alphabeta(1);
+					_s_tmp.clear();
+					_sdot_tmp.clear();
 
 					s_cur = _s.back();
 					sdot_cur = _sdot.back();
 					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
-
-					_s_tmp.clear();
-					_sdot_tmp.clear();
 
 					FI_SW = true;
 					BI_SW = false;
@@ -832,8 +856,8 @@ namespace rovin {
 			
 			while (s_cur >= _s.back())
 			{
-				s_BI_jk.push_back(s_cur);
-				sd_BI_jk.push_back(sdot_cur);
+				//s_BI_jk.push_back(s_cur);
+				//sd_BI_jk.push_back(sdot_cur);
 
 				//cout << "_s_back() : " << _s.back() << endl;
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
@@ -879,8 +903,8 @@ namespace rovin {
 
 		while (_sdot.back() > sdot_cur)
 		{
-			s_BI_jk.push_back(s_cur);
-			sd_BI_jk.push_back(sdot_cur);
+			//s_BI_jk.push_back(s_cur);
+			//sd_BI_jk.push_back(sdot_cur);
 
 			_s.pop_back();
 			_sdot.pop_back();
@@ -891,31 +915,25 @@ namespace rovin {
 			_sdot_tmp.push_front(sdot_cur);
 		}
 
-		s_BI_jk.push_back(s_cur);
-		sd_BI_jk.push_back(sdot_cur);
-
+		// save backward information
+		//s_BI_jk.push_back(s_cur);
+		//sd_BI_jk.push_back(sdot_cur);
 		//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
 		//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
-		saveRealVector2txt(s_BI_jk, "D:/jkkim/Documents/matlabTest/sBI.txt");
-		saveRealVector2txt(sd_BI_jk, "D:/jkkim/Documents/matlabTest/sdotBI.txt");
+		//saveRealVector2txt(s_BI_jk, "D:/jkkim/Documents/matlabTest/sBI.txt");
+		//saveRealVector2txt(sd_BI_jk, "D:/jkkim/Documents/matlabTest/sdotBI.txt");
 
 		_s_tmp.pop_front();
 		_sdot_tmp.pop_front();
-		// switching point 저장 할 필요 없나요??
 
 		_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
 		_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
-
-		//_s.merge(_s_tmp);
-		//_sdot.merge(_sdot_tmp);
 		_s_tmp.clear();
 		_sdot_tmp.clear();
-		//_s.pop_back();
-		//_sdot.pop_back();
 
 		// calculate tf and torque trajectory
 		calculateFinalTime();
-		//calculateTorqueTrajectory();
+		calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
 
@@ -930,11 +948,8 @@ namespace rovin {
 		}
 		//saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
 		//saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
-		saveRealVector2txt(s_jk, "D:/jkkim/Documents/matlabTest/s_result.txt");
-		saveRealVector2txt(sdot_jk, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
-
-
-		
+		//saveRealVector2txt(s_jk, "D:/jkkim/Documents/matlabTest/s_result.txt");
+		//saveRealVector2txt(sdot_jk, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
 	}
 
 	const Real TOPP::getFinalTime() const
@@ -942,7 +957,7 @@ namespace rovin {
 		return _tf_result;
 	}
 
-	const std::vector<VectorX>& TOPP::getTorqueTrajectory() const
+	const MatrixX& TOPP::getTorqueTrajectory() const
 	{
 		return _torque_result;
 	}
@@ -1024,10 +1039,10 @@ namespace rovin {
 		//saveRealVector2txt(sd_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotMVC.txt");
 
 
-		calcSPs();
+		//calcSPs();
 
-		saveRealVector2txt(s_SW_jk, "D:/jkkim/Documents/matlabTest/sSW.txt");
-		saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
+		//saveRealVector2txt(s_SW_jk, "D:/jkkim/Documents/matlabTest/sSW.txt");
+		//saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
 
 	}
 }
