@@ -3,17 +3,25 @@
 namespace rovin {
 	BSpline<-1, -1, -1> BSplineInterpolation(const MatrixX& viaPoints, int order, const Real& xi, const Real& xf)
 	{
-		int N_cp = viaPoints.cols(); ///< number of control points = number of via points
-
 		///< Choice of associated parameters to via points.
 		VectorX x_vp = ParameterAllocation(viaPoints, xi, xf);
-		
-		///< Choice of knot sequence.
-		VectorX knot = KnotAllocation(x_vp, order, N_cp);
+
+		return BSplineInterpolation(viaPoints, order, x_vp);
+	}
+
+	BSpline<-1, -1, -1> BSplineInterpolation(const MatrixX& viaPoints, int order, const VectorX& x_vp)
+	{
+		int N_cp = viaPoints.cols(); ///< number of control points = number of via points
+
+									 ///< Choice of associated parameters to via points.
+		LOGIF(N_cp == x_vp.rows(), "BSplineInterpolation error : The number of viaPoints is different from the number of corresponding parameter.")
+
+			///< Choice of knot sequence.
+			VectorX knot = KnotAllocation(x_vp, order, N_cp);
 
 		/**
-		*	Solving the linear equation.
-		*	Find the control points
+		*  Solving the linear equation.
+		*  Find the control points
 		*/
 		MatrixX Id(N_cp, N_cp); ///< Identity matrix
 		Id.setIdentity();
