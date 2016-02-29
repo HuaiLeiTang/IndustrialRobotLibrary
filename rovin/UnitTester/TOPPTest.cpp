@@ -31,14 +31,11 @@ int main()
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
 	topp.generateTrajectory();
-	savessdotResult(topp);
-	saveTorqueResult(topp);
-
+	//savessdotResult(topp);
+	//saveTorqueResult(topp);
 	//topp.saveMVCandSP2txt();
-	//backwardIntegrationTest(topp);
 
 	cout << "Final time : " << topp.getFinalTime() << endl;
-
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
@@ -129,9 +126,9 @@ void savessdotResult(TOPP& topp)
 {
 	std::vector<Real> s_result;
 	std::vector<Real> sdot_result;
-	std::list<Real>::iterator s_it = topp._s.begin();
-	std::list<Real>::iterator sdot_it = topp._sdot.begin();
-	for (s_it = topp._s.begin(); s_it != topp._s.end(); ++s_it)
+	std::list<Real>::const_iterator s_it = topp.gets().begin();
+	std::list<Real>::const_iterator sdot_it = topp.getsdot().begin();
+	for (s_it = topp.gets().begin(); s_it != topp.gets().end(); ++s_it)
 	{
 		s_result.push_back(*(s_it));
 		sdot_result.push_back(*(sdot_it));
@@ -160,85 +157,4 @@ void saveTorqueResult(TOPP& topp)
 		torque_st += ".txt";
 		topp.saveRealVector2txt(torque_vec[i], torque_st);
 	}
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void a()
-{
-
-	////////////////////////////////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//std::vector<Real> min;
-	//std::vector<Real> max;
-	//VectorX qs(topp._dof);
-	//VectorX vec(topp._dof * 2);
-	//VectorX qconts = topp._velConstraint;
-	//qconts *= 4;
-	//VectorX left_vec(topp._dof * 2);
-
-	//Vector2 result;
-
-	//for (int i = 0; i < topp._dof; i++)
-	//{
-	//	cout << robot->getMotorJointPtr(i)->getLimitVelUpper() << endl;
-	//	//cout << "[ joint " << "i" << " qdot max min ]" << endl;
-	//	//cout << "max : " << robot->getMotorJointPtr(i)->getLimitVelUpper() << endl;
-	//	//cout << "min : " << robot->getMotorJointPtr(i)->getLimitVelLower() << endl;
-	//}
-
-	//cout << topp._dqds(0.1) << endl;
-
-	//Real s_cur = si;
-	//while (s_cur < sf)
-	//{
-	//	qs = topp._dqds(s_cur);
-	//	
-	//	for (int i = 0; i < topp._dof; i++)
-	//	{
-	//		vec(i) = qs(i);
-	//		vec(i + topp._dof) = -qs(i);
-	//		left_vec(i) = qconts(i);
-	//		left_vec(i + topp._dof) = -qconts(i + topp._dof);
-	//	}
-
-	//	result[0] = -std::numeric_limits<Real>::max();
-	//	result[1] = std::numeric_limits<Real>::max();
-	//	for (int i = 0; i < topp._dof * 2; i++)
-	//	{
-	//		Real tmp = left_vec(i) / vec(i);
-	//		if (vec[i] > RealEps) // upper bound beta
-	//		{
-	//			if (tmp < result[1])
-	//				result[1] = tmp;
-	//		}
-	//		else if (vec[i] < -RealEps)// lower bound alpha
-	//		{
-	//			if (tmp > result[0])
-	//				result[0] = tmp;
-	//		}
-	//	}
-	//	result[0] = std::max(result[0], 0.0);
-
-	//	min.push_back(result[0]);
-	//	max.push_back(result[1]);
-
-	//	s_cur += topp._ds;
-	//}
-	//topp.saveRealVector2txt(min, "C:/Users/crazy/Desktop/Time optimization/qdot minmax result/min.txt");
-	//topp.saveRealVector2txt(max, "C:/Users/crazy/Desktop/Time optimization/qdot minmax result/max.txt");
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
 }

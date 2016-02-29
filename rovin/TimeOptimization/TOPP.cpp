@@ -16,6 +16,7 @@ namespace rovin {
 		_vf = vf;
 		_si = si;
 		_sf = sf;
+		_integrationType = 1;
 
 		// insert torque constraint, velocity constraint
 		_torqueConstraint.resize(_dof * 2);
@@ -32,9 +33,6 @@ namespace rovin {
 			_accConstraint[i] = _soc->getMotorJointPtr(i)->getLimitAccUpper();
 			_accConstraint[i] = _soc->getMotorJointPtr(i)->getLimitAccLower();
 		}
-
-		//_torqueConstraint *= 2.0;
-		//cout << _torqueConstraint << endl;
 
 		// make b-spline by wooyoung
 		unsigned int degreeOfBSpline = 3;
@@ -53,28 +51,6 @@ namespace rovin {
 		}
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
-
-		// B-spline experiment 1
-		//VectorX knot;
-		//unsigned int degreeOfBSpline = 4;
-		//unsigned int numOfCP = 7;
-		//MatrixX data(_dof, 7);
-		//knot.resize(degreeOfBSpline + numOfCP + 1);
-		//for (unsigned int i = 0; i < degreeOfBSpline + 1; i++)
-		//{
-		//	knot[i] = _si;
-		//	knot[knot.size() - i - 1] = _sf;
-		//}
-		//Real delta = _sf / (numOfCP - degreeOfBSpline);
-		//for (unsigned int i = 0; i < numOfCP - degreeOfBSpline; i++)
-		//{
-		//	knot[degreeOfBSpline + 1 + i] = delta * (i + 1);
-		//}
-
-		//_q = BSpline<-1, -1, -1>(knot, _q_data);
-		//_dqds = _q.derivative();
-		//_ddqdds = _dqds.derivative();
-
 	}
 
 	bool TOPP::checkMVCCondition(Real alpha, Real beta)
@@ -261,6 +237,38 @@ namespace rovin {
 		}
 	}
 
+	void TOPP::determineVelminmax(Real s)
+	{
+		VectorX qs(_dof);
+		VectorX qs_vec(_dof * 2);
+		VectorX left_vec(_dof * 2);
+		qs = _dqds(s);
+		for (int i = 0; i < _dof; i++)
+		{
+			qs_vec(i) = qs(i);
+			qs_vec(i + _dof) = -qs(i);
+			left_vec(i) = _velConstraint(i);
+			left_vec(i + _dof) = -_velConstraint(i + _dof);
+		}
+		_minmax(0) = -std::numeric_limits<Real>::max();
+		_minmax(1) = std::numeric_limits<Real>::max();
+		for (int i = 0; i < _dof * 2; i++)
+		{
+			Real tmp = left_vec(i) / qs_vec(i);
+			if (qs_vec(i) > RealEps) // upper bound beta
+			{
+				if (tmp < _minmax(1))
+					_minmax(1) = tmp;
+			}
+			else if (qs_vec(i) < -RealEps)// lower bound alpha
+			{
+				if (tmp > _minmax(0))
+					_minmax(0) = tmp;
+			}
+		}
+		_minmax(0) = std::max(_minmax(0), 0.0);
+	}
+
 	Real TOPP::calculateMVCPoint(Real s)
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
@@ -270,14 +278,11 @@ namespace rovin {
 			return 0;
 
 		VectorX a = calculateA(s);
-		//cout << endl;
-		//cout << "a : " << a << endl;
 
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0];
 		VectorX c = BandC[1];
 
-		
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
 		int nconstraints = _dof * 2;
 
@@ -309,7 +314,59 @@ namespace rovin {
 				}
 			}
 		}
-		return sdot_MVC;
+
+		// 수정
+		determineVelminmax(s);
+		Real sdot_VelC = _minmax(1);
+		return std::min(sdot_MVC, sdot_VelC);
+	}
+
+	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
+	{
+		Real sdot_MVC = std::numeric_limits<Real>::max();
+
+		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		if (alphabeta[0] > alphabeta[1])
+			return 0;
+
+		VectorX a = calculateA(s);
+		std::vector<VectorX> BandC = calculateBandC(s);
+		VectorX b = BandC[0];
+		VectorX c = BandC[1];
+
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
+			int nconstraints = _dof * 2;
+
+		for (int k = 0; k < nconstraints; k++)
+		{
+			for (int m = k + 1; m < nconstraints; m++)
+			{
+				// exclude iExclude-th inequality constraint
+				if (k == iExclude || m == iExclude) {
+					continue;
+				}
+
+				Real num, denum, r;
+
+				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
+				if (a(k)*a(m) < 0)
+				{
+					num = a(k) * c(m) - a(m) * c(k);
+					denum = -a(k) * b(m) + a(m) * b(k);
+					if (std::abs(denum) > 1e-10)
+					{
+						r = num / denum;
+						if (r >= 0)
+							sdot_MVC = std::min(sdot_MVC, sqrt(r));
+					}
+				}
+			}
+		}
+
+		// 수정
+		determineVelminmax(s);
+		Real sdot_VelC = _minmax(1);
+		return std::min(sdot_MVC, sdot_VelC);
 	}
 
 	void TOPP::calculateFinalTime()
@@ -376,133 +433,98 @@ namespace rovin {
 		}
 	}
 
-	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
-	{
-		Real sdot_MVC = std::numeric_limits<Real>::max();
-
-		Vector2 alphabeta = determineAlphaBeta(s, 0);
-		if (alphabeta[0] > alphabeta[1])
-			return 0;
-
-		VectorX a = calculateA(s);
-		std::vector<VectorX> BandC = calculateBandC(s);
-		VectorX b = BandC[0];
-		VectorX c = BandC[1];
-
-		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
-		int nconstraints = _dof * 2;
-
-		for (int k = 0; k < nconstraints; k++)
-		{
-			for (int m = k + 1; m < nconstraints; m++)
-			{
-				// exclude iExclude-th inequality constraint
-				if (k == iExclude || m == iExclude) {
-					continue;
-				}
-
-				Real num, denum, r;
-
-				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
-				if (a(k)*a(m) < 0)
-				{
-					num = a(k) * c(m) - a(m) * c(k);
-					denum = -a(k) * b(m) + a(m) * b(k);
-					if (std::abs(denum) > 1e-10)
-					{
-						r = num / denum;
-						if (r >= 0)
-							sdot_MVC = std::min(sdot_MVC, sqrt(r));
-					}
-				}
-			}
-		}
-
-		return sdot_MVC;
-	}
+	
 
 	void TOPP::farwardIntegrate(Real & s, Real & sdot, Real sddot)
 	{		
-		// Explicit Euler
-		//Real tmp = 2 * sddot*_ds + sdot*sdot;
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//s = s + _ds;
-		//sdot = sqrt(tmp);
-
-		// prediction-correction method
-		/* step 1 : prediction using explicit euler */
-		//Real s_p = s + _ds;
-		//Real tmp = 2 * sddot*_ds + sdot*sdot;
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//Real sdot_p = sqrt(tmp);
-		//Real sddot_p = determineAlphaBeta(s_p, sdot_p)(1);
-		///* step 2 : prediction using trapz */
-		//tmp = (sddot + sddot_p)*_ds + sdot*sdot;
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//s = s + _ds;
-		//sdot = sqrt(tmp);
-
-		// RK4
-		Real s_RK = s + _ds;
-		Real s_RK_half = s + 0.5*_ds;
-		Real f = 2 * sddot;
-		Real tmp = sdot*sdot + 0.5 * _ds * f;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_RK_1 = sqrt(tmp);
-		Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(1);
-		tmp = sdot*sdot + 0.5 * _ds * f1;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_RK_2 = sqrt(tmp);
-		Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(1);
-		tmp = sdot*sdot + _ds * f2;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_RK_3 = sqrt(tmp);
-		tmp = sdot*sdot + _ds * (1.0/6.0*sddot + 1.0/3.0*f1 + 1.0/3.0*f2 + 1.0/6.0*2* determineAlphaBeta(s_RK, sdot_RK_3)(1));
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		sdot = sqrt(tmp);
-		s = s + _ds;
+		if (_integrationType == 1) ///< Explicit Euler
+		{
+			Real tmp = 2 * sddot*_ds + sdot*sdot;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			s = s + _ds;
+			sdot = sqrt(tmp);
+		}
+		else if (_integrationType == 2) ///< prediction-correction method
+		{
+			/* step 1 : prediction using explicit euler */
+			Real s_p = s + _ds;
+			Real tmp = 2 * sddot*_ds + sdot*sdot;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_p = sqrt(tmp);
+			Real sddot_p = determineAlphaBeta(s_p, sdot_p)(1);
+			/* step 2 : prediction using trapz */
+			tmp = (sddot + sddot_p)*_ds + sdot*sdot;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			s = s + _ds;
+			sdot = sqrt(tmp);
+		}
+		else if (_integrationType == 3) ///< RK4
+		{
+			Real s_RK = s + _ds;
+			Real s_RK_half = s + 0.5*_ds;
+			Real f = 2 * sddot;
+			Real tmp = sdot*sdot + 0.5 * _ds * f;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_RK_1 = sqrt(tmp);
+			Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(1);
+			tmp = sdot*sdot + 0.5 * _ds * f1;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_RK_2 = sqrt(tmp);
+			Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(1);
+			tmp = sdot*sdot + _ds * f2;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_RK_3 = sqrt(tmp);
+			tmp = sdot*sdot + _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			sdot = sqrt(tmp);
+			s = s + _ds;
+		}
 	}
 
 	void TOPP::backwardIntegrate(Real & s, Real & sdot, Real sddot)
 	{
-		// Explicit Euler
-		//Real tmp = -2 * sddot*_ds + sdot*sdot;
-		//LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
-		//s = s - _ds;
-		//sdot = sqrt(tmp);
-
-		// prediction-correction method
-		/* step 1 : prediction using explicit euler */
-		//Real s_p = s - _ds;
-		//Real tmp = - 2 * sddot*_ds + sdot*sdot;
-		//LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
-		//Real sdot_p = sqrt(tmp);
-		//Real sddot_p = determineAlphaBeta(s_p, sdot_p)(0);
-		///* step 2 : prediction using trapz */
-		//tmp = -(sddot + sddot_p)*_ds + sdot*sdot;
-		//LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
-		//s = s - _ds;
-		//sdot = sqrt(tmp);
-
-		// RK4
-		Real s_RK = s - _ds;
-		Real s_RK_half = s - 0.5*_ds;
-		Real f = 2 * sddot;
-		Real tmp = sdot*sdot - 0.5 * _ds * f;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_RK_1 = sqrt(tmp);
-		Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(0);
-		tmp = sdot*sdot - 0.5 * _ds * f1;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_RK_2 = sqrt(tmp);
-		Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(0);
-		tmp = sdot*sdot - _ds * f2;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_RK_3 = sqrt(tmp);
-		tmp = sdot*sdot - _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		sdot = sqrt(tmp);
-		s = s - _ds;
+		if (_integrationType == 1) ///< Explicit Euler
+		{
+			Real tmp = -2 * sddot*_ds + sdot*sdot;
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+			s = s - _ds;
+			sdot = sqrt(tmp);
+		}
+		else if (_integrationType == 2) ///< prediction-correction method
+		{
+			/* step 1 : prediction using explicit euler */
+			Real s_p = s - _ds;
+			Real tmp = -2 * sddot*_ds + sdot*sdot;
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+			Real sdot_p = sqrt(tmp);
+			Real sddot_p = determineAlphaBeta(s_p, sdot_p)(0);
+			/* step 2 : prediction using trapz */
+			tmp = -(sddot + sddot_p)*_ds + sdot*sdot;
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+			s = s - _ds;
+			sdot = sqrt(tmp);
+		}
+		else if (_integrationType == 3)
+		{
+			Real s_RK = s - _ds;
+			Real s_RK_half = s - 0.5*_ds;
+			Real f = 2 * sddot;
+			Real tmp = sdot*sdot - 0.5 * _ds * f;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_RK_1 = sqrt(tmp);
+			Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(0);
+			tmp = sdot*sdot - 0.5 * _ds * f1;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_RK_2 = sqrt(tmp);
+			Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(0);
+			tmp = sdot*sdot - _ds * f2;
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			Real sdot_RK_3 = sqrt(tmp);
+			tmp = sdot*sdot - _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
+			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			sdot = sqrt(tmp);
+			s = s - _ds;
+		}
 	}
 
 	bool TOPP::findNearestSwitchPoint(Real s)
@@ -582,7 +604,6 @@ namespace rovin {
 							sdot_min = sdot_star;
 							idx_save = i;
 						}
-
 					}
 				}
 			}
@@ -668,6 +689,7 @@ namespace rovin {
 		Real sdot_cur = _vi / _dqds(0.0001).norm();
 		_s.push_back(s_cur);
 		_sdot.push_back(sdot_cur);
+		Real sdot_min, sdot_max;
 
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
@@ -710,17 +732,14 @@ namespace rovin {
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
 				beta_cur = alphabeta(1);
-				//std::cout << "alpha_cur : " << alphabeta(0) << endl;
-				//std::cout << "beta_cur : " << alphabeta(1) << endl;
 
-				//if (s_cur > 0.183)
-				//{
-				//	int aaaa = 3;
-				//}
-
-				//cout << alpha_cur << '\t' << beta_cur << endl;
-
-				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
+				// 수정
+				// calculate joint velocity min max
+				determineVelminmax(s_cur);
+				
+				// 수정
+				if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > _minmax(1)) || (sdot_cur < _minmax(0))) // case (a)
+				//if(!checkMVCCondition(alpha_cur, beta_cur))
 				{
 					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
 					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
@@ -982,7 +1001,7 @@ namespace rovin {
 
 		// calculate tf and torque trajectory
 		calculateFinalTime();
-		calculateTorqueTrajectory();
+		//calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
 	}
@@ -1076,9 +1095,9 @@ namespace rovin {
 
 	void TOPP::saveMVCandSP2txt()
 	{
-		//calcMVC();
-		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
-		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
+		calcMVC();
+		saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+		saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
 
 		////calcSPs();
 

@@ -40,7 +40,10 @@ namespace rovin {
 
 		SerialOpenChainPtr _soc;
 		unsigned int _dof;
-		
+
+		Vector2 _minmax; ///< velocity minimum maximum (minmax(0) = min, minmix(1) = max)
+		int _integrationType;
+
 		// TOPP Result
 		Real _tf_result;
 		MatrixX _torque_result;
@@ -55,6 +58,7 @@ namespace rovin {
 		std::vector<VectorX> calculateBandC(Real s);
 
 		Vector2 determineAlphaBeta(Real s, Real sdot);
+		void determineVelminmax(Real s);
 
 		void farwardIntegrate(Real& s, Real& sdot, Real sddot);
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
@@ -68,6 +72,7 @@ namespace rovin {
 
 		void generateTrajectory();
 
+		// get function
 		const std::list<Real>& gets() const;
 		const std::list<Real>& getsdot() const;
 		const Real getFinalTime() const;
