@@ -16,8 +16,8 @@ namespace rovin {
 									 ///< Choice of associated parameters to via points.
 		LOGIF(N_cp == x_vp.rows(), "BSplineInterpolation error : The number of viaPoints is different from the number of corresponding parameter.")
 
-			///< Choice of knot sequence.
-			VectorX knot = KnotAllocation(x_vp, order, N_cp);
+		///< Choice of knot sequence.
+		VectorX knot = KnotAllocation(x_vp, order, N_cp);
 
 		/**
 		*  Solving the linear equation.

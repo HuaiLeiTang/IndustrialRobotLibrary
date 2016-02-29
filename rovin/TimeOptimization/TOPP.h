@@ -14,6 +14,17 @@ namespace rovin {
 	class TOPP;
 	class SwitchPoint;
 
+	const enum CONSTRAINT_TYPE
+	{
+		TORQUE = 1 << 0,
+		VELOCITY = 1 << 1,
+		ACCELERATION = 1 << 2,
+
+		TORQUE_VEL = TORQUE | VELOCITY,
+		TORQUE_ACC = TORQUE | ACCELERATION,
+		TORQUE_VEL_ACC = TORQUE | VELOCITY | ACCELERATION,
+	};
+
 	class TOPP
 	{
 	public:
@@ -33,8 +44,9 @@ namespace rovin {
 		VectorX _torqueConstraint;
 		VectorX _velConstraint;
 		VectorX _accConstraint;
+		CONSTRAINT_TYPE _constraintType;
 		
-		Real _ds;
+		Real _ds; ///< parameter step size
 
 		std::vector<SwitchPoint> _switchPoint;
 
@@ -50,10 +62,10 @@ namespace rovin {
 
 	public:
 		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real ds, 
-			const Real vi, const Real vf, const Real si, const Real sf);
+			const Real vi, const Real vf, const Real si, const Real sf, CONSTRAINT_TYPE constrainttype);
 
 		bool checkMVCCondition(Real alpha, Real beta);
-		
+
 		VectorX calculateA(Real s);
 		std::vector<VectorX> calculateBandC(Real s);
 

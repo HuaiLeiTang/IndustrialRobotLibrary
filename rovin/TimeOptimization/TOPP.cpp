@@ -5,7 +5,7 @@ using namespace std;
 namespace rovin {
 
 	TOPP::TOPP(const MatrixX & q_data, const SerialOpenChainPtr & soc, 
-		const Real ds, const Real vi, const Real vf, const Real si, const Real sf)
+		const Real ds, const Real vi, const Real vf, const Real si, const Real sf, CONSTRAINT_TYPE constraintType)
 	{
 		// _q_data dimesion : dof * number of data
 		_q_data = q_data;
@@ -16,12 +16,14 @@ namespace rovin {
 		_vf = vf;
 		_si = si;
 		_sf = sf;
-		_integrationType = 1;
+		_constraintType = constraintType;
+		_integrationType = 2;
 
-		// insert torque constraint, velocity constraint
+		// insert torque constraint, velocity constraint, acceleration constraint
 		_torqueConstraint.resize(_dof * 2);
 		_velConstraint.resize(_dof * 2);
 		_accConstraint.resize(_dof * 2);
+
 		for (int i = 0; i < _dof; i++)
 		{
 			_torqueConstraint[i] = _soc->getMotorJointPtr(i)->getLimitTorqueUpper();
@@ -31,7 +33,7 @@ namespace rovin {
 			_velConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitVelLower();
 
 			_accConstraint[i] = _soc->getMotorJointPtr(i)->getLimitAccUpper();
-			_accConstraint[i] = _soc->getMotorJointPtr(i)->getLimitAccLower();
+			_accConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitAccLower();
 		}
 
 		// make b-spline by wooyoung
@@ -63,186 +65,186 @@ namespace rovin {
 
 	VectorX TOPP::calculateA(Real s)
 	{
-		VectorX a(_dof * 2);
-		VectorX q = _q(s);
-		//cout << "q : " << q << endl;
-		VectorX qs = _dqds(s);
-		//cout << "qs : " << qs << endl;
-		VectorX qdot(q.size());
-		qdot.setZero();
-
+		VectorX q = _q(s), qs = _dqds(s);
+		VectorX qdot = VectorX::Zero(q.size());
 		StatePtr state = _soc->makeState();
-		state->setJointStatePos(q);
-		state->setJointStateVel(qdot);
-		state->setJointStateAcc(qs);
-
+		state->setJointStatePos(q);	state->setJointStateVel(qdot); state->setJointStateAcc(qs);
 		_soc->solveInverseDynamics(*state);
-
+		
 		VectorX tau = state->getJointStateTorque();
-		//cout << "torque : " << tau << endl;
 
 		qs.setZero();
-		state->setJointStatePos(q);
-		state->setJointStateVel(qdot);
-		state->setJointStateAcc(qs);
+		state->setJointStatePos(q);	state->setJointStateVel(qdot); state->setJointStateAcc(qs);
 		_soc->solveInverseDynamics(*state);
 
 		VectorX tmp_a = tau - state->getJointStateTorque();
-		//cout << "tmp torque : " << tmp_a << endl;
-		
-		for (int i = 0; i < _dof; i++)
-		{
-			a[i] = tmp_a[i];
-			a[i + _dof] = -tmp_a[i];
-		}
 
-		//cout << "a : " << a << endl;
-		return a;
+		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
+		{
+			VectorX a(_torqueConstraint.size());
+			for (int i = 0; i < _dof; i++)
+			{
+				a[i] = tmp_a[i];
+				a[i + _dof] = -tmp_a[i];
+			}
+			return a;
+		}
+		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC)
+		{
+			VectorX a(_torqueConstraint.size() + _accConstraint.size());
+			qs = _dqds(s);
+			for (int i = 0; i < _dof; i++)
+			{
+				a[i] = tmp_a[i];
+				a[i + _dof] = -tmp_a[i];
+				a[i + _dof * 2] = qs(i);
+				a[i + _dof * 3] = -qs(i);
+			}
+			return a;
+		}
+		else
+			LOGIF(false, "TOPP::calculateA error : contraint type is wrong.");
 	}
 
 	std::vector<VectorX> TOPP::calculateBandC(Real s)
 	{
-		std::vector<VectorX> result;
-		VectorX b(_dof * 2);
-		VectorX c(_dof * 2);
-
-		VectorX q = _q(s);
-		VectorX qdot = _dqds(s);
-		VectorX qddot = _ddqdds(s);
+		VectorX q = _q(s), qdot = _dqds(s), qddot = _ddqdds(s);
 		StatePtr state = _soc->makeState();
-
-		state->setJointStatePos(q);
-		state->setJointStateVel(qdot);
-		state->setJointStateAcc(qddot);
-
+		state->setJointStatePos(q); state->setJointStateVel(qdot); state->setJointStateAcc(qddot);
 		_soc->solveInverseDynamics(*state);
 
 		VectorX tau = state->getJointStateTorque();
 
-		state->setJointStatePos(q);
-		state->setJointStateVel(qdot.setZero());
-		state->setJointStateAcc(qddot.setZero());
-
+		state->setJointStatePos(q);	state->setJointStateVel(qdot.setZero()); state->setJointStateAcc(qddot.setZero());
 		_soc->solveInverseDynamics(*state);
 
 		VectorX tmp_c = state->getJointStateTorque();
 		VectorX tmp_b = tau - tmp_c;
 		
-		for (int i = 0; i < _dof; i++)
+		std::vector<VectorX> result;
+		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
-			//b[i] = -tmp_b[i];
-			//b[i + _dof] = tmp_b[i];
-			//c[i] = -tmp_c[i];
-			//c[i + _dof] = tmp_c[i];
-			b[i] = tmp_b[i];
-			b[i + _dof] = -tmp_b[i];
-			c[i] = tmp_c[i];
-			c[i + _dof] = -tmp_c[i];
+			VectorX b(_torqueConstraint.size()), c(_torqueConstraint.size());
+			for (int i = 0; i < _dof; i++)
+			{
+				b[i] = tmp_b[i];
+				b[i + _dof] = -tmp_b[i];
+				c[i] = tmp_c[i];
+				c[i + _dof] = -tmp_c[i];
+			}
+			for (int i = 0; i < _dof; i++)
+			{
+				c[i] -= _torqueConstraint[i];
+				c[i + _dof] += _torqueConstraint[i + _dof];
+			}
+			result.push_back(b); result.push_back(c);
 		}
-
-		for (int i = 0; i < _dof; i++)
+		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC)
 		{
-			//c[i] += _torqueConstraint[i];
-			//c[i + _dof] -= _torqueConstraint[i + _dof];
-			c[i] -= _torqueConstraint[i];
-			c[i + _dof] += _torqueConstraint[i + _dof];
+			VectorX b(_torqueConstraint.size() + _accConstraint.size()), c(_torqueConstraint.size() + _accConstraint.size());
+			VectorX qss = _ddqdds(s);
+			for (int i = 0; i < _dof; i++)
+			{
+				b[i] = tmp_b[i];
+				b[i + _dof] = -tmp_b[i];
+				b[i + _dof * 2] = qss[i];
+				b[i + _dof * 3] = -qss[i];
+				c[i] = tmp_c[i];
+				c[i + _dof] = -tmp_c[i];
+				c[i + _dof * 2] = -_accConstraint[i];
+				c[i + _dof * 3] = _accConstraint[i + _dof];
+			}
+			for (int i = 0; i < _dof; i++)
+			{
+				c[i] -= _torqueConstraint[i];
+				c[i + _dof] += _torqueConstraint[i + _dof];
+			}
+			result.push_back(b); result.push_back(c);
 		}
-		
-		result.push_back(b);
-		result.push_back(c);
-
-		//cout << "b : " << b << endl;
-		//cout << "c : " << c << endl;
-		//cout << "b+c : " << b + c << endl;
+		else
+			LOGIF(false, "TOPP::calculateBandC error : contraint type is wrong.");
 
 		return result;
 	}
 
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
-		VectorX a = calculateA(s);
-		//cout << "a : " << a << endl;
+		if (s > _sf)
+			return Vector2();
 
-		// zero-inertia point check
-		bool zero_inertia_swi = false;
+		VectorX a = calculateA(s);
+
 		for (int i = 0; i < a.size(); i++)
 		{
-			//cout << a[i] << endl;
-			if (std::abs(a[i]) < RealEps)
+			if (std::abs(a(i)) < RealEps)
 			{
-				zero_inertia_swi = true;
-				break;
+				LOGIF(false, "TOPP::determineAlphaBeta error : a(s) = 0, zero-inertia point");
+				cout << "index i : " << i << endl;
+				cout << "zero-inertia point s : " << s << endl;
+				cout << "zero-inertia point sdot : " << sdot << endl;
 			}
 		}
+			
+		VectorX q = _q(s), qdot = _dqds(s)*sdot, qddot = _ddqdds(s)*sdot*sdot;
+		StatePtr state = _soc->makeState();
+		state->setJointStatePos(q); state->setJointStateVel(qdot); state->setJointStateAcc(qddot);
+		_soc->solveInverseDynamics(*state);
+		VectorX tau = state->getJointStateTorque();
 
-		if (true)//!zero_inertia_swi)
+		VectorX left_vec;
+		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
-			VectorX q = _q(s);
-			VectorX qdot = _dqds(s)*sdot;
-			VectorX qddot = _ddqdds(s)*sdot*sdot;
-			StatePtr state = _soc->makeState();
-
-			state->setJointStatePos(q);
-			state->setJointStateVel(qdot);
-			state->setJointStateAcc(qddot);
-
-			_soc->solveInverseDynamics(*state);
-
-			VectorX tau = state->getJointStateTorque();
-			//cout << "tau : " << tau << endl;
-			VectorX left_vec(_dof * 2);
+			left_vec = VectorX(_torqueConstraint.size());
 			for (int i = 0; i < _dof; i++)
 			{
 				left_vec(i) = -tau(i) + _torqueConstraint(i);
 				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
-				//a_agg[i] = a[i];
-				//a_agg[i + _dof] = a[i];
 			}
-
-			//cout << "a : " << a << endl;
-			//cout << "left_vec(b*sdot^(2) + c) : " << left_vec << endl;
-
-			Vector2 result; // result[0] is alpha, result[1] is beta
-			result[0] = -std::numeric_limits<Real>::max();
-			result[1] = std::numeric_limits<Real>::max();
-
-			for (int i = 0; i < _dof * 2; i++)
-			{
-				Real tmp = left_vec(i) / a(i);
-				if (a[i] > RealEps) // upper bound beta
-				{
-					if (tmp < result[1])
-						result[1] = tmp;
-				}
-				else if (a[i] <-RealEps)// lower bound alpha
-				{
-					if (tmp > result[0])
-						result[0] = tmp;
-				}
-		//else // lower bound alpha
-		//{
-		//	if (tmp > result[0])
-		//		result[0] = tmp;
-		//}
-			}
-
-			//cout << "result : " << result << endl;
-
-			return result;
 		}
-		else // Dynamic  singularity
+		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC)
 		{
-			// TODO
-			return Vector2();
+			left_vec = VectorX(_torqueConstraint.size()+ _accConstraint.size());
+			VectorX qss = _ddqdds(s)*sdot*sdot;
+			for (int i = 0; i < _dof; i++)
+			{
+				left_vec(i) = -tau(i) + _torqueConstraint(i);
+				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
+				left_vec(i + _dof * 2) = -qss(i) + _accConstraint(i);
+				left_vec(i + _dof * 3) = qss(i) - _accConstraint(i + _dof);
+			}
 		}
+		else 
+			LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
+
+		Vector2 result; // result[0] is alpha, result[1] is beta
+		result[0] = -std::numeric_limits<Real>::max();
+		result[1] = std::numeric_limits<Real>::max();
+
+		LOGIF(a.size() == left_vec.size(), "TOPP::determineAlphaBeta error : a & left_vec size are different.");
+
+		for (int i = 0; i < left_vec.size(); i++)
+		{
+			Real tmp = left_vec(i) / a(i);
+			if (a[i] > RealEps) // upper bound beta
+			{
+				if (tmp < result[1])
+					result[1] = tmp;
+			}
+			else if (a[i] < -RealEps)// lower bound alpha
+			{
+				if (tmp > result[0])
+					result[0] = tmp;
+			}
+		}
+		return result;
 	}
 
 	void TOPP::determineVelminmax(Real s)
 	{
-		VectorX qs(_dof);
-		VectorX qs_vec(_dof * 2);
-		VectorX left_vec(_dof * 2);
-		qs = _dqds(s);
+		if (s > _sf)
+			return;
+
+		VectorX qs = _dqds(s), qs_vec(_dof * 2), left_vec(_dof * 2);
 		for (int i = 0; i < _dof; i++)
 		{
 			qs_vec(i) = qs(i);
@@ -278,13 +280,14 @@ namespace rovin {
 			return 0;
 
 		VectorX a = calculateA(s);
-
 		std::vector<VectorX> BandC = calculateBandC(s);
-		VectorX b = BandC[0];
-		VectorX c = BandC[1];
+		VectorX b = BandC[0], c = BandC[1];
 
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
-		int nconstraints = _dof * 2;
+		int nconstraints;
+		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
+		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
+		else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
 
 		unsigned int kk;
 		unsigned int mm;
@@ -294,7 +297,6 @@ namespace rovin {
 			for (int m = k + 1; m < nconstraints; m++)
 			{
 				Real num, denum, r;
-
 				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
 				if (a(k)*a(m) < 0)
 				{
@@ -309,16 +311,16 @@ namespace rovin {
 							kk = k;
 							mm = m;
 						}
-							
 					}
 				}
 			}
 		}
 
 		// 수정
-		determineVelminmax(s);
-		Real sdot_VelC = _minmax(1);
-		return std::min(sdot_MVC, sdot_VelC);
+		//determineVelminmax(s);
+		//Real sdot_VelC = _minmax(1);
+		//return std::min(sdot_MVC, sdot_VelC);
+		return sdot_MVC;
 	}
 
 	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
@@ -331,11 +333,13 @@ namespace rovin {
 
 		VectorX a = calculateA(s);
 		std::vector<VectorX> BandC = calculateBandC(s);
-		VectorX b = BandC[0];
-		VectorX c = BandC[1];
+		VectorX b = BandC[0], c = BandC[1];
 
-		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.")
-			int nconstraints = _dof * 2;
+		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
+		int nconstraints;
+		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
+		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
+		else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
 
 		for (int k = 0; k < nconstraints; k++)
 		{
@@ -345,9 +349,7 @@ namespace rovin {
 				if (k == iExclude || m == iExclude) {
 					continue;
 				}
-
 				Real num, denum, r;
-
 				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
 				if (a(k)*a(m) < 0)
 				{
@@ -364,9 +366,10 @@ namespace rovin {
 		}
 
 		// 수정
-		determineVelminmax(s);
-		Real sdot_VelC = _minmax(1);
-		return std::min(sdot_MVC, sdot_VelC);
+		//determineVelminmax(s);
+		//Real sdot_VelC = _minmax(1);
+		//return std::min(sdot_MVC, sdot_VelC);
+		return sdot_MVC;
 	}
 
 	void TOPP::calculateFinalTime()
@@ -387,6 +390,8 @@ namespace rovin {
 
 	void TOPP::calculateTorqueTrajectory()
 	{
+		// TODO 수정중
+
 		// calculate time and joint angle
 		VectorX t(_s.size());
 		t(0) = 0;
@@ -412,14 +417,50 @@ namespace rovin {
 			q_data.col(i) = _q((*it_s));
 			it_s++;
 		}
-		
+
+		//std::vector<vector<Real>> torque_vec(_dof);
+		//
+		//for (int i = 0; i < _dof; i++)
+		//{
+		//	string torque_st = "C:/Users/crazy/Desktop/Time optimization/q";
+		//	for (int j = 0; j < q_data.row(0).size(); j++)
+		//		torque_vec[i].push_back(q_data(i, j));
+
+		//	torque_st += to_string(i + 1);
+		//	torque_st += ".txt";
+		//	saveRealVector2txt(torque_vec[i], torque_st);
+		//}
+		//std::vector<Real> t_vec;
+		//for (int i = 0; i < t.size(); i++)
+		//	t_vec.push_back(t(i));
+		//saveRealVector2txt(t_vec, "C:/Users/crazy/Desktop/Time optimization/t.txt");
+
+		//cout << t << endl;
+		//cout << "q_data.row(0) : " << q_data.row(0) << endl;
+		//cout << "q_data.row(1) : " << q_data.row(1) << endl;
+		//cout << "q_data column size : " << q_data.row(0).size() << endl;
+		//cout << "t size : " << t.size() << endl;
 		// make b-spline
+		
 		unsigned int degreeOfBSpline = 3;
 		unsigned int orderOfBSpline = degreeOfBSpline + 1;
-		BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, t);
+		unsigned int MaxNumOfCP = 15;
+		unsigned int numData = _q_data.cols();
+		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, 0, t(t.size()-1));
+		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, t);
+		BSpline<-1, -1, -1> q = BSplineFitting(q_data, orderOfBSpline, MaxNumOfCP, t(0), t(t.size()-1));
 		BSpline<-1, -1, -1> qdot = q.derivative();
 		BSpline<-1, -1, -1> qddot = qdot.derivative();
-		
+
+		//cout << "q(0.05)" << endl;
+		//cout << q(0.05) << endl;
+		//cout << "q(0.10)" << endl;
+		//cout << q(0.10) << endl;
+		//cout << "q(0.15)" << endl;
+		//cout << q(0.15) << endl;
+		//cout << "q(0.20)" << endl;
+		//cout << q(0.20) << endl;
+
 		// solve inverse dynamics
 		_torque_result = MatrixX(_dof, t.size());
 		StatePtr state = _soc->makeState();
@@ -432,8 +473,6 @@ namespace rovin {
 			_torque_result.col(i) = state->getJointStateTorque();
 		}
 	}
-
-	
 
 	void TOPP::farwardIntegrate(Real & s, Real & sdot, Real sddot)
 	{		
@@ -510,18 +549,18 @@ namespace rovin {
 			Real s_RK_half = s - 0.5*_ds;
 			Real f = 2 * sddot;
 			Real tmp = sdot*sdot - 0.5 * _ds * f;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
 			Real sdot_RK_1 = sqrt(tmp);
 			Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(0);
 			tmp = sdot*sdot - 0.5 * _ds * f1;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
 			Real sdot_RK_2 = sqrt(tmp);
 			Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(0);
 			tmp = sdot*sdot - _ds * f2;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
 			Real sdot_RK_3 = sqrt(tmp);
 			tmp = sdot*sdot - _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
 			sdot = sqrt(tmp);
 			s = s - _ds;
 		}
@@ -531,7 +570,6 @@ namespace rovin {
 	{
 
 		Real ds = 0.0005;
-		
 		Real s_bef = s;
 		Real sdot_bef = calculateMVCPoint(s_bef);
 		Real s_cur = s_bef + ds;
@@ -639,7 +677,6 @@ namespace rovin {
 			}
 			// step 2 -END-
 
-
 			// step 3: discontinuous point check
 			if (std::abs(sdot_next - sdot_cur) > 1000 * std::abs(sdot_cur - sdot_bef))
 			{
@@ -687,8 +724,10 @@ namespace rovin {
 		// initialization
 		Real s_cur = 0;
 		Real sdot_cur = _vi / _dqds(0.0001).norm();
-		_s.push_back(s_cur);
+		_s.push_back(s_cur); 
 		_sdot.push_back(sdot_cur);
+
+		// min max for qdot constraint TODO
 		Real sdot_min, sdot_max;
 
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
@@ -735,11 +774,11 @@ namespace rovin {
 
 				// 수정
 				// calculate joint velocity min max
-				determineVelminmax(s_cur);
+				//determineVelminmax(s_cur);
 				
 				// 수정
-				if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > _minmax(1)) || (sdot_cur < _minmax(0))) // case (a)
-				//if(!checkMVCCondition(alpha_cur, beta_cur))
+				//if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > _minmax(1)) || (sdot_cur < _minmax(0))) // case (a)
+				if(!checkMVCCondition(alpha_cur, beta_cur))
 				{
 					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
 					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
@@ -1001,7 +1040,7 @@ namespace rovin {
 
 		// calculate tf and torque trajectory
 		calculateFinalTime();
-		//calculateTorqueTrajectory();
+		calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
 	}

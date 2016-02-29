@@ -13,7 +13,7 @@ void loadData(MatrixX& data);
 void backwardIntegrationTest(TOPP& topp);
 void savessdotResult(TOPP& topp);
 void saveTorqueResult(TOPP& topp);
-void a();
+void findswitchingPoint(TOPP& topp);
 
 SerialOpenChainPtr robot(new efortRobot());
 StatePtr state;
@@ -29,11 +29,12 @@ int main()
 
 	// Time optimization
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
-	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
-	topp.generateTrajectory();
+	TOPP topp(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE_ACC);
+	//topp.generateTrajectory();
 	//savessdotResult(topp);
-	//saveTorqueResult(topp);
 	//topp.saveMVCandSP2txt();
+	//saveTorqueResult(topp);
+	//findswitchingPoint(topp);
 
 	cout << "Final time : " << topp.getFinalTime() << endl;
 	cout << "Program complete" << endl;
@@ -157,4 +158,25 @@ void saveTorqueResult(TOPP& topp)
 		torque_st += ".txt";
 		topp.saveRealVector2txt(torque_vec[i], torque_st);
 	}
+}
+
+void findswitchingPoint(TOPP& topp)
+{
+	Real s_cur = 0;
+	bool swi = false;
+	while (s_cur < topp._sf)
+	{
+		swi = topp.findNearestSwitchPoint(s_cur);
+		s_cur = topp._switchPoint[topp._switchPoint.size() - 1]._s;
+		if (!swi)
+			break;
+	}
+
+	for (int i = 0; i < topp._switchPoint.size(); i++)
+	{
+		cout << i << "-th switching point" << endl;
+		cout << "s : " << topp._switchPoint[i]._s << endl;
+		cout << "sdot : " << topp._switchPoint[i]._sdot << endl;
+		cout << "id : " << topp._switchPoint[i]._id << endl;
+ 	}
 }
