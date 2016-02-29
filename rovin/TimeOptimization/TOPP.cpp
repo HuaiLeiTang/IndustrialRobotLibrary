@@ -767,7 +767,7 @@ namespace rovin {
 		bool I_SW = true; ///< integration switch
 
 		bool swiPoint_swi = false;
-		unsigned int numOfSPInt = 1;
+		unsigned int numOfSPInt = 3;
 		
 		while (I_SW)
 		{
@@ -847,7 +847,7 @@ namespace rovin {
 							for (int i = 0; i < numOfSPInt; i++)
 							{
 								s_cur -= _ds;
-								sdot_cur -= -lambda * _ds / s_cur;
+								sdot_cur -= lambda * _ds;
 								_s_tmp.push_front(s_cur);
 								_sdot_tmp.push_front(sdot_cur);
 							}
@@ -953,6 +953,18 @@ namespace rovin {
 
 					s_cur = _s.back();
 					sdot_cur = _sdot.back();
+					if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+					{
+						// proceed following beta profile
+						Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+						for (int i = 0; i < numOfSPInt; i++)
+						{
+							s_cur += _ds;
+							sdot_cur += lambda * _ds;
+							_s.push_back(s_cur);
+							_sdot.push_back(sdot_cur);
+						}
+					}
 					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
 
 					FI_SW = true;
