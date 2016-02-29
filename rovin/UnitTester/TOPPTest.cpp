@@ -31,69 +31,69 @@ int main()
 	//topp.saveMVCandSP2txt();
 	//backwardIntegrationTest(topp);
 
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//std::vector<Real> min;
+	//std::vector<Real> max;
+	//VectorX qs(topp._dof);
+	//VectorX vec(topp._dof * 2);
+	//VectorX qconts = topp._velConstraint;
+	//qconts *= 4;
+	//VectorX left_vec(topp._dof * 2);
+
+	//Vector2 result;
+
+	//for (int i = 0; i < topp._dof; i++)
+	//{
+	//	cout << robot->getMotorJointPtr(i)->getLimitVelUpper() << endl;
+	//	//cout << "[ joint " << "i" << " qdot max min ]" << endl;
+	//	//cout << "max : " << robot->getMotorJointPtr(i)->getLimitVelUpper() << endl;
+	//	//cout << "min : " << robot->getMotorJointPtr(i)->getLimitVelLower() << endl;
+	//}
+
+	//cout << topp._dqds(0.1) << endl;
+
+	//Real s_cur = si;
+	//while (s_cur < sf)
+	//{
+	//	qs = topp._dqds(s_cur);
+	//	
+	//	for (int i = 0; i < topp._dof; i++)
+	//	{
+	//		vec(i) = qs(i);
+	//		vec(i + topp._dof) = -qs(i);
+	//		left_vec(i) = qconts(i);
+	//		left_vec(i + topp._dof) = -qconts(i + topp._dof);
+	//	}
+
+	//	result[0] = -std::numeric_limits<Real>::max();
+	//	result[1] = std::numeric_limits<Real>::max();
+	//	for (int i = 0; i < topp._dof * 2; i++)
+	//	{
+	//		Real tmp = left_vec(i) / vec(i);
+	//		if (vec[i] > RealEps) // upper bound beta
+	//		{
+	//			if (tmp < result[1])
+	//				result[1] = tmp;
+	//		}
+	//		else if (vec[i] < -RealEps)// lower bound alpha
+	//		{
+	//			if (tmp > result[0])
+	//				result[0] = tmp;
+	//		}
+	//	}
+	//	result[0] = std::max(result[0], 0.0);
+
+	//	min.push_back(result[0]);
+	//	max.push_back(result[1]);
+
+	//	s_cur += topp._ds;
+	//}
+	//topp.saveRealVector2txt(min, "C:/Users/crazy/Desktop/Time optimization/qdot minmax result/min.txt");
+	//topp.saveRealVector2txt(max, "C:/Users/crazy/Desktop/Time optimization/qdot minmax result/max.txt");
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	std::vector<Real> min;
-	std::vector<Real> max;
-	VectorX qs(topp._dof);
-	VectorX vec(topp._dof * 2);
-	VectorX qconts = topp._velConstraint;
-	qconts *= 4;
-	VectorX left_vec(topp._dof * 2);
 
-	Vector2 result;
-
-	for (int i = 0; i < topp._dof; i++)
-	{
-		cout << robot->getMotorJointPtr(i)->getLimitVelUpper() << endl;
-		//cout << "[ joint " << "i" << " qdot max min ]" << endl;
-		//cout << "max : " << robot->getMotorJointPtr(i)->getLimitVelUpper() << endl;
-		//cout << "min : " << robot->getMotorJointPtr(i)->getLimitVelLower() << endl;
-	}
-
-	cout << topp._dqds(0.1) << endl;
-
-	Real s_cur = si;
-	while (s_cur < sf)
-	{
-		qs = topp._dqds(s_cur);
-		
-		for (int i = 0; i < topp._dof; i++)
-		{
-			vec(i) = qs(i);
-			vec(i + topp._dof) = -qs(i);
-			left_vec(i) = qconts(i);
-			left_vec(i + topp._dof) = -qconts(i + topp._dof);
-		}
-
-		result[0] = -std::numeric_limits<Real>::max();
-		result[1] = std::numeric_limits<Real>::max();
-		for (int i = 0; i < topp._dof * 2; i++)
-		{
-			Real tmp = left_vec(i) / vec(i);
-			if (vec[i] > RealEps) // upper bound beta
-			{
-				if (tmp < result[1])
-					result[1] = tmp;
-			}
-			else if (vec[i] < -RealEps)// lower bound alpha
-			{
-				if (tmp > result[0])
-					result[0] = tmp;
-			}
-		}
-		result[0] = std::max(result[0], 0.0);
-
-		min.push_back(result[0]);
-		max.push_back(result[1]);
-
-		s_cur += topp._ds;
-	}
-	topp.saveRealVector2txt(min, "C:/Users/crazy/Desktop/Time optimization/qdot minmax result/min.txt");
-	topp.saveRealVector2txt(max, "C:/Users/crazy/Desktop/Time optimization/qdot minmax result/max.txt");
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
->>>>>>> origin/TOPP
 
 	cout << "Program complete" << endl;
 	_getch();

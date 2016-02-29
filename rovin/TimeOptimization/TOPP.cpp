@@ -805,8 +805,8 @@ namespace rovin {
 
 				if (!checkMVCCondition(alpha_cur, beta_cur)) // case (a)
 				{
-					saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
-					saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
 
 					// fine nearest switch point
 					cout << "s_cur : " << s_cur << endl;
@@ -902,8 +902,8 @@ namespace rovin {
 
 				if (s_cur <= _s.back())
 				{
-					saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
-					saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+					//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
+					//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
 					cout << "Enter if routine" << endl;
 
@@ -939,8 +939,8 @@ namespace rovin {
 
 					s_BI_jk.push_back(s_cur);
 					sd_BI_jk.push_back(sdot_cur);
-					saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
-					saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+					//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
+					//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
 					_s_tmp.pop_front();
 					_sdot_tmp.pop_front();
@@ -1040,8 +1040,8 @@ namespace rovin {
 		// save backward information
 		s_BI_jk.push_back(s_cur);
 		sd_BI_jk.push_back(sdot_cur);
-		saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
-		saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+		//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
+		//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 		//saveRealVector2txt(s_BI_jk, "D:/jkkim/Documents/matlabTest/sBI.txt");
 		//saveRealVector2txt(sd_BI_jk, "D:/jkkim/Documents/matlabTest/sdotBI.txt");
 
@@ -1066,10 +1066,12 @@ namespace rovin {
 			sdot_jk.push_back(*(sdot_it));
 			sdot_it++;
 		}
-		saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
-		saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
+		//saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
+		//saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
 		//saveRealVector2txt(s_jk, "D:/jkkim/Documents/matlabTest/s_result.txt");
 		//saveRealVector2txt(sdot_jk, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
+		saveRealVector2txt(s_jk, "C:/Users/ksh/Documents/MATLAB/s_result.txt");
+		saveRealVector2txt(sdot_jk, "C:/Users/ksh/Documents/MATLAB/sdot_result.txt");
 
 		cout << "trajectory generation finished." << endl;
 	}
