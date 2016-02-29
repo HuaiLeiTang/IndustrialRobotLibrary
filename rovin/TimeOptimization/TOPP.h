@@ -68,9 +68,11 @@ namespace rovin {
 
 		void generateTrajectory();
 
+		const std::list<Real>& gets() const;
+		const std::list<Real>& getsdot() const;
 		const Real getFinalTime() const;
 		const MatrixX& getTorqueTrajectory() const;
-
+		const unsigned int getdof() const;
 
 	public:
 		// test for MVC curve and switching point

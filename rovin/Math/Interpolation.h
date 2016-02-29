@@ -73,13 +73,13 @@ namespace rovin
 	*      x_vp is parameter vector of size n, corresponding to viaPoints.
 	*/
 	BSpline<-1, -1, -1> BSplineInterpolation(const MatrixX& viaPoints, int order, const VectorX& x_vp);
+
 	/**
 	*	\return B spline with least square error from given points.
 	*	\brief  Yong Ming Li, Least Squares Approximation(March, 1997).
 	*			givenPoints is m*n Matrix where m is the size of dimensions, and n is the number of control points.
 	*			ti & tf are initial & final value of parameter, respectively.
 	*/
-
 	BSpline<-1, -1, -1> BSplineFitting(const MatrixX& givenPoints, int order, int N_ctrlPnt, const Real& xi, const Real& xf);
 
 	VectorX ParameterAllocation(const MatrixX& points, const Real& xi, const Real& xf);
