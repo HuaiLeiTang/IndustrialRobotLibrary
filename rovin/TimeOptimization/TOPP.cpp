@@ -314,105 +314,18 @@ namespace rovin {
 
 	void TOPP::calculateFinalTime()
 	{
-		int integrateType = 0; // 0 : Wooyoung, 1 : GQ, 2 : Euler, 3 : Trapz
-
-		if (integrateType == 0)
+		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
+		Real s_k = _s.front(), sdot_k = _sdot.front();
+		Real s_k1, sdot_k1;
+		Real sum = 0;
+		for (std::list<Real>::iterator it_s = ++(_s.begin()); it_s != (_s.end()); ++it_s)
 		{
-			std::list<Real>::iterator it_sdot = ++(_sdot.begin());
-
-			Real s_k = _s.front(), sdot_k = _sdot.front();
-			Real s_k1, sdot_k1;
-			Real sum = 0;
-			for (std::list<Real>::iterator it_s = ++(_s.begin()); it_s != (_s.end()); ++it_s)
-			{
-				s_k1 = *(it_s); sdot_k1 = *(it_sdot);
-				sum += 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
-				s_k = s_k1; sdot_k = sdot_k1;
-				it_sdot++;
-			}
-			_tf_result = sum;
+			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
+			sum += 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
+			s_k = s_k1; sdot_k = sdot_k1;
+			it_sdot++;
 		}
-		else if (integrateType == 1)
-		{
-			int numOfGQPoint = 40;
-			GaussianQuadrature GQ(numOfGQPoint, _si, _sf);
-
-			MatrixX reverse_sdot;
-			if (_sdot.front() < RealEps)
-			{
-				reverse_sdot = MatrixX(1, _sdot.size() - 2);
-				_sdot.pop_front();
-				_s.pop_front();
-			}
-			else
-				reverse_sdot = MatrixX(1, _sdot.size() - 1);
-
-			int cnt = 0;
-			for (std::list<Real>::iterator it = (_sdot.begin()); it != --(_sdot.end()); ++it)
-			{
-				reverse_sdot(0, cnt) = 1.0 / (*it);
-				cnt++;
-			}
-		
-			unsigned int degreeOfBSpline = 3;
-			unsigned int orderOfBSpline = degreeOfBSpline + 1;
-			unsigned int MaxNumOfCP = 10;
-			BSpline<-1, -1, -1> f;
-			f = BSplineFitting(reverse_sdot, orderOfBSpline, MaxNumOfCP, _s.front(), _s.back());
-
-			VectorX sum = VectorX::Zero(1);
-			const VectorX& weights = GQ.getWeights();
-			const VectorX& QueryPoints = GQ.getQueryPoints();
-
-			for (int i = 0; i < numOfGQPoint; i++)
-			{
-				sum(0) += f(QueryPoints(i))(0,0) * weights(i);
-			}
-			_tf_result = sum(0);
-		}
-		else if (integrateType == 2)
-		{
-			Real sum = 0;
-			Real s_cur;
-			if (_sdot.front() < RealEps)
-			{
-				_sdot.pop_front();
-				_s.pop_front();
-			}
-			while (!_s.empty())
-			{
-				s_cur = _s.front();
-				_s.pop_front();
-				if (!_s.empty())
-					sum += 1 / (_sdot.front()) * (_s.front() - s_cur);
-				_sdot.front();
-			}
-			_tf_result = sum;
-		}
-		else if (integrateType == 3)
-		{
-			if (_sdot.front() < RealEps)
-			{
-				_sdot.pop_front();
-				_s.pop_front();
-			}
-			Real sum = 0;;
-			std::vector<Real> reverse_sdot;
-			std::vector<Real> s;
-			std::list<Real>::iterator it_s = _s.begin();
-			for (std::list<Real>::iterator it = (_sdot.begin()); it != --(_sdot.end()); ++it)
-			{
-				reverse_sdot.push_back(1.0 / (*it));
-				s.push_back((*it_s));
-				it_s++;
-			}
-
-			for (int i = 0; i < reverse_sdot.size() - 1; i++)
-			{
-				sum += 0.5 * (reverse_sdot[i + 1] + reverse_sdot[i]) * (s[i + 1] - s[i]);
-			}
-			_tf_result = sum;
-		}
+		_tf_result = sum;
 	}
 
 	void TOPP::calculateTorqueTrajectory()
@@ -420,7 +333,7 @@ namespace rovin {
 		// calculate time and joint angle
 		VectorX t(_s.size());
 		t(0) = 0;
-
+		
 		std::list<Real>::iterator it_s = ++(_s.begin());
 		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
 		Real s_k = _s.front(), sdot_k = _sdot.front();
@@ -434,18 +347,22 @@ namespace rovin {
 			s_k = s_k1; sdot_k = sdot_k1;
 			it_s++; it_sdot++;
 		}
-
+		
 		MatrixX q_data(_dof, t.size());
 		it_s = _s.begin();
 		for (int i = 0; i < t.size(); i++)
-			q_data.col(i) = _q((*it_s)++);
-
+		{
+			q_data.col(i) = _q((*it_s));
+			it_s++;
+		}
+		
 		// make b-spline
-		// TODO --> Woo young
-		BSpline<-1, -1, -1> q;
+		unsigned int degreeOfBSpline = 3;
+		unsigned int orderOfBSpline = degreeOfBSpline + 1;
+		BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, t);
 		BSpline<-1, -1, -1> qdot = q.derivative();
 		BSpline<-1, -1, -1> qddot = qdot.derivative();
-
+		
 		// solve inverse dynamics
 		_torque_result = MatrixX(_dof, t.size());
 		StatePtr state = _soc->makeState();
@@ -809,18 +726,18 @@ namespace rovin {
 					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
 
 					// fine nearest switch point
-					cout << "s_cur : " << s_cur << endl;
+					//cout << "s_cur : " << s_cur << endl;
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
-					cout << "switching point" << endl;
-					cout << "switching point switch : " << swiPoint_swi << endl;
-					cout << "switching point size : " << _switchPoint.size() << endl;
+					//cout << "switching point" << endl;
+					//cout << "switching point switch : " << swiPoint_swi << endl;
+					//cout << "switching point size : " << _switchPoint.size() << endl;
 					if (_switchPoint.size() > 0)
 					{
 						for (int i = 0; i < _switchPoint.size(); i++)
 						{
-							cout << "switch point s : " << _switchPoint[i]._s << endl;
-							cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
+							//cout << "switch point s : " << _switchPoint[i]._s << endl;
+							//cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
 						}
 						//cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
 					}
@@ -905,8 +822,6 @@ namespace rovin {
 					//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
 					//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
-					cout << "Enter if routine" << endl;
-
 					_s_tmp.pop_front();
 					_sdot_tmp.pop_front();
 
@@ -978,8 +893,8 @@ namespace rovin {
 		s_cur = _sf-0.0001;
 		sdot_cur = _vf / _dqds(_sf-0.0001).norm();
 
-		cout << "s_cur : " << s_cur << endl;
-		cout << "sdot_cur : " << sdot_cur << endl;
+		//cout << "s_cur : " << s_cur << endl;
+		//cout << "sdot_cur : " << sdot_cur << endl;
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
@@ -993,15 +908,15 @@ namespace rovin {
 				s_BI_jk.push_back(s_cur);
 				sd_BI_jk.push_back(sdot_cur);
 
-				cout << "_s_back() : " << _s.back() << endl;
+				//cout << "_s_back() : " << _s.back() << endl;
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
-				cout << "alpha_cur : " << alpha_cur << endl;
-				cout << "beta_cur : " << beta_cur << endl;
+				//cout << "alpha_cur : " << alpha_cur << endl;
+				//cout << "beta_cur : " << beta_cur << endl;
 
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				cout << "s_cur : " << s_cur << endl;
-				cout << "sdot_cur : " << sdot_cur << endl;
+				//cout << "s_cur : " << s_cur << endl;
+				//cout << "sdot_cur : " << sdot_cur << endl;
 
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
@@ -1067,25 +982,19 @@ namespace rovin {
 
 		// calculate tf and torque trajectory
 		calculateFinalTime();
-		//calculateTorqueTrajectory();
-
-		std::list<Real>::iterator s_it;
-		std::list<Real>::iterator sdot_it = _sdot.begin();
-
-		for (s_it = _s.begin(); s_it != _s.end(); ++s_it)
-		{
-			s_jk.push_back(*(s_it));
-			sdot_jk.push_back(*(sdot_it));
-			sdot_it++;
-		}
-		//saveRealVector2txt(s_jk, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
-		//saveRealVector2txt(sdot_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
-		//saveRealVector2txt(s_jk, "D:/jkkim/Documents/matlabTest/s_result.txt");
-		//saveRealVector2txt(sdot_jk, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
-		saveRealVector2txt(s_jk, "C:/Users/ksh/Documents/MATLAB/s_result.txt");
-		saveRealVector2txt(sdot_jk, "C:/Users/ksh/Documents/MATLAB/sdot_result.txt");
+		calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
+	}
+
+	const std::list<Real>& TOPP::gets() const
+	{
+		return _s;
+	}
+
+	const std::list<Real>& TOPP::getsdot() const
+	{
+		return _sdot;
 	}
 
 	const Real TOPP::getFinalTime() const
@@ -1096,6 +1005,11 @@ namespace rovin {
 	const MatrixX& TOPP::getTorqueTrajectory() const
 	{
 		return _torque_result;
+	}
+
+	const unsigned int TOPP::getdof() const
+	{
+		return _dof;
 	}
 
 	////////////////////////////////////////////////////////////////////////
@@ -1147,6 +1061,7 @@ namespace rovin {
 		}
 
 	}
+
 	void TOPP::saveRealVector2txt(std::vector<Real> in, std::string filename)
 	{
 		std::ofstream fout;
@@ -1159,13 +1074,11 @@ namespace rovin {
 
 	}
 
-
 	void TOPP::saveMVCandSP2txt()
 	{
 		//calcMVC();
 		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
 		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
-
 
 		////calcSPs();
 
@@ -1182,10 +1095,9 @@ namespace rovin {
 		//saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
 
 
-		calcSPs();
-		saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
-		saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
-		saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
-
+		//calcSPs();
+		//saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
+		//saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
+		//saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
 	}
 }

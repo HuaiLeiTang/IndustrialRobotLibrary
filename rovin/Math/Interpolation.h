@@ -32,7 +32,7 @@ namespace rovin
 
 		int _N; ///< Number of control points on a spline
 		int _K; ///< Order
-		int _D; ///< Polynomial dimension
+		int _D; ///< Polynomial degree
 		int _M; ///< Size of dimension
 
 	public:
@@ -59,12 +59,20 @@ namespace rovin
 	};
 
 	/**
-	*	\return B spline passing through via points.
-	*	\brief  Yong Ming Li, Least Squares Approximation(March, 1997).
-	*			viaPoints is m*n Matrix where m is the size of dimensions, and n is the number of control points.
-	*			ti & tf are initial & final value of parameter, respectively. 
+	*  \return B spline passing through via points.
+	*  \brief  Yong Ming Li, Least Squares Approximation(March, 1997).
+	*      viaPoints is m*n Matrix where m is the size of dimensions, and n is the number of control points.
+	*      ti & tf are initial & final value of parameter, respectively.
 	*/
 	BSpline<-1, -1, -1> BSplineInterpolation(const MatrixX& viaPoints, int order, const Real& xi, const Real& xf);
+
+	/**
+	*  \return B spline passing through via points.
+	*  \brief  Yong Ming Li, Least Squares Approximation(March, 1997).
+	*      viaPoints is m*n Matrix where m is the size of dimensions, and n is the number of control points.
+	*      x_vp is parameter vector of size n, corresponding to viaPoints.
+	*/
+	BSpline<-1, -1, -1> BSplineInterpolation(const MatrixX& viaPoints, int order, const VectorX& x_vp);
 
 	/**
 	*	\return B spline with least square error from given points.
@@ -77,28 +85,6 @@ namespace rovin
 	VectorX ParameterAllocation(const MatrixX& points, const Real& xi, const Real& xf);
 
 	VectorX KnotAllocation(const VectorX& x_arr, int order, int N_cp);
-
-	class Spline
-	{
-	private:
-		MatrixX _data;
-		Real _ti;
-		Real _tf;
-
-	public:
-		Spline() {}
-		Spline(const MatrixX& data, Real ti, Real tf) 
-		{
-			_data = data;
-			_ti = ti;
-			_tf = tf;
-		}
-		VectorX operator()(const Real& x) { return VectorX(); }
-		VectorX operator()(const VectorX& x) { return VectorX(); }
-
-		Spline derivative() const { return Spline(); }
-
-	};
 
 	template< int CoefficientN, int OrderK, int Dimension >
 	BSpline<CoefficientN, OrderK, Dimension>::BSpline() {}
