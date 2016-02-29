@@ -583,9 +583,8 @@ namespace rovin {
 	{
 
 		Real ds = 0.0005;
-
-		//Real s_bef = s;
-		Real s_bef = 0.534;
+		
+		Real s_bef = s;
 		Real sdot_bef = calculateMVCPoint(s_bef);
 		Real s_cur = s_bef + ds;
 		Real sdot_cur = calculateMVCPoint(s_cur);
@@ -608,6 +607,12 @@ namespace rovin {
 		VectorX a_cur = calculateA(s_cur);
 		std::vector<VectorX> bc_cur = calculateBandC(s_cur);
 
+
+		bool singularFound = false;
+		Real s_sing, a_sing, b_sing, c_sing, sdot_star, sdot_plus, s_save; ///> variables for finding singular points
+		Real sdot_min = std::numeric_limits<Real>::max();
+		int idx_save;
+
 		while (true)
 		{
 			
@@ -620,16 +625,16 @@ namespace rovin {
 					// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
 					// 여기 말고 위아래 step 2, 3에도 비슷한 알고리즘 필요할듯
 					Real adiff = a_cur[i] - a_bef[i];
-					Real s_sing, a_sing, b_sing, c_sing; // variables for finding singular points
 					if (std::abs(adiff) > 1E-10)
 					{
 						// calculate '_sing' variables as internal dividing points
 						// abc도 선형보간으로?? 새로 구한 s_sing 에서 구하는게 아니고??
 						Real tmpalpha = -a_bef[i] / adiff;
 						s_sing = tmpalpha*s_cur + (1 - tmpalpha)*s_bef;
-						a_sing = tmpalpha*a_cur[i] + (1 - tmpalpha)*a_bef[i];
-						b_sing = tmpalpha*bc_cur[0][i] + (1 - tmpalpha)*bc_bef[0][i];
-						c_sing = tmpalpha*bc_cur[1][i] + (1 - tmpalpha)*bc_bef[1][i];
+						a_sing = calculateA(s_sing)[i];
+						std::vector<VectorX> bcTmp = calculateBandC(s_sing);
+						b_sing = bcTmp[0](i);
+						c_sing = bcTmp[1](i);
 					}
 					else
 					{
@@ -639,37 +644,44 @@ namespace rovin {
 						c_sing = bc_cur[1][i];
 					}
 
-					Real f = c_sing / b_sing; // \frac{c}{b}
-					if (f < 0)
+					if (b_sing > 0 && c_sing < 0)
 					{
-						Real sdot_star = sqrt(-f);
-						Real sdot_plus = calculateMVCPointExclude(s_sing, i);
-						Real sdot_sing = calculateMVCPoint(s_sing);
-						if (sdot_plus <= 0 && sdot_star < sdot_plus) // why sdot_plus should be smaller than 0??
+						sdot_star = sqrt(-c_sing / b_sing);
+						sdot_plus = calculateMVCPointExclude(s_sing, i);
+
+						if (sdot_star < sdot_plus && sdot_star < sdot_min)
 						{
-							// calculate lambda
-							Real diffeps = 1E-5;
-							Real ap, bp, cp; // p for prime, differentiated to s
-							ap = (calculateA(s_sing + diffeps)[i] - calculateA(s_sing)[i]) / diffeps;
-							std::vector<VectorX> tmpbc = calculateBandC(s_sing);
-							std::vector<VectorX> tmpbc_eps = calculateBandC(s_sing + diffeps);
-							bp = (tmpbc_eps[0][i] - tmpbc[0][i]) / diffeps;
-							cp = (tmpbc_eps[1][i] - tmpbc[1][i]) / diffeps;
-
-							Real lambda;
-
-							if ((2 * b_sing + ap)*sdot_sing > 1E-10)
-								lambda = (-bp*sdot_sing*sdot_sing - cp) / ((2 * b_sing + ap)*sdot_sing);
-							else
-								lambda = 0.0; // 이렇게 되면 어떡하징.. 원래 코드가 왜이렇지 흠 이거 들어오기는 할까..
-
-							SwitchPoint sw(s_sing, sdot_sing, SwitchPoint::SINGULAR, lambda);
-							_switchPoint.push_back(sw);
-							return true;
+							singularFound = true;
+							s_save = s_sing;
+							sdot_min = sdot_star;
+							idx_save = i;
 						}
+
 					}
 				}
 			}
+			if (singularFound)
+			{
+				Real diffeps = 1E-5;
+				Real ap, bp, cp; ///> p for prime, differentiated to s
+				ap = (calculateA(s_save + diffeps)(idx_save) - calculateA(s_save)(idx_save)) / diffeps;
+				std::vector<VectorX> bcTmp = calculateBandC(s_save);
+				std::vector<VectorX> bcTmpEps = calculateBandC(s_save + diffeps);
+				bp = (bcTmpEps[0](idx_save) - bcTmp[0](idx_save)) / diffeps;
+				cp = (bcTmpEps[1](idx_save) - bcTmp[1](idx_save)) / diffeps;
+
+				Real lambda;
+
+				if ((2 * bcTmp[0](idx_save) + ap)*sdot_min > 1E-10)
+					lambda = (-bp * sdot_min*sdot_min - cp) / ((2 * bcTmp[0](idx_save) + ap)*sdot_min);
+				else
+					lambda = 0.0; // copy of original code....
+
+				SwitchPoint sw(s_save, sdot_min, SwitchPoint::SINGULAR, lambda);
+				_switchPoint.push_back(sw);
+				return true;
+			}
+			// step 1 -END-
 
 			// step 2: tanget point check
 			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
@@ -682,7 +694,7 @@ namespace rovin {
 
 
 			// step 3: discontinuous point check
-			if (std::abs(sdot_next - sdot_cur) > 100 * std::abs(sdot_cur - sdot_bef))
+			if (std::abs(sdot_next - sdot_cur) > 1000 * std::abs(sdot_cur - sdot_bef))
 			{
 				if (sdot_next > sdot_cur)
 				{
@@ -1086,15 +1098,18 @@ namespace rovin {
 		Real ds = 1E-3;
 		Real s = _si;
 		Real sd;
+		int SPID;
 		while (findNearestSwitchPoint(s))
 		{
 			std::cout << s << std::endl;
 
 			s = _switchPoint[_switchPoint.size() - 1]._s;
 			sd = _switchPoint[_switchPoint.size() - 1]._sdot;
+			SPID = _switchPoint[_switchPoint.size() - 1]._id;
 
 			s_SW_jk.push_back(s);
 			sd_SW_jk.push_back(sd);
+			SPID_SW_jk.push_back((Real)SPID);
 
 			s += ds;
 			if (s > _sf)
@@ -1117,9 +1132,9 @@ namespace rovin {
 
 	void TOPP::saveMVCandSP2txt()
 	{
-		calcMVC();
-		saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
-		saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
+		//calcMVC();
+		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
 
 
 		////calcSPs();
@@ -1135,6 +1150,12 @@ namespace rovin {
 
 		//saveRealVector2txt(s_SW_jk, "D:/jkkim/Documents/matlabTest/sSW.txt");
 		//saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
+
+
+		calcSPs();
+		saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
+		saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
+		saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
 
 	}
 }

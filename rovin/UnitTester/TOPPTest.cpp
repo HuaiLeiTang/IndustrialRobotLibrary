@@ -29,8 +29,8 @@ int main()
 	// Time optimization
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 	TOPP topp(q_data, robot, ds, vi, vf, si, sf);
-	topp.generateTrajectory();
-	//topp.saveMVCandSP2txt();
+	//topp.generateTrajectory();
+	topp.saveMVCandSP2txt();
 
 	_getch();
 	return 0;
@@ -39,7 +39,8 @@ int main()
 void loadData(MatrixX& data)
 {
 	//ifstream input("trajectory.txt");
-	ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
 	if (input.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
 
@@ -52,7 +53,8 @@ void loadData(MatrixX& data)
 	input.close();
 
 	//ifstream trajectory("trajectory.txt");
-	ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
 	if (trajectory.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
 
