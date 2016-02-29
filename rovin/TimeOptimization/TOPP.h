@@ -2,7 +2,6 @@
 
 #include <rovin\Dynamics\SerialOpenChain.h>
 #include <rovin\Math\Interpolation.h>
-#include <rovin\Optimizer\NonlinearOptimization.h>
 #include <rovin\Math\GaussianQuadrature.h>
 
 #include <list>
@@ -24,29 +23,24 @@ namespace rovin {
 		BSpline<-1, -1, -1> _dqds;
 		BSpline<-1, -1, -1> _ddqdds;
 
-		Real _vi;
-		Real _vf;
+		Real _vi, _vf; ///< initial & final velocity
 
-		Real _si;
-		Real _sf;
+		Real _si, _sf; ///< initial & final parameters
 
 		std::list<Real> _s;
 		std::list<Real> _sdot;
 
 		VectorX _torqueConstraint;
+		VectorX _velConstraint;
+		VectorX _accConstraint;
 		
 		Real _ds;
 
 		std::vector<SwitchPoint> _switchPoint;
-		
-		//std::vector<Vector2> _sdotTrajectory;
 
 		SerialOpenChainPtr _soc;
-
 		unsigned int _dof;
-
-		//NonlinearOptimization _nop;
-
+		
 		// TOPP Result
 		Real _tf_result;
 		MatrixX _torque_result;
