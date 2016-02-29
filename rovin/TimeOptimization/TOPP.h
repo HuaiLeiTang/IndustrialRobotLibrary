@@ -83,6 +83,7 @@ namespace rovin {
 		std::vector<Real> sd_MVC_jk;
 		std::vector<Real> s_SW_jk;
 		std::vector<Real> sd_SW_jk;
+		std::vector<Real>  SPID_SW_jk;
 
 		std::vector<Real> s_FI_jk;
 		std::vector<Real> sd_FI_jk;

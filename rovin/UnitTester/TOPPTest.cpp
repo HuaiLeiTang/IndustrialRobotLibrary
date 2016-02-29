@@ -31,8 +31,8 @@ int main()
 	//topp.saveMVCandSP2txt();
 	//backwardIntegrationTest(topp);
 
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//std::vector<Real> min;
 	//std::vector<Real> max;
 	//VectorX qs(topp._dof);
@@ -103,7 +103,11 @@ int main()
 
 void loadData(MatrixX& data)
 {
-	ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+
+	//ifstream input("trajectory.txt");
+	//ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
+
 	if (input.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
 
@@ -115,7 +119,10 @@ void loadData(MatrixX& data)
 	}
 	input.close();
 
-	ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream trajectory("trajectory.txt");
+	//ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
+
 	if (trajectory.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
 
