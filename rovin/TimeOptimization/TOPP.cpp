@@ -17,13 +17,24 @@ namespace rovin {
 		_si = si;
 		_sf = sf;
 
-		// insert torque constraint
+		// insert torque constraint, velocity constraint
 		_torqueConstraint.resize(_dof * 2);
+		_velConstraint.resize(_dof * 2);
+		_accConstraint.resize(_dof * 2);
 		for (int i = 0; i < _dof; i++)
 		{
-			_torqueConstraint[i] = (_soc->getMotorJointPtr(i)->getLimitTorqueUpper());
+			_torqueConstraint[i] = _soc->getMotorJointPtr(i)->getLimitTorqueUpper();
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
+
+			_velConstraint[i] = _soc->getMotorJointPtr(i)->getLimitVelUpper();
+			_velConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitVelLower();
+
+			_accConstraint[i] = _soc->getMotorJointPtr(i)->getLimitAccUpper();
+			_accConstraint[i] = _soc->getMotorJointPtr(i)->getLimitAccLower();
 		}
+
+		//_torqueConstraint *= 2.0;
+		//cout << _torqueConstraint << endl;
 
 		// make b-spline by wooyoung
 		unsigned int degreeOfBSpline = 3;
@@ -508,7 +519,6 @@ namespace rovin {
 		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
 		//Real sdot_p = sqrt(tmp);
 		//Real sddot_p = determineAlphaBeta(s_p, sdot_p)(1);
-
 		///* step 2 : prediction using trapz */
 		//tmp = (sddot + sddot_p)*_ds + sdot*sdot;
 		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
@@ -546,46 +556,50 @@ namespace rovin {
 
 		// prediction-correction method
 		/* step 1 : prediction using explicit euler */
-		Real s_p = s - _ds;
-		Real tmp = - 2 * sddot*_ds + sdot*sdot;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		Real sdot_p = sqrt(tmp);
-		Real sddot_p = determineAlphaBeta(s_p, sdot_p)(1);
-
-		/* step 2 : prediction using trapz */
-		tmp = -(sddot + sddot_p)*_ds + sdot*sdot;
-		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		s = s - _ds;
-		sdot = sqrt(tmp);
+		//Real s_p = s - _ds;
+		//Real tmp = - 2 * sddot*_ds + sdot*sdot;
+		//LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+		//Real sdot_p = sqrt(tmp);
+		//Real sddot_p = determineAlphaBeta(s_p, sdot_p)(0);
+		///* step 2 : prediction using trapz */
+		//tmp = -(sddot + sddot_p)*_ds + sdot*sdot;
+		//LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
+		//s = s - _ds;
+		//sdot = sqrt(tmp);
 
 		// RK4
-		//Real s_RK = s - _ds;
-		//Real s_RK_half = s - 0.5*_ds;
-		//Real f = 2 * sddot;
-		//Real tmp = sdot*sdot - 0.5 * _ds * f;
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//Real sdot_RK_1 = sqrt(tmp);
-		//Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(1);
-		//tmp = sdot*sdot - 0.5 * _ds * f1;
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//Real sdot_RK_2 = sqrt(tmp);
-		//Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(1);
-		//tmp = sdot*sdot - _ds * f2;
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//Real sdot_RK_3 = sqrt(tmp);
-		//tmp = sdot*sdot - _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
-		//LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
-		//sdot = sqrt(tmp);
-		//s = s - _ds;
+		Real s_RK = s - _ds;
+		Real s_RK_half = s - 0.5*_ds;
+		Real f = 2 * sddot;
+		Real tmp = sdot*sdot - 0.5 * _ds * f;
+		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+		Real sdot_RK_1 = sqrt(tmp);
+		Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(0);
+		tmp = sdot*sdot - 0.5 * _ds * f1;
+		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+		Real sdot_RK_2 = sqrt(tmp);
+		Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(0);
+		tmp = sdot*sdot - _ds * f2;
+		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+		Real sdot_RK_3 = sqrt(tmp);
+		tmp = sdot*sdot - _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
+		LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+		sdot = sqrt(tmp);
+		s = s - _ds;
 	}
 
 	bool TOPP::findNearestSwitchPoint(Real s)
 	{
 
 		Real ds = 0.0005;
+		//Real s_bef;
+		//if (s < 0.53)
+		//	s_bef = 0.534;
+		//else
+		//	s_bef = s;
 
-		//Real s_bef = s;
-		Real s_bef = 0.534;
+		Real s_bef = s;
+		//Real s_bef = 0.534;
 		Real sdot_bef = calculateMVCPoint(s_bef);
 		Real s_cur = s_bef + ds;
 		Real sdot_cur = calculateMVCPoint(s_cur);
@@ -788,14 +802,21 @@ namespace rovin {
 					saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
 
 					// fine nearest switch point
+					cout << "s_cur : " << s_cur << endl;
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
 					cout << "switching point" << endl;
 					cout << "switching point switch : " << swiPoint_swi << endl;
 					cout << "switching point size : " << _switchPoint.size() << endl;
-					if(_switchPoint.size() > 0)
-						cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
-
+					if (_switchPoint.size() > 0)
+					{
+						for (int i = 0; i < _switchPoint.size(); i++)
+						{
+							cout << "switch point s : " << _switchPoint[i]._s << endl;
+							cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
+						}
+						//cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
+					}
 					// if swtich point doesn't exist until s_end --> go to step 3
 					if (!swiPoint_swi)
 					{
@@ -874,8 +895,8 @@ namespace rovin {
 
 				if (s_cur <= _s.back())
 				{
-					//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
-					//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
+					saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
+					saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
 					cout << "Enter if routine" << endl;
 
@@ -938,8 +959,8 @@ namespace rovin {
 		s_cur = _sf-0.0001;
 		sdot_cur = _vf / _dqds(_sf-0.0001).norm();
 
-		//cout << "s_cur : " << s_cur << endl;
-		//cout << "sdot_cur : " << sdot_cur << endl;
+		cout << "s_cur : " << s_cur << endl;
+		cout << "sdot_cur : " << sdot_cur << endl;
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
@@ -953,15 +974,15 @@ namespace rovin {
 				s_BI_jk.push_back(s_cur);
 				sd_BI_jk.push_back(sdot_cur);
 
-				//cout << "_s_back() : " << _s.back() << endl;
+				cout << "_s_back() : " << _s.back() << endl;
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
-				//cout << "alpha_cur : " << alpha_cur << endl;
-				//cout << "beta_cur : " << beta_cur << endl;
+				cout << "alpha_cur : " << alpha_cur << endl;
+				cout << "beta_cur : " << beta_cur << endl;
 
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				//cout << "s_cur : " << s_cur << endl;
-				//cout << "sdot_cur : " << sdot_cur << endl;
+				cout << "s_cur : " << s_cur << endl;
+				cout << "sdot_cur : " << sdot_cur << endl;
 
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
