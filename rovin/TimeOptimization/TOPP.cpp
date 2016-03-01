@@ -17,7 +17,7 @@ namespace rovin {
 		_si = si;
 		_sf = sf;
 		_constraintType = constraintType;
-		_integrationType = 2;
+		_integrationType = 1;
 
 		// insert torque constraint, velocity constraint, acceleration constraint
 		_torqueConstraint.resize(_dof * 2);
@@ -53,6 +53,36 @@ namespace rovin {
 		}
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
+
+
+		// calcuate number of constraints according to constraint type
+		if (_constraintType == TORQUE) 
+		{ 
+			_nconstraints = _torqueConstraint.size(); 
+			_nconstraintsWithoutVel = _nconstraints;
+		}
+		else if (_constraintType == TORQUE_VEL)
+		{
+			_nconstraints = _torqueConstraint.size() + _velConstraint.size();
+			_nconstraintsWithoutVel = _torqueConstraint.size();
+		}
+		else if (_constraintType == TORQUE_ACC) 
+		{ 
+			_nconstraints = _torqueConstraint.size() + _accConstraint.size();
+			_nconstraintsWithoutVel = _nconstraints;
+		}
+		else if (_constraintType == TORQUE_VEL_ACC)
+		{
+			_nconstraints = _torqueConstraint.size() + _velConstraint.size() + _accConstraint.size();
+			_nconstraintsWithoutVel = _torqueConstraint.size() + _accConstraint.size();
+		}
+		else
+		{
+			LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
+		}
+
+
+
 	}
 
 	bool TOPP::checkMVCCondition(Real alpha, Real beta)
@@ -169,21 +199,19 @@ namespace rovin {
 
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
-		if (s > _sf)
-			return Vector2();
-
 		VectorX a = calculateA(s);
 
-		for (int i = 0; i < a.size(); i++)
-		{
-			if (std::abs(a(i)) < RealEps)
-			{
-				LOGIF(false, "TOPP::determineAlphaBeta error : a(s) = 0, zero-inertia point");
-				cout << "index i : " << i << endl;
-				cout << "zero-inertia point s : " << s << endl;
-				cout << "zero-inertia point sdot : " << sdot << endl;
-			}
-		}
+		//for (int i = 0; i < a.size(); i++)
+		//{
+		//	if (std::abs(a(i)) < RealEps)
+		//	{
+		//		LOGIF(false, "TOPP::determineAlphaBeta error : a(s) = 0, zero-inertia point");
+		//		cout << "index i : " << i << endl;
+		//		cout << "zero-inertia point s : " << s << endl;
+		//		cout << "zero-inertia point sdot : " << sdot << endl;
+		//		break;
+		//	}
+		//}
 			
 		VectorX q = _q(s), qdot = _dqds(s)*sdot, qddot = _ddqdds(s)*sdot*sdot;
 		StatePtr state = _soc->makeState();
@@ -238,7 +266,7 @@ namespace rovin {
 		}
 		return result;
 	}
-
+	
 	void TOPP::determineVelminmax(Real s)
 	{
 		if (s > _sf)
@@ -284,17 +312,17 @@ namespace rovin {
 		VectorX b = BandC[0], c = BandC[1];
 
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
-		int nconstraints;
-		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
-		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
-		else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
+		//int nconstraints;
+		//if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
+		//else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
+		//else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
 
 		unsigned int kk;
 		unsigned int mm;
 
-		for (int k = 0; k < nconstraints; k++)
+		for (int k = 0; k < _nconstraintsWithoutVel; k++)
 		{
-			for (int m = k + 1; m < nconstraints; m++)
+			for (int m = k + 1; m < _nconstraintsWithoutVel; m++)
 			{
 				Real num, denum, r;
 				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
@@ -336,14 +364,15 @@ namespace rovin {
 		VectorX b = BandC[0], c = BandC[1];
 
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
-		int nconstraints;
-		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
-		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
-		else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
+		
+		//int nconstraints;
+		//if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
+		//else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
+		//else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
 
-		for (int k = 0; k < nconstraints; k++)
+		for (int k = 0; k < _nconstraintsWithoutVel; k++)
 		{
-			for (int m = k + 1; m < nconstraints; m++)
+			for (int m = k + 1; m < _nconstraintsWithoutVel; m++)
 			{
 				// exclude iExclude-th inequality constraint
 				if (k == iExclude || m == iExclude) {
@@ -571,6 +600,7 @@ namespace rovin {
 
 		Real ds = 0.0005;
 		Real s_bef = s;
+		//Real s_bef = 0.88;
 		Real sdot_bef = calculateMVCPoint(s_bef);
 		Real s_cur = s_bef + ds;
 		Real sdot_cur = calculateMVCPoint(s_cur);
@@ -604,7 +634,7 @@ namespace rovin {
 			
 			// step 1: singular point check
 			// include calculating \lambda
-			for (unsigned int i = 0; i < 2 * _dof; i++) // number of inequality
+			for (unsigned int i = 0; i < _nconstraintsWithoutVel; i++) // number of inequality
 			{
 				if (a_bef[i] * a_cur[i] <= 0)
 				{
@@ -630,6 +660,7 @@ namespace rovin {
 						c_sing = bc_cur[1][i];
 					}
 
+	
 					if (b_sing > 0 && c_sing < 0)
 					{
 						sdot_star = sqrt(-c_sing / b_sing);
@@ -757,8 +788,6 @@ namespace rovin {
 				sd_FI_jk.push_back(sdot_cur);
 
 				//std::cout << "FI_SW" << endl;
-				//std::cout << "s_cur : " << s_cur << endl;
-				//std::cout << "sdot_cur : " << sdot_cur << endl;
 
 				// forward intergration
 				farwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
@@ -1135,9 +1164,10 @@ namespace rovin {
 	void TOPP::saveMVCandSP2txt()
 	{
 		calcMVC();
-		saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
-		saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
-
+		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
+		saveRealVector2txt(s_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sMVC.txt");
+		saveRealVector2txt(sd_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sdotMVC.txt");
 		////calcSPs();
 
 		////saveRealVector2txt(s_SW_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
@@ -1153,9 +1183,9 @@ namespace rovin {
 		//saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
 
 
-		//calcSPs();
-		//saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
-		//saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
-		//saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
+		calcSPs();
+		saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
+		saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
+		saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
 	}
 }

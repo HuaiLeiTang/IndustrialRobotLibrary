@@ -30,11 +30,14 @@ int main()
 	// Time optimization
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 	TOPP topp(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE_ACC);
-	//topp.generateTrajectory();
-	//savessdotResult(topp);
-	//topp.saveMVCandSP2txt();
+	topp.generateTrajectory();
+	savessdotResult(topp);
+	topp.saveMVCandSP2txt();
 	//saveTorqueResult(topp);
+	cout << "a" << endl;
 	//findswitchingPoint(topp);
+
+
 
 	cout << "Final time : " << topp.getFinalTime() << endl;
 	cout << "Program complete" << endl;
@@ -46,8 +49,8 @@ void loadData(MatrixX& data)
 {
 
 	//ifstream input("trajectory.txt");
-	ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
-	//ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
+	//ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
 
 	if (input.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
@@ -61,8 +64,8 @@ void loadData(MatrixX& data)
 	input.close();
 
 	//ifstream trajectory("trajectory.txt");
-	ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
-	//ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
+	//ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
 
 	if (trajectory.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
@@ -135,12 +138,12 @@ void savessdotResult(TOPP& topp)
 		sdot_result.push_back(*(sdot_it));
 		sdot_it++;
 	}
-	topp.saveRealVector2txt(s_result, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
-	topp.saveRealVector2txt(sdot_result, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
+	//topp.saveRealVector2txt(s_result, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
+	//topp.saveRealVector2txt(sdot_result, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
 	//saveRealVector2txt(s_result, "D:/jkkim/Documents/matlabTest/s_result.txt");
 	//saveRealVector2txt(sdot_result, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
-	//saveRealVector2txt(s_result, "C:/Users/ksh/Documents/MATLAB/s_result.txt");
-	//saveRealVector2txt(sdot_result, "C:/Users/ksh/Documents/MATLAB/sdot_result.txt");
+	topp.saveRealVector2txt(s_result, "C:/Users/ksh/Documents/MATLAB/s_result.txt");
+	topp.saveRealVector2txt(sdot_result, "C:/Users/ksh/Documents/MATLAB/sdot_result.txt");
 }
 
 void saveTorqueResult(TOPP& topp)

@@ -60,6 +60,9 @@ namespace rovin {
 		Real _tf_result;
 		MatrixX _torque_result;
 
+		int	_nconstraints; ///< number of inequality constraints
+		int _nconstraintsWithoutVel; ///< number of inequality constraints without velocity constraints
+
 	public:
 		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real ds, 
 			const Real vi, const Real vf, const Real si, const Real sf, CONSTRAINT_TYPE constrainttype);
