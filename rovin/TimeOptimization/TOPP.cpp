@@ -500,7 +500,7 @@ namespace rovin {
 		}
 	}
 
-	void TOPP::farwardIntegrate(Real & s, Real & sdot, Real sddot)
+	void TOPP::forwardIntegrate(Real & s, Real & sdot, Real sddot)
 	{		
 		if (_integrationType == 1) ///< Explicit Euler
 		{
@@ -787,7 +787,7 @@ namespace rovin {
 				//std::cout << "FI_SW" << endl;
 
 				// forward intergration
-				farwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
+				forwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
 
 				// save trajectory points
 				_s.push_back(s_cur);

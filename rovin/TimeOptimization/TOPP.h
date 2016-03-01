@@ -75,7 +75,7 @@ namespace rovin {
 		Vector2 determineAlphaBeta(Real s, Real sdot);
 		void determineVelminmax(Real s);
 
-		void farwardIntegrate(Real& s, Real& sdot, Real sddot);
+		void forwardIntegrate(Real& s, Real& sdot, Real sddot);
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
 		
 		bool findNearestSwitchPoint(Real s);
