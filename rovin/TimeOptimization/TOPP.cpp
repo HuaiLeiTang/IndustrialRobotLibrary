@@ -1,4 +1,5 @@
 #include "TOPP.h"
+#include <string>
 
 using namespace std;
 
@@ -17,7 +18,7 @@ namespace rovin {
 		_si = si;
 		_sf = sf;
 		_constraintType = constraintType;
-		_integrationType = 2;
+		_integrationType = 1;
 
 		// insert torque constraint, velocity constraint, acceleration constraint
 		_torqueConstraint.resize(_dof * 2);
@@ -169,21 +170,18 @@ namespace rovin {
 
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
-		if (s > _sf)
-			return Vector2();
-
 		VectorX a = calculateA(s);
 
-		for (int i = 0; i < a.size(); i++)
-		{
-			if (std::abs(a(i)) < RealEps)
-			{
-				LOGIF(false, "TOPP::determineAlphaBeta error : a(s) = 0, zero-inertia point");
-				cout << "index i : " << i << endl;
-				cout << "zero-inertia point s : " << s << endl;
-				cout << "zero-inertia point sdot : " << sdot << endl;
-			}
-		}
+		//for (int i = 0; i < a.size(); i++)
+		//{
+		//	if (std::abs(a(i)) < RealEps)
+		//	{
+		//		LOGIF(false, "TOPP::determineAlphaBeta error : a(s) = 0, zero-inertia point");
+		//		cout << "index i : " << i << endl;
+		//		cout << "zero-inertia point s : " << s << endl;
+		//		cout << "zero-inertia point sdot : " << sdot << endl;
+		//	}
+		//}
 			
 		VectorX q = _q(s), qdot = _dqds(s)*sdot, qddot = _ddqdds(s)*sdot*sdot;
 		StatePtr state = _soc->makeState();
@@ -288,6 +286,13 @@ namespace rovin {
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
 		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
 		else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
+		
+		Real sdot_VelC = std::numeric_limits<Real>::max();
+		if (_constraintType == TORQUE_VEL || _constraintType == TORQUE_VEL_ACC)
+		{
+			determineVelminmax(s);
+			sdot_VelC = _minmax(1);
+		}
 
 		unsigned int kk;
 		unsigned int mm;
@@ -315,12 +320,7 @@ namespace rovin {
 				}
 			}
 		}
-
-		// 수정
-		//determineVelminmax(s);
-		//Real sdot_VelC = _minmax(1);
-		//return std::min(sdot_MVC, sdot_VelC);
-		return sdot_MVC;
+		return std::min(sdot_MVC, sdot_VelC);
 	}
 
 	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
@@ -340,6 +340,13 @@ namespace rovin {
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL) nconstraints = _torqueConstraint.size();
 		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC) nconstraints = _torqueConstraint.size() + _accConstraint.size();
 		else LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
+
+		Real sdot_VelC = std::numeric_limits<Real>::max();
+		if (_constraintType == TORQUE_VEL || _constraintType == TORQUE_VEL_ACC)
+		{
+			determineVelminmax(s);
+			sdot_VelC = _minmax(1);
+		}
 
 		for (int k = 0; k < nconstraints; k++)
 		{
@@ -364,12 +371,7 @@ namespace rovin {
 				}
 			}
 		}
-
-		// 수정
-		//determineVelminmax(s);
-		//Real sdot_VelC = _minmax(1);
-		//return std::min(sdot_MVC, sdot_VelC);
-		return sdot_MVC;
+		return std::min(sdot_MVC, sdot_VelC);
 	}
 
 	void TOPP::calculateFinalTime()
@@ -479,7 +481,7 @@ namespace rovin {
 		if (_integrationType == 1) ///< Explicit Euler
 		{
 			Real tmp = 2 * sddot*_ds + sdot*sdot;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			s = s + _ds;
 			sdot = sqrt(tmp);
 		}
@@ -488,12 +490,12 @@ namespace rovin {
 			/* step 1 : prediction using explicit euler */
 			Real s_p = s + _ds;
 			Real tmp = 2 * sddot*_ds + sdot*sdot;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			Real sdot_p = sqrt(tmp);
 			Real sddot_p = determineAlphaBeta(s_p, sdot_p)(1);
 			/* step 2 : prediction using trapz */
 			tmp = (sddot + sddot_p)*_ds + sdot*sdot;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			s = s + _ds;
 			sdot = sqrt(tmp);
 		}
@@ -503,18 +505,18 @@ namespace rovin {
 			Real s_RK_half = s + 0.5*_ds;
 			Real f = 2 * sddot;
 			Real tmp = sdot*sdot + 0.5 * _ds * f;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			Real sdot_RK_1 = sqrt(tmp);
 			Real f1 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_1)(1);
 			tmp = sdot*sdot + 0.5 * _ds * f1;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			Real sdot_RK_2 = sqrt(tmp);
 			Real f2 = 2 * determineAlphaBeta(s_RK_half, sdot_RK_2)(1);
 			tmp = sdot*sdot + _ds * f2;
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			Real sdot_RK_3 = sqrt(tmp);
 			tmp = sdot*sdot + _ds * (1.0 / 6.0*sddot + 1.0 / 3.0*f1 + 1.0 / 3.0*f2 + 1.0 / 6.0 * 2 * determineAlphaBeta(s_RK, sdot_RK_3)(1));
-			LOGIF((tmp > 0), "TOPP::farwardIntegrate error : the value has to be positive.");
+			LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 			sdot = sqrt(tmp);
 			s = s + _ds;
 		}
@@ -780,24 +782,28 @@ namespace rovin {
 				//if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > _minmax(1)) || (sdot_cur < _minmax(0))) // case (a)
 				if(!checkMVCCondition(alpha_cur, beta_cur))
 				{
-					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
-					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+					s_FI_jk.push_back(s_cur);
+					sd_FI_jk.push_back(sdot_cur);
+
+					saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_s.txt");
+					saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_sdot.txt");
 
 					// fine nearest switch point
-					//cout << "s_cur : " << s_cur << endl;
+					cout << "s_cur : " << s_cur << endl;
+					cout << "sdot_cur : " << sdot_cur << endl;
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
-					//cout << "switching point" << endl;
-					//cout << "switching point switch : " << swiPoint_swi << endl;
-					//cout << "switching point size : " << _switchPoint.size() << endl;
+					cout << "switching point" << endl;
+					cout << "switching point switch : " << swiPoint_swi << endl;
+					cout << "switching point size : " << _switchPoint.size() << endl;
 					if (_switchPoint.size() > 0)
 					{
 						for (int i = 0; i < _switchPoint.size(); i++)
 						{
-							//cout << "switch point s : " << _switchPoint[i]._s << endl;
-							//cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
+							cout << "switch point s : " << _switchPoint[i]._s << endl;
+							cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
 						}
-						//cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
+						cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
 					}
 					// if swtich point doesn't exist until s_end --> go to step 3
 					if (!swiPoint_swi)
