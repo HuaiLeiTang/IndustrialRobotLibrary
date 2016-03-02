@@ -268,11 +268,8 @@ namespace rovin {
 		return result;
 	}
 	
-	void TOPP::determineVelminmax(Real s)
+	void TOPP::determineVelminmax(Real s, Vector2& minmax)  //--> minmax 함수 바꾸기
 	{
-		if (s > _sf)
-			return;
-
 		VectorX qs = _dqds(s), qs_vec(_dof * 2), left_vec(_dof * 2);
 		for (int i = 0; i < _dof; i++)
 		{
@@ -281,23 +278,23 @@ namespace rovin {
 			left_vec(i) = _velConstraint(i);
 			left_vec(i + _dof) = -_velConstraint(i + _dof);
 		}
-		_minmax(0) = -std::numeric_limits<Real>::max();
-		_minmax(1) = std::numeric_limits<Real>::max();
+		minmax(0) = -std::numeric_limits<Real>::max();
+		minmax(1) = std::numeric_limits<Real>::max();
 		for (int i = 0; i < _dof * 2; i++)
 		{
 			Real tmp = left_vec(i) / qs_vec(i);
 			if (qs_vec(i) > RealEps) // upper bound beta
 			{
-				if (tmp < _minmax(1))
-					_minmax(1) = tmp;
+				if (tmp < minmax(1))
+					minmax(1) = tmp;
 			}
-			else if (qs_vec(i) < -RealEps)// lower bound alpha
+			else if (qs_vec(i) > -RealEps)// lower bound alpha
 			{
-				if (tmp > _minmax(0))
-					_minmax(0) = tmp;
+				if (tmp > minmax(0))
+					minmax(0) = tmp;
 			}
 		}
-		_minmax(0) = std::max(_minmax(0), 0.0);
+		minmax(0) = std::max(minmax(0), 0.0);
 	}
 
 	Real TOPP::calculateMVCPoint(Real s)
@@ -315,10 +312,11 @@ namespace rovin {
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
 
 		Real sdot_VelC = std::numeric_limits<Real>::max();
+		Vector2 minmax;
 		if (_constraintType == TORQUE_VEL || _constraintType == TORQUE_VEL_ACC)
 		{
-			determineVelminmax(s);
-			sdot_VelC = _minmax(1);
+			determineVelminmax(s, minmax);
+			sdot_VelC = minmax(1);
 		}
 
 		unsigned int kk;
@@ -364,12 +362,12 @@ namespace rovin {
 
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
 		
-
 		Real sdot_VelC = std::numeric_limits<Real>::max();
+		Vector2 minmax;
 		if (_constraintType == TORQUE_VEL || _constraintType == TORQUE_VEL_ACC)
 		{
-			determineVelminmax(s);
-			sdot_VelC = _minmax(1);
+			determineVelminmax(s, minmax);
+			sdot_VelC = minmax(1);
 		}
 
 		for (int k = 0; k < _nconstraintsWithoutVel; k++)
@@ -750,19 +748,18 @@ namespace rovin {
 	void TOPP::generateTrajectory()
 	{
 		// initialization
-		Real s_cur = 0;
-		Real sdot_cur = _vi / _dqds(0.0001).norm();
+		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm();
 		_s.push_back(s_cur); 
 		_sdot.push_back(sdot_cur);
+		Real sdot_MVC;
 
-		// min max for qdot constraint TODO
+		// min max for qdot constraint
+		Vector2 minmax;
 		Real sdot_min, sdot_max;
 
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
-		//cout << "alpha initial : " << alpha_cur << endl;
-		//cout << "beta initial : " << beta_cur << endl;
 
 		// list used when backward integration
 		std::list<Real> _s_tmp;
@@ -773,18 +770,15 @@ namespace rovin {
 		bool I_SW = true; ///< integration switch
 
 		bool swiPoint_swi = false;
-		unsigned int numOfSPInt = 3;
+		unsigned int numOfSPInt = 3; ///< singular point integration number
 		
 		while (I_SW)
 		{
-			//cout << "I_SW" << endl;
 			// Forward integration
 			while (FI_SW)
 			{
 				s_FI_jk.push_back(s_cur);
 				sd_FI_jk.push_back(sdot_cur);
-
-				//std::cout << "FI_SW" << endl;
 
 				// forward intergration
 				forwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
@@ -794,17 +788,21 @@ namespace rovin {
 				_sdot.push_back(sdot_cur);
 
 				// calculate alpha and beta
-				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-				alpha_cur = alphabeta(0);
-				beta_cur = alphabeta(1);
+				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
+				//alphabeta = determineAlphaBeta(s_cur, sdo t_cur);
+				//alpha_cur = alphabeta(0);
+				//beta_cur = alphabeta(1);
+
+				sdot_MVC = calculateMVCPoint(s_cur);
 
 				// 수정
 				// calculate joint velocity min max
-				//determineVelminmax(s_cur);
+				//determineVelminmax(s_cur, minmax);
 				
 				// 수정
-				//if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > _minmax(1)) || (sdot_cur < _minmax(0))) // case (a)
-				if(!checkMVCCondition(alpha_cur, beta_cur))
+				//if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > minmax(1)) || (sdot_cur < minmax(0))) // case (a)
+				//if(!checkMVCCondition(alpha_cur, beta_cur))
+				if(sdot_cur > sdot_MVC)
 				{
 					s_FI_jk.push_back(s_cur);
 					sd_FI_jk.push_back(sdot_cur);
@@ -813,22 +811,22 @@ namespace rovin {
 					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_sdot.txt");
 
 					// fine nearest switch point
-					cout << "s_cur : " << s_cur << endl;
-					cout << "sdot_cur : " << sdot_cur << endl;
+					//cout << "s_cur : " << s_cur << endl;
+					//cout << "sdot_cur : " << sdot_cur << endl;
 					swiPoint_swi = findNearestSwitchPoint(s_cur);
 
-					cout << "switching point" << endl;
-					cout << "switching point switch : " << swiPoint_swi << endl;
-					cout << "switching point size : " << _switchPoint.size() << endl;
-					if (_switchPoint.size() > 0)
-					{
-						for (int i = 0; i < _switchPoint.size(); i++)
-						{
-							cout << "switch point s : " << _switchPoint[i]._s << endl;
-							cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
-						}
-						cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
-					}
+					//cout << "switching point" << endl;
+					//cout << "switching point switch : " << swiPoint_swi << endl;
+					//cout << "switching point size : " << _switchPoint.size() << endl;
+					//if (_switchPoint.size() > 0)
+					//{
+					//	for (int i = 0; i < _switchPoint.size(); i++)
+					//	{
+					//		cout << "switch point s : " << _switchPoint[i]._s << endl;
+					//		cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
+					//	}
+					//	cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
+					//}
 					// if swtich point doesn't exist until s_end --> go to step 3
 					if (!swiPoint_swi)
 					{
@@ -900,7 +898,6 @@ namespace rovin {
 				// backward integration
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 				
-
 				// save trajectory points
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
@@ -1171,14 +1168,19 @@ namespace rovin {
 		//saveRealVector2txt(sd_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sdotMVC.txt");
 
 
+		//calcMVC();
+		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
+		//saveRealVector2txt(s_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sMVC.txt");
+		//saveRealVector2txt(sd_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sdotMVC.txt");
 		////calcSPs();
 
 		////saveRealVector2txt(s_SW_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
 		////saveRealVector2txt(sd_SW_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
 
-		calcMVC();
-		saveRealVector2txt(s_MVC_jk, "D:/jkkim/Documents/matlabTest/sMVCwovel.txt");
-		saveRealVector2txt(sd_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotMVCwovel.txt");
+		//calcMVC();
+		//saveRealVector2txt(s_MVC_jk, "D:/jkkim/Documents/matlabTest/sMVCwovel.txt");
+		//saveRealVector2txt(sd_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotMVCwovel.txt");
 
 		//calcSPs();
 
@@ -1225,5 +1227,10 @@ namespace rovin {
 		saveRealVector2txt(sdot_Trap_alpha_jk, "D:/jkkim/Documents/matlabTest/sdotTrapalpha.txt");
 		saveRealVector2txt(sdot_Trap_beta_jk, "D:/jkkim/Documents/matlabTest/sdotTrapbeta.txt");
 		saveRealVector2txt(sdot_Trap_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotTrapMVC.txt");
+=======
+		//saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
+		//saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
+		//saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
+>>>>>>> origin/TOPP
 	}
 }

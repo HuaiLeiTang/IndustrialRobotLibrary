@@ -14,6 +14,7 @@ void backwardIntegrationTest(TOPP& topp);
 void savessdotResult(TOPP& topp);
 void saveTorqueResult(TOPP& topp);
 void findswitchingPoint(TOPP& topp);
+void savevelminmax(TOPP& topp);
 
 SerialOpenChainPtr robot(new efortRobot());
 StatePtr state;
@@ -33,11 +34,15 @@ int main()
 	//topp.saveTrap2txt();
 	//topp.generateTrajectory();
 	//savessdotResult(topp);
-	topp.saveMVCandSP2txt();
+	//topp.saveMVCandSP2txt();
 	//saveTorqueResult(topp);
 	//cout << "a" << endl;
 	//findswitchingPoint(topp);
 
+	//topp.generateTrajectory();
+	//savessdotResult(topp);
+	//topp.saveMVCandSP2txt();
+	//saveTorqueResult(topp);
 
 
 	cout << "Final time : " << topp.getFinalTime() << endl;
@@ -46,13 +51,46 @@ int main()
 	return 0;
 }
 
+void savevelminmax(TOPP& topp) //--> minmax 함수 바꾸기
+{
+	std::vector<Real> min;
+
+	Real s_cur = 0, sdot_cur;
+	VectorX qs(topp._dof);
+	VectorX qmax(topp._dof);
+	for (int i = 0; i < topp._dof; i++)
+	{
+		qmax(i) = topp._velConstraint(i);
+		qmax(i) *= qmax(i);
+	}
+	while (s_cur < topp._sf)
+	{
+		qs = topp._dqds(s_cur);
+		for (int i = 0; i < topp._dof; i++)
+			qs(i) *= qs(i);
+
+		Real tmp_max = std::numeric_limits<Real>::max();
+		for (int i = 0; i < topp._dof; i++)
+		{
+			if (qmax(i) / qs(i) < tmp_max)
+				tmp_max = qmax(i) / qs(i);
+		}
+		sdot_cur = sqrt(tmp_max);
+		min.push_back(sdot_cur);
+		s_cur += topp._ds;
+	}
+	topp.saveRealVector2txt(min, "C:/Users/crazy/Desktop/Time optimization/min.txt");
+}
+
 void loadData(MatrixX& data)
 {
 
 	//ifstream input("trajectory.txt");
 	//ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
 	//ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
-	ifstream input("D:/jkkim/Documents/trajectory_wy.txt");
+	//ifstream input("D:/jkkim/Documents/trajectory_wy.txt");
+	ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
 
 	if (input.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
@@ -68,7 +106,9 @@ void loadData(MatrixX& data)
 	//ifstream trajectory("trajectory.txt");
 	//ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
 	//ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
-	ifstream trajectory("D:/jkkim/Documents/trajectory_wy.txt");
+	//ifstream trajectory("D:/jkkim/Documents/trajectory_wy.txt");
+	ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
 
 	if (trajectory.fail()) cout << "파일 열기 실패" << endl;
 	else cout << "파일 열기 성공" << endl;
@@ -112,8 +152,7 @@ void backwardIntegrationTest(TOPP& topp)
 				s_result.push_back(s_cur);
 				sd_result.push_back(sdot_cur);
 				alphabeta = topp.determineAlphaBeta(s_cur, sdot_cur);
-				//topp.backwardIntegrate(s_cur, sdot_cur, alphabeta(0));
-				topp.forwardIntegrate(s_cur, sdot_cur, alphabeta(1));
+				topp.backwardIntegrate(s_cur, sdot_cur, alphabeta(0));
 			}
 			//cout << "cnt : " << cnt << endl;
 			s_st += to_string(cnt);
@@ -141,14 +180,12 @@ void savessdotResult(TOPP& topp)
 		sdot_result.push_back(*(sdot_it));
 		sdot_it++;
 	}
-	//topp.saveRealVector2txt(s_result, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
-	//topp.saveRealVector2txt(sdot_result, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
+	topp.saveRealVector2txt(s_result, "C:/Users/crazy/Desktop/Time optimization/s_result.txt");
+	topp.saveRealVector2txt(sdot_result, "C:/Users/crazy/Desktop/Time optimization/sdot_result.txt");
 	//saveRealVector2txt(s_result, "D:/jkkim/Documents/matlabTest/s_result.txt");
 	//saveRealVector2txt(sdot_result, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
 	//topp.saveRealVector2txt(s_result, "C:/Users/ksh/Documents/MATLAB/s_result.txt");
 	//topp.saveRealVector2txt(sdot_result, "C:/Users/ksh/Documents/MATLAB/sdot_result.txt");
-	topp.saveRealVector2txt(s_result, "D:/jkkim/Documents/matlabTest/s_result.txt");
-	topp.saveRealVector2txt(sdot_result, "D:/jkkim/Documents/matlabTest/sdot_result.txt");
 }
 
 void saveTorqueResult(TOPP& topp)
