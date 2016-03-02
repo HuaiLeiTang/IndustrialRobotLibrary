@@ -32,10 +32,8 @@ int main()
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 	TOPP topp(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
 	topp.generateTrajectory();
-	savessdotResult(topp);
-	topp.saveMVCandSP2txt();
-	//saveTorqueResult(topp);
-
+	//savessdotResult(topp);
+	//topp.saveMVCandSP2txt();
 
 	cout << "Final time : " << topp.getFinalTime() << endl;
 	cout << "Program complete" << endl;
@@ -43,7 +41,7 @@ int main()
 	return 0;
 }
 
-void savevelminmax(TOPP& topp) //--> minmax 함수 바꾸기
+void savevelminmax(TOPP& topp)
 {
 	std::vector<Real> min;
 
@@ -78,6 +76,9 @@ void loadData(MatrixX& data)
 {
 
 	//ifstream input("trajectory.txt");
+	//ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
+	//ifstream input("D:/jkkim/Documents/trajectory_wy.txt");
 	ifstream input("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
 	//ifstream input("C:/Users/ksh/Documents/trajectory_wy.txt");
 
@@ -93,6 +94,9 @@ void loadData(MatrixX& data)
 	input.close();
 
 	//ifstream trajectory("trajectory.txt");
+	//ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
+	//ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
+	//ifstream trajectory("D:/jkkim/Documents/trajectory_wy.txt");
 	ifstream trajectory("C:/Users/crazy/Desktop/Time optimization/trajectory text/trajectory_wy.txt");
 	//ifstream trajectory("C:/Users/ksh/Documents/trajectory_wy.txt");
 
@@ -139,7 +143,6 @@ void backwardIntegrationTest(TOPP& topp)
 				sd_result.push_back(sdot_cur);
 				alphabeta = topp.determineAlphaBeta(s_cur, sdot_cur);
 				topp.backwardIntegrate(s_cur, sdot_cur, alphabeta(0));
-				//topp.forwardIntegrate(s_cur, sdot_cur, alphabeta(1));
 			}
 			//cout << "cnt : " << cnt << endl;
 			s_st += to_string(cnt);

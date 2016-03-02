@@ -95,6 +95,8 @@ namespace rovin {
 		void calcSPs();
 		void saveRealVector2txt(std::vector<Real> in, std::string filename);
 		void saveMVCandSP2txt();
+		void calcTrapCurve();
+		void saveTrap2txt();
 
 		std::vector<Real> s_MVC_jk;
 		std::vector<Real> sd_MVC_jk;
@@ -110,6 +112,11 @@ namespace rovin {
 
 		std::vector<Real> s_jk;
 		std::vector<Real> sdot_jk;
+
+		std::vector<Real> s_Trap_jk;
+		std::vector<Real> sdot_Trap_alpha_jk;
+		std::vector<Real> sdot_Trap_beta_jk;
+		std::vector<Real> sdot_Trap_MVC_jk;
 	};
 
 	class SwitchPoint
