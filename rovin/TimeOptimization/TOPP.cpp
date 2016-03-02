@@ -55,7 +55,6 @@ namespace rovin {
 		_dqds = _q.derivative();
 		_ddqdds = _dqds.derivative();
 
-
 		// calcuate number of constraints according to constraint type
 		if (_constraintType == TORQUE) 
 		{ 
@@ -81,9 +80,6 @@ namespace rovin {
 		{
 			LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
 		}
-
-
-
 	}
 
 	bool TOPP::checkMVCCondition(Real alpha, Real beta)
@@ -268,7 +264,7 @@ namespace rovin {
 		return result;
 	}
 	
-	void TOPP::determineVelminmax(Real s, Vector2& minmax)  //--> minmax 함수 바꾸기
+	void TOPP::determineVelminmax(Real s, Vector2& minmax)
 	{
 		VectorX qs = _dqds(s), qs_vec(_dof * 2), left_vec(_dof * 2);
 		for (int i = 0; i < _dof; i++)
@@ -297,7 +293,7 @@ namespace rovin {
 		minmax(0) = std::max(minmax(0), 0.0);
 	}
 
-	Real TOPP::calculateMVCPoint(Real s)
+	Real TOPP::calculateMVCPoint(Real s, int& flag)
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
@@ -345,10 +341,19 @@ namespace rovin {
 				}
 			}
 		}
-		return std::min(sdot_MVC, sdot_VelC);
+		if (sdot_MVC <= sdot_VelC)
+		{
+			flag = 2;
+			return sdot_MVC;
+		}
+		else
+		{
+			flag = 1;
+			return sdot_VelC;
+		}
 	}
 
-	Real TOPP::calculateMVCPointExclude(Real s, int iExclude)
+	Real TOPP::calculateMVCPointExclude(Real s, int iExclude, int& flag)
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
@@ -393,7 +398,16 @@ namespace rovin {
 				}
 			}
 		}
-		return std::min(sdot_MVC, sdot_VelC);
+		if (sdot_MVC <= sdot_VelC)
+		{
+			flag = 2;
+			return sdot_MVC;
+		}
+		else
+		{
+			flag = 1;
+			return sdot_VelC;
+		}
 	}
 
 	void TOPP::calculateFinalTime()
@@ -410,92 +424,6 @@ namespace rovin {
 			it_sdot++;
 		}
 		_tf_result = sum;
-	}
-
-	void TOPP::calculateTorqueTrajectory()
-	{
-		// TODO 수정중
-
-		// calculate time and joint angle
-		VectorX t(_s.size());
-		t(0) = 0;
-		
-		std::list<Real>::iterator it_s = ++(_s.begin());
-		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
-		Real s_k = _s.front(), sdot_k = _sdot.front();
-		Real s_k1, sdot_k1, dt;
-
-		for (int i = 1; i < _s.size(); i++)
-		{
-			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
-			dt = 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
-			t(i) = t(i - 1) + dt;
-			s_k = s_k1; sdot_k = sdot_k1;
-			it_s++; it_sdot++;
-		}
-		
-		MatrixX q_data(_dof, t.size());
-		it_s = _s.begin();
-		for (int i = 0; i < t.size(); i++)
-		{
-			q_data.col(i) = _q((*it_s));
-			it_s++;
-		}
-
-		//std::vector<vector<Real>> torque_vec(_dof);
-		//
-		//for (int i = 0; i < _dof; i++)
-		//{
-		//	string torque_st = "C:/Users/crazy/Desktop/Time optimization/q";
-		//	for (int j = 0; j < q_data.row(0).size(); j++)
-		//		torque_vec[i].push_back(q_data(i, j));
-
-		//	torque_st += to_string(i + 1);
-		//	torque_st += ".txt";
-		//	saveRealVector2txt(torque_vec[i], torque_st);
-		//}
-		//std::vector<Real> t_vec;
-		//for (int i = 0; i < t.size(); i++)
-		//	t_vec.push_back(t(i));
-		//saveRealVector2txt(t_vec, "C:/Users/crazy/Desktop/Time optimization/t.txt");
-
-		//cout << t << endl;
-		//cout << "q_data.row(0) : " << q_data.row(0) << endl;
-		//cout << "q_data.row(1) : " << q_data.row(1) << endl;
-		//cout << "q_data column size : " << q_data.row(0).size() << endl;
-		//cout << "t size : " << t.size() << endl;
-		// make b-spline
-		
-		unsigned int degreeOfBSpline = 3;
-		unsigned int orderOfBSpline = degreeOfBSpline + 1;
-		unsigned int MaxNumOfCP = 15;
-		unsigned int numData = _q_data.cols();
-		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, 0, t(t.size()-1));
-		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, t);
-		BSpline<-1, -1, -1> q = BSplineFitting(q_data, orderOfBSpline, MaxNumOfCP, t(0), t(t.size()-1));
-		BSpline<-1, -1, -1> qdot = q.derivative();
-		BSpline<-1, -1, -1> qddot = qdot.derivative();
-
-		//cout << "q(0.05)" << endl;
-		//cout << q(0.05) << endl;
-		//cout << "q(0.10)" << endl;
-		//cout << q(0.10) << endl;
-		//cout << "q(0.15)" << endl;
-		//cout << q(0.15) << endl;
-		//cout << "q(0.20)" << endl;
-		//cout << q(0.20) << endl;
-
-		// solve inverse dynamics
-		_torque_result = MatrixX(_dof, t.size());
-		StatePtr state = _soc->makeState();
-		for (int i = 0; i < t.size(); i++)
-		{
-			state->setJointStatePos(q(t(i)));
-			state->setJointStateVel(qdot(t(i)));
-			state->setJointStateAcc(qddot(t(i)));
-			_soc->solveInverseDynamics(*state);
-			_torque_result.col(i) = state->getJointStateTorque();
-		}
 	}
 
 	void TOPP::forwardIntegrate(Real & s, Real & sdot, Real sddot)
@@ -592,19 +520,20 @@ namespace rovin {
 
 	bool TOPP::findNearestSwitchPoint(Real s)
 	{
+		int flag;
 
 		Real ds = 0.0005;
 		Real s_bef = s;
 		//Real s_bef = 0.88;
-		Real sdot_bef = calculateMVCPoint(s_bef);
+		Real sdot_bef = calculateMVCPoint(s_bef, flag);
 		Real s_cur = s_bef + ds;
-		Real sdot_cur = calculateMVCPoint(s_cur);
+		Real sdot_cur = calculateMVCPoint(s_cur, flag);
 		Real s_next = s_bef + 2 * ds;
-		Real sdot_next = calculateMVCPoint(s_next);
+		Real sdot_next = calculateMVCPoint(s_next, flag);
 
 		// end criterion
 		if (s_next >= _sf)
-			return false;
+			false;
 
 		// 원래 topp 코드에는 tan_bef/tan_cur 로 discontinous 포인트 추가하는데 그거 이해 안감
 		// 안넣어도 될것같은데 그럴거면 tan_bef/tan_cur 따로 구할 필요 없음
@@ -659,7 +588,7 @@ namespace rovin {
 					if (b_sing > 0 && c_sing < 0)
 					{
 						sdot_star = sqrt(-c_sing / b_sing);
-						sdot_plus = calculateMVCPointExclude(s_sing, i);
+						sdot_plus = calculateMVCPointExclude(s_sing, i, flag);
 
 						if (sdot_star < sdot_plus && sdot_star < sdot_min)
 						{
@@ -727,7 +656,7 @@ namespace rovin {
 			s_cur = s_next;
 			sdot_cur = sdot_next;
 			s_next += ds;
-			sdot_next = calculateMVCPoint(s_next);
+			sdot_next = calculateMVCPoint(s_next, flag);
 
 			//tan_bef = tan_cur;
 			//tan_cur = (sdot_next - sdot_cur) / ds;
@@ -747,158 +676,198 @@ namespace rovin {
 
 	void TOPP::generateTrajectory()
 	{
-		// initialization
-		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm();
-		_s.push_back(s_cur); 
-		_sdot.push_back(sdot_cur);
-		Real sdot_MVC;
-
-		// min max for qdot constraint
-		Vector2 minmax;
-		Real sdot_min, sdot_max;
-
+		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm(), sdot_MVC;
+		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+		
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
 
-		// list used when backward integration
 		std::list<Real> _s_tmp;
 		std::list<Real> _sdot_tmp;
 
-		bool FI_SW = true; ///< forward integration switch
-		bool BI_SW = false; ///< backward integration switch
-		bool I_SW = true; ///< integration switch
-
-		bool swiPoint_swi = false;
+		int flag; ///< 1 : velocity contraint, 2 : acc-torque contraint
+		bool FI_SW = true, BI_SW = false, I_SW = true;
+		bool swiPoint_swi;
 		unsigned int numOfSPInt = 3; ///< singular point integration number
 		
 		while (I_SW)
 		{
-			// Forward integration
-			while (FI_SW)
+			while (FI_SW) ///< Forward integration
 			{
-				s_FI_jk.push_back(s_cur);
-				sd_FI_jk.push_back(sdot_cur);
+				//s_FI_jk.push_back(s_cur); sd_FI_jk.push_back(sdot_cur);
 
-				// forward intergration
-				forwardIntegrate(s_cur, sdot_cur, beta_cur); ///< update s_cur, sdot_cur
-
-				// save trajectory points
-				_s.push_back(s_cur);
-				_sdot.push_back(sdot_cur);
-
-				// calculate alpha and beta
-				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
-				//alphabeta = determineAlphaBeta(s_cur, sdo t_cur);
-				//alpha_cur = alphabeta(0);
-				//beta_cur = alphabeta(1);
-
-				sdot_MVC = calculateMVCPoint(s_cur);
-
-				// 수정
-				// calculate joint velocity min max
-				//determineVelminmax(s_cur, minmax);
+				forwardIntegrate(s_cur, sdot_cur, beta_cur);
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 				
-				// 수정
-				//if (!checkMVCCondition(alpha_cur, beta_cur) || (sdot_cur > minmax(1)) || (sdot_cur < minmax(0))) // case (a)
-				//if(!checkMVCCondition(alpha_cur, beta_cur))
-				if(sdot_cur > sdot_MVC)
-				{
-					s_FI_jk.push_back(s_cur);
-					sd_FI_jk.push_back(sdot_cur);
+				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
+				sdot_MVC = calculateMVCPoint(s_cur, flag);
 
+				if(sdot_cur >= sdot_MVC)
+				{
+					sdot_cur = sdot_MVC; _sdot.pop_back(); _sdot.push_back(sdot_cur);
+
+					//s_FI_jk.push_back(s_cur);	sd_FI_jk.push_back(sdot_cur);
 					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_s.txt");
 					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_sdot.txt");
 
-					// fine nearest switch point
-					//cout << "s_cur : " << s_cur << endl;
-					//cout << "sdot_cur : " << sdot_cur << endl;
-					swiPoint_swi = findNearestSwitchPoint(s_cur);
-
-					//cout << "switching point" << endl;
-					//cout << "switching point switch : " << swiPoint_swi << endl;
-					//cout << "switching point size : " << _switchPoint.size() << endl;
-					//if (_switchPoint.size() > 0)
-					//{
-					//	for (int i = 0; i < _switchPoint.size(); i++)
-					//	{
-					//		cout << "switch point s : " << _switchPoint[i]._s << endl;
-					//		cout << "switch point sdot : " << _switchPoint[i]._sdot << endl;
-					//	}
-					//	cout << "switching point value : " << _switchPoint[_switchPoint.size() - 1]._s << ", " << _switchPoint[_switchPoint.size() - 1]._sdot << endl;
-					//}
-					// if swtich point doesn't exist until s_end --> go to step 3
-					if (!swiPoint_swi)
+					if (flag == 1) ///< velocity contraint case
 					{
-						//std::cout << "Can not find switching point." << std::endl;
-						FI_SW = false;
-						BI_SW = false;
-						I_SW = false;
-					}
-					else // if switch point exist --> go to backward integration
-					{
-
-						s_cur = _switchPoint[_switchPoint.size() - 1]._s;
-						sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
-
-						_s_tmp.push_front(s_cur);
-						_sdot_tmp.push_front(sdot_cur);
-
-						if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+						Real s_tmp_beta, sdot_tmp_beta;
+						Real s_tmp_alpha, sdot_tmp_alpha;
+						Real s_next, sdot_next;
+						while (true)
 						{
-							Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-							for (int i = 0; i < numOfSPInt; i++)
+							s_tmp_beta = s_cur; sdot_tmp_beta = sdot_cur;
+							s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;
+							s_next = s_cur + _ds;
+							sdot_next = calculateMVCPoint(s_next, flag);
+							
+							if (flag == 2)
 							{
+								swiPoint_swi = findNearestSwitchPoint(s_cur);
+								if (!swiPoint_swi)
+								{
+									FI_SW = false; BI_SW = false; I_SW = false;
+								}
+								else
+								{
+									s_cur = _switchPoint[_switchPoint.size() - 1]._s;
+									sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
+									_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
+									if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+									{
+										Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+										for (int i = 0; i < numOfSPInt; i++)
+										{
+											s_cur -= _ds;
+											sdot_cur -= lambda * _ds;
+											_s_tmp.push_front(s_cur);
+											_sdot_tmp.push_front(sdot_cur);
+										}
+									}
+									FI_SW = false; BI_SW = true;
+								}
+								break;
+							}
+
+							alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+							alpha_cur = alphabeta(0);
+							beta_cur = alphabeta(1);
+							forwardIntegrate(s_tmp_beta, sdot_tmp_beta, beta_cur);
+							forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur);
+							if (sdot_tmp_beta >= sdot_next && sdot_next >= sdot_tmp_alpha)
+							{
+								s_cur = s_next; sdot_cur = sdot_next;
+								_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+							}
+							else if (sdot_tmp_beta < sdot_next)
+							{
+								FI_SW = true; BI_SW = false;
+								break;
+							}
+							else if (sdot_tmp_alpha > sdot_next)
+							{
+								while (sdot_tmp_alpha > sdot_next)
+								{
+									s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;
+									s_next = s_cur + _ds;
+									sdot_next = calculateMVCPoint(s_next, flag);
+
+									if (flag == 2)
+									{
+										swiPoint_swi = findNearestSwitchPoint(s_cur);
+										if (!swiPoint_swi)
+										{
+											FI_SW = false; BI_SW = false; I_SW = false;
+										}
+										else
+										{
+											s_cur = _switchPoint[_switchPoint.size() - 1]._s;
+											sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
+											_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
+											if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+											{
+												Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+												for (int i = 0; i < numOfSPInt; i++)
+												{
+													s_cur -= _ds;
+													sdot_cur -= lambda * _ds;
+													_s_tmp.push_front(s_cur);
+													_sdot_tmp.push_front(sdot_cur);
+												}
+											}
+											FI_SW = false; BI_SW = true;
+										}
+										break;
+									}
+
+									alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
+									forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur);
+									s_cur = s_next; sdot_cur = sdot_next;
+								}
 								s_cur -= _ds;
-								sdot_cur -= lambda * _ds;
-								_s_tmp.push_front(s_cur);
-								_sdot_tmp.push_front(sdot_cur);
+								sdot_cur = calculateMVCPoint(s_cur, flag);
+
+								FI_SW = false; BI_SW = true;
+								break;
+							}
+							else if (s_cur > _sf)
+							{
+								FI_SW = true; BI_SW = false; I_SW = false;
+								break;
 							}
 						}
-						FI_SW = false;
-						BI_SW = true;
+					} ///////////
+					else if (flag == 2) /// acc-torque constraint case
+					{
+						swiPoint_swi = findNearestSwitchPoint(s_cur);
+						if (!swiPoint_swi) /// if swtich point doesn't exist until s_end --> go to step 3
+						{
+							FI_SW = false; BI_SW = false; I_SW = false;
+						}
+						else /// if switch point exist --> go to backward integration
+						{
+							s_cur = _switchPoint[_switchPoint.size() - 1]._s;
+							sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
+							_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
+							if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+							{
+								Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+								for (int i = 0; i < numOfSPInt; i++)
+								{
+									s_cur -= _ds;
+									sdot_cur -= lambda * _ds;
+									_s_tmp.push_front(s_cur);
+									_sdot_tmp.push_front(sdot_cur);
+								}
+							}
+							FI_SW = false; BI_SW = true;
+						}
 					}
 				}
 				else if (s_cur > _sf) ///< go to step 3, case (a), s_cur 가 무조건 s_end 넘어갔을 때!!
 				{
-					FI_SW = false;
-					BI_SW = false;
-					I_SW = false;
+					FI_SW = false; BI_SW = false; I_SW = false;
 				}
 				else if (sdot_cur < 1e-10) ///< Debugging 요소, case (a)
 				{
-					FI_SW = false;
-					BI_SW = false;
-					I_SW = false;
+					FI_SW = false; BI_SW = false; I_SW = false;
 				}
 			}
 
 			//saveRealVector2txt(s_FI_jk, "D:/jkkim/Documents/matlabTest/sFI.txt");
 			//saveRealVector2txt(sd_FI_jk, "D:/jkkim/Documents/matlabTest/sdotFI.txt");
 
-
-			// Backward intergration
-			while (BI_SW)
+			while (BI_SW) ///< Backward integration
 			{
-				s_BI_jk.push_back(s_cur);
-				sd_BI_jk.push_back(sdot_cur);
+				s_BI_jk.push_back(s_cur); sd_BI_jk.push_back(sdot_cur);
 
-				//std::cout << "BI_SW" << endl;
-				//std::cout << "s_cur : " << s_cur << endl;
-				//std::cout << "sdot_cur : " << sdot_cur << endl;
-
-				// calculate alpha and beta
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
 				beta_cur = alphabeta(1);
 
-				//cout << "alpha_cur : " << alpha_cur << endl;
-				//cout << "beta_cur : " << beta_cur << endl;
-
-				// backward integration
-				backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
-				
-				// save trajectory points
+				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
 
@@ -907,38 +876,28 @@ namespace rovin {
 					//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
 					//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
-					_s_tmp.pop_front();
-					_sdot_tmp.pop_front();
-
+					_s_tmp.pop_front();	_sdot_tmp.pop_front();
 					sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 					s_cur = _s.back();
 
 					LOGIF(_sdot.back() > sdot_cur,"Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
-
-					_s_tmp.push_front(s_cur);
-					_sdot_tmp.push_front(sdot_cur);
+					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
 
 					while (_sdot.back() > sdot_cur)
 					{
-						s_BI_jk.push_back(s_cur);
-						sd_BI_jk.push_back(sdot_cur);
+						s_BI_jk.push_back(s_cur); sd_BI_jk.push_back(sdot_cur);
 
 						_s.pop_back();
 						_sdot.pop_back();
 						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 						alpha_cur = alphabeta(0);
 
-						//cout << "s_cur : " << s_cur << endl;
-						//cout << "sdot_cur : " << sdot_cur << endl;
-						//cout << "alpha_cur : " << alpha_cur << endl;
-
 						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 						_s_tmp.push_front(s_cur);
 						_sdot_tmp.push_front(sdot_cur);
 					}
 
-					s_BI_jk.push_back(s_cur);
-					sd_BI_jk.push_back(sdot_cur);
+					//s_BI_jk.push_back(s_cur); sd_BI_jk.push_back(sdot_cur);
 					//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
 					//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 
@@ -972,14 +931,9 @@ namespace rovin {
 				}
 			}
 		}
-
 		// Step 3 : there exist two cases.
-		//s_cur = _sf-1e-3;
 		s_cur = _sf-0.0001;
 		sdot_cur = _vf / _dqds(_sf-0.0001).norm();
-
-		//cout << "s_cur : " << s_cur << endl;
-		//cout << "sdot_cur : " << sdot_cur << endl;
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
@@ -990,19 +944,11 @@ namespace rovin {
 			
 			while (s_cur >= _s.back())
 			{
-				s_BI_jk.push_back(s_cur);
-				sd_BI_jk.push_back(sdot_cur);
+				//s_BI_jk.push_back(s_cur); sd_BI_jk.push_back(sdot_cur);
 
-				//cout << "_s_back() : " << _s.back() << endl;
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
-				//cout << "alpha_cur : " << alpha_cur << endl;
-				//cout << "beta_cur : " << beta_cur << endl;
-
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				//cout << "s_cur : " << s_cur << endl;
-				//cout << "sdot_cur : " << sdot_cur << endl;
-
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
 			}
@@ -1050,8 +996,7 @@ namespace rovin {
 		}
 
 		// save backward information
-		s_BI_jk.push_back(s_cur);
-		sd_BI_jk.push_back(sdot_cur);
+		//s_BI_jk.push_back(s_cur); sd_BI_jk.push_back(sdot_cur);
 		//saveRealVector2txt(s_BI_jk, "C:/Users/crazy/Desktop/Time optimization/s_bsw.txt");
 		//saveRealVector2txt(sd_BI_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_bsw.txt");
 		//saveRealVector2txt(s_BI_jk, "D:/jkkim/Documents/matlabTest/sBI.txt");
@@ -1072,33 +1017,101 @@ namespace rovin {
 		cout << "trajectory generation finished." << endl;
 	}
 
-	const std::list<Real>& TOPP::gets() const
+	const std::list<Real>& TOPP::gets() const { return _s; }
+	const std::list<Real>& TOPP::getsdot() const { return _sdot; }
+	const Real TOPP::getFinalTime() const { return _tf_result; }
+	const MatrixX& TOPP::getTorqueTrajectory() const { return _torque_result; }
+	const unsigned int TOPP::getdof() const { return _dof; }
+
+	/////////////////////////////////// HAVE TO DO //////////////////////////////////////////
+
+	void TOPP::calculateTorqueTrajectory()
 	{
-		return _s;
+		// TODO 수정중
+
+		// calculate time and joint angle
+		VectorX t(_s.size());
+		t(0) = 0;
+
+		std::list<Real>::iterator it_s = ++(_s.begin());
+		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
+		Real s_k = _s.front(), sdot_k = _sdot.front();
+		Real s_k1, sdot_k1, dt;
+
+		for (int i = 1; i < _s.size(); i++)
+		{
+			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
+			dt = 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
+			t(i) = t(i - 1) + dt;
+			s_k = s_k1; sdot_k = sdot_k1;
+			it_s++; it_sdot++;
+		}
+
+		MatrixX q_data(_dof, t.size());
+		it_s = _s.begin();
+		for (int i = 0; i < t.size(); i++)
+		{
+			q_data.col(i) = _q((*it_s));
+			it_s++;
+		}
+
+		//std::vector<vector<Real>> torque_vec(_dof);
+		//
+		//for (int i = 0; i < _dof; i++)
+		//{
+		//	string torque_st = "C:/Users/crazy/Desktop/Time optimization/q";
+		//	for (int j = 0; j < q_data.row(0).size(); j++)
+		//		torque_vec[i].push_back(q_data(i, j));
+
+		//	torque_st += to_string(i + 1);
+		//	torque_st += ".txt";
+		//	saveRealVector2txt(torque_vec[i], torque_st);
+		//}
+		//std::vector<Real> t_vec;
+		//for (int i = 0; i < t.size(); i++)
+		//	t_vec.push_back(t(i));
+		//saveRealVector2txt(t_vec, "C:/Users/crazy/Desktop/Time optimization/t.txt");
+
+		//cout << t << endl;
+		//cout << "q_data.row(0) : " << q_data.row(0) << endl;
+		//cout << "q_data.row(1) : " << q_data.row(1) << endl;
+		//cout << "q_data column size : " << q_data.row(0).size() << endl;
+		//cout << "t size : " << t.size() << endl;
+		// make b-spline
+
+		unsigned int degreeOfBSpline = 3;
+		unsigned int orderOfBSpline = degreeOfBSpline + 1;
+		unsigned int MaxNumOfCP = 15;
+		unsigned int numData = _q_data.cols();
+		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, 0, t(t.size()-1));
+		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, t);
+		BSpline<-1, -1, -1> q = BSplineFitting(q_data, orderOfBSpline, MaxNumOfCP, t(0), t(t.size() - 1));
+		BSpline<-1, -1, -1> qdot = q.derivative();
+		BSpline<-1, -1, -1> qddot = qdot.derivative();
+
+		//cout << "q(0.05)" << endl;
+		//cout << q(0.05) << endl;
+		//cout << "q(0.10)" << endl;
+		//cout << q(0.10) << endl;
+		//cout << "q(0.15)" << endl;
+		//cout << q(0.15) << endl;
+		//cout << "q(0.20)" << endl;
+		//cout << q(0.20) << endl;
+
+		// solve inverse dynamics
+		_torque_result = MatrixX(_dof, t.size());
+		StatePtr state = _soc->makeState();
+		for (int i = 0; i < t.size(); i++)
+		{
+			state->setJointStatePos(q(t(i)));
+			state->setJointStateVel(qdot(t(i)));
+			state->setJointStateAcc(qddot(t(i)));
+			_soc->solveInverseDynamics(*state);
+			_torque_result.col(i) = state->getJointStateTorque();
+		}
 	}
 
-	const std::list<Real>& TOPP::getsdot() const
-	{
-		return _sdot;
-	}
 
-	const Real TOPP::getFinalTime() const
-	{
-		return _tf_result;
-	}
-
-	const MatrixX& TOPP::getTorqueTrajectory() const
-	{
-		return _torque_result;
-	}
-
-	const unsigned int TOPP::getdof() const
-	{
-		return _dof;
-	}
-
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////
 
@@ -1107,9 +1120,10 @@ namespace rovin {
 		Real ds = 1E-3;
 		Real s = _si;
 		Real sdot;
+		int flag;
 		while (true)
 		{
-			sdot = calculateMVCPoint(s);
+			sdot = calculateMVCPoint(s, flag);
 
 			s_MVC_jk.push_back(s);
 			sd_MVC_jk.push_back(sdot);
@@ -1144,7 +1158,6 @@ namespace rovin {
 			if (s > _sf)
 				break;
 		}
-
 	}
 
 	void TOPP::saveRealVector2txt(std::vector<Real> in, std::string filename)

@@ -5,6 +5,7 @@
 #include <rovin\Math\GaussianQuadrature.h>
 
 #include <list>
+#include <utility>
 
 //// temp
 #include <fstream>
@@ -73,8 +74,8 @@ namespace rovin {
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
 		
 		bool findNearestSwitchPoint(Real s);
-		Real calculateMVCPoint(Real s);
-		Real calculateMVCPointExclude(Real s, int iExclude);
+		Real calculateMVCPoint(Real s, int& flag);
+		Real calculateMVCPointExclude(Real s, int iExclude, int& flag);
 
 		void calculateFinalTime();
 		void calculateTorqueTrajectory();

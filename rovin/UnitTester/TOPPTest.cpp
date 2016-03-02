@@ -30,11 +30,10 @@ int main()
 
 	// Time optimization
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
-	TOPP topp(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE_ACC);
-
-	//topp.generateTrajectory();
-	//savessdotResult(topp);
-	//topp.saveMVCandSP2txt();
+	TOPP topp(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	topp.generateTrajectory();
+	savessdotResult(topp);
+	topp.saveMVCandSP2txt();
 	//saveTorqueResult(topp);
 
 
