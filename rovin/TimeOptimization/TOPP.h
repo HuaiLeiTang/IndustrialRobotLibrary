@@ -28,6 +28,8 @@ namespace rovin {
 	class TOPP
 	{
 	public:
+		CONSTRAINT_TYPE _constraintType;
+
 		MatrixX _q_data;
 		
 		BSpline<-1, -1, -1> _q;
@@ -35,34 +37,26 @@ namespace rovin {
 		BSpline<-1, -1, -1> _ddqdds;
 
 		Real _vi, _vf; ///< initial & final velocity
-
 		Real _si, _sf; ///< initial & final parameters
+		Real _ds; ///< parameter step size
 
 		std::list<Real> _s;
 		std::list<Real> _sdot;
+		std::vector<SwitchPoint> _switchPoint;
 
 		VectorX _torqueConstraint;
 		VectorX _velConstraint;
 		VectorX _accConstraint;
-		CONSTRAINT_TYPE _constraintType;
 		
-		Real _ds; ///< parameter step size
-
-		std::vector<SwitchPoint> _switchPoint;
-
 		SerialOpenChainPtr _soc;
 		unsigned int _dof;
 
-		Vector2 _minmax; ///< velocity minimum maximum (minmax(0) = min, minmix(1) = max)
 		int _integrationType;
-
-		// TOPP Result
-		Real _tf_result;
-		MatrixX _torque_result;
-
 		int	_nconstraints; ///< number of inequality constraints
 		int _nconstraintsWithoutVel; ///< number of inequality constraints without velocity constraints
 
+		Real _tf_result;
+		MatrixX _torque_result;
 	public:
 		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real ds, 
 			const Real vi, const Real vf, const Real si, const Real sf, CONSTRAINT_TYPE constrainttype);
@@ -73,7 +67,7 @@ namespace rovin {
 		std::vector<VectorX> calculateBandC(Real s);
 
 		Vector2 determineAlphaBeta(Real s, Real sdot);
-		void determineVelminmax(Real s);
+		void determineVelminmax(Real s, Vector2& minmax);
 
 		void forwardIntegrate(Real& s, Real& sdot, Real sddot);
 		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
