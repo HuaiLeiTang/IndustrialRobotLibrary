@@ -809,8 +809,8 @@ namespace rovin {
 					s_FI_jk.push_back(s_cur);
 					sd_FI_jk.push_back(sdot_cur);
 
-					saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_s.txt");
-					saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_sdot.txt");
+					//saveRealVector2txt(s_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_s.txt");
+					//saveRealVector2txt(sd_FI_jk, "C:/Users/crazy/Desktop/Time optimization/forward_sdot.txt");
 
 					// fine nearest switch point
 					cout << "s_cur : " << s_cur << endl;
@@ -1164,19 +1164,21 @@ namespace rovin {
 
 	void TOPP::saveMVCandSP2txt()
 	{
-		calcMVC();
+		//calcMVC();
 		//saveRealVector2txt(s_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/s.txt");
 		//saveRealVector2txt(sd_MVC_jk, "C:/Users/crazy/Desktop/Time optimization/sdot.txt");
-		saveRealVector2txt(s_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sMVC.txt");
-		saveRealVector2txt(sd_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sdotMVC.txt");
+		//saveRealVector2txt(s_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sMVC.txt");
+		//saveRealVector2txt(sd_MVC_jk, "C:/Users/ksh/Documents/MATLAB/sdotMVC.txt");
+
+
 		////calcSPs();
 
 		////saveRealVector2txt(s_SW_jk, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
 		////saveRealVector2txt(sd_SW_jk, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
 
-		//calcMVC();
-		//saveRealVector2txt(s_MVC_jk, "D:/jkkim/Documents/matlabTest/sMVC.txt");
-		//saveRealVector2txt(sd_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotMVC.txt");
+		calcMVC();
+		saveRealVector2txt(s_MVC_jk, "D:/jkkim/Documents/matlabTest/sMVCwovel.txt");
+		saveRealVector2txt(sd_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotMVCwovel.txt");
 
 		//calcSPs();
 
@@ -1184,9 +1186,44 @@ namespace rovin {
 		//saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
 
 
-		calcSPs();
-		saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
-		saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
-		saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
+		//calcSPs();
+		////saveRealVector2txt(s_SW_jk, "C:/Users/ksh/Documents/MATLAB/sSW.txt");
+		////saveRealVector2txt(sd_SW_jk, "C:/Users/ksh/Documents/MATLAB/sdotSW.txt");
+		////saveRealVector2txt(SPID_SW_jk, "C:/Users/ksh/Documents/MATLAB/spidSW.txt");
+		//saveRealVector2txt(s_SW_jk, "D:/jkkim/Documents/matlabTest/sSW.txt");
+		//saveRealVector2txt(sd_SW_jk, "D:/jkkim/Documents/matlabTest/sdotSW.txt");
+		//saveRealVector2txt(SPID_SW_jk, "D:/jkkim/Documents/matlabTest/spidSW.txt");
+	}
+	void TOPP::calcTrapCurve()
+	{
+		Real ds = 1E-3;
+		Real s = _si;
+		Real sdot_MVC;
+		Real dsdot = 1E-3;
+		bool detectLow, detectHigh;
+		Vector2 alphabeta;
+		while (true)
+		{
+			sdot_MVC = calculateMVCPoint(s);
+
+			alphabeta = determineAlphaBeta(s, sdot_MVC);
+
+			s_Trap_jk.push_back(s);
+			sdot_Trap_alpha_jk.push_back(alphabeta(0));
+			sdot_Trap_beta_jk.push_back(alphabeta(1));
+			sdot_Trap_MVC_jk.push_back(sdot_MVC);
+
+			s += ds;
+			if (s > _sf)
+				break;
+		}
+	}
+	void TOPP::saveTrap2txt()
+	{
+		calcTrapCurve();
+		saveRealVector2txt(s_Trap_jk, "D:/jkkim/Documents/matlabTest/sTrap1.txt");
+		saveRealVector2txt(sdot_Trap_alpha_jk, "D:/jkkim/Documents/matlabTest/sdotTrapalpha.txt");
+		saveRealVector2txt(sdot_Trap_beta_jk, "D:/jkkim/Documents/matlabTest/sdotTrapbeta.txt");
+		saveRealVector2txt(sdot_Trap_MVC_jk, "D:/jkkim/Documents/matlabTest/sdotTrapMVC.txt");
 	}
 }
