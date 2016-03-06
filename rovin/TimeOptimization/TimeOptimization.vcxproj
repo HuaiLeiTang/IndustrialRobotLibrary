@@ -114,9 +114,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="P2PTimeOptimization.h" />
     <ClInclude Include="TOPP.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="P2PTimeOptimization.cpp" />
     <ClCompile Include="TOPP.cpp" />
   </ItemGroup>
   <ItemGroup>

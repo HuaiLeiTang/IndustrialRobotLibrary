@@ -18,9 +18,15 @@
     <ClInclude Include="TOPP.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="P2PTimeOptimization.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="TOPP.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="P2PTimeOptimization.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
