@@ -13,10 +13,11 @@ namespace rovin
 			delete _tree[i];
 	}
 	
-	AVP_RRT::AVP_RRT(const SerialOpenChainPtr & robot)
+	AVP_RRT::AVP_RRT(const SerialOpenChainPtr & robot, CONSTRAINT_TYPE constraintType)
 	{
 		_robot = robot;
 		_dof = robot->getNumOfJoint();
+		_constraintType = constraintType;
 	}
 
 	void AVP_RRT::initialization()
