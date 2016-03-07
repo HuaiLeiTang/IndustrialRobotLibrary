@@ -3,7 +3,6 @@
 #include "TOPP.h"
 
 // inpath 는 bspline 으로 ? 아니면 discrete 하게??? 그리고 inpath는 q0 ~ q1 사이의 값들인가 그리고 linear 하게 만들면 되나?
-// s, sdot 은 저장할필요없나?? 없을듯
 // RRT step size 같은건 어디서 가지고 있어야하나용?????
 // TOPP 는 누가 가지고 있는게 좋을까 ----> 가장 큰 클래스!
 
@@ -22,7 +21,7 @@ namespace rovin
 	public:
 		AVP_RRT();
 		~AVP_RRT();
-		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType);
+		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType = CONSTRAINT_TYPE::TORQUE);
 
 		void setWayPoints(const std::vector<WayPoint>& waypoints) { _waypoints = waypoints; }
 		void addWayPoints(const WayPoint& waypoint) { _waypoints.push_back(waypoint); }
@@ -41,7 +40,6 @@ namespace rovin
 	private:
 		SerialOpenChainPtr _robot;
 		TOPP* topp;
-		CONSTRAINT_TYPE _constraintType;
 		std::vector<WayPoint> _waypoints;
 		std::vector<Tree*> _tree;
 
@@ -139,7 +137,7 @@ namespace rovin
 		VectorX _qrand;
 		VectorX _qnew;
 		Vector2 _intervalnew;
-		BSpline<-1, -1, -1> _pathnew; // VectorX _inpath; ---> 생각좀.... spline 써야되나??
+		MatrixX _pathnew; //BSpline<-1, -1, -1> _pathnew; // VectorX _inpath; ---> 생각좀.... spline 써야되나??
 		unsigned int _nearestVertexIdx;
 	};
 }

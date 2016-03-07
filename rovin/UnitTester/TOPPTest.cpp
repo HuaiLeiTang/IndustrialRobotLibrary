@@ -27,13 +27,13 @@ int main()
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 
 	// consider only torque constraint
-	TOPP topp1(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE);
+	TOPP topp1(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE);
 	topp1.generateTrajectory();
 	cout << "[ consider only torque constraint ]" << endl;
 	cout << "Final time : " << topp1.getFinalTime() << endl << endl;
 
 	// consider torque, velocity and acceleration constraint
-	TOPP topp2(q_data, robot, ds, vi, vf, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	TOPP topp2(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
 	topp2.generateTrajectory();
 	cout << "[ consider torque, velocity and acceleration constraint ]" << endl;
 	cout << "Final time : " << topp2.getFinalTime() << endl << endl;

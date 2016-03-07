@@ -11,13 +11,16 @@ namespace rovin
 		unsigned int treesize = _tree.size();
 		for (unsigned int i = 0; i < treesize; i++)
 			delete _tree[i];
+		delete topp;
 	}
 	
 	AVP_RRT::AVP_RRT(const SerialOpenChainPtr & robot, CONSTRAINT_TYPE constraintType)
 	{
 		_robot = robot;
 		_dof = robot->getNumOfJoint();
-		_constraintType = constraintType;
+
+		Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
+		topp = new TOPP(_robot, vi, vf, ds, si, sf, constraintType);
 	}
 
 	void AVP_RRT::initialization()
@@ -94,7 +97,7 @@ namespace rovin
 	void Extend::update()
 	{
 		_Vnew.setconfig(_qnew);
-		_Vnew.setinpath(_pathnew);
+		//_Vnew.setinpath(_pathnew);
 		_Vnew.setinterval(_intervalnew);
 		_Vnew.setparentVertexIdx(_nearestVertexIdx);
 		_tree->_vertices.push_back(_Vnew);
@@ -122,6 +125,26 @@ namespace rovin
 	bool Extend::AVP()
 	{
 		// calculate Vnew interval sdot_min, sdot_max
+		
+		// make topp
+		_tree->_avp_rrt->topp->setJointTrajectory(_pathnew);
+
+		// Step A. Computing the limiting curves
+		// Acalculate MVC
+		std::vector<Vector2> allMVCPoints;
+		_tree->_avp_rrt->topp->calculateAllMVCPoint();
+		allMVCPoints = _tree->_avp_rrt->topp->getAllMVCPoint();
+
+		// calculate CLC
+		std::vector<SwitchPoint> allSwitchPoint;
+		_tree->_avp_rrt->topp->calculateAllSwitchPoint();
+		allSwitchPoint = _tree->_avp_rrt->topp->getAllSwitchPoint();
+
+		// A1
+
+
+		// A2-5
+
 
 		return true;
 	}
