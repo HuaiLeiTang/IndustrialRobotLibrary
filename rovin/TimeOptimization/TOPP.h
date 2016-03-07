@@ -25,12 +25,14 @@ namespace rovin {
 	{
 
 	public:
-		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real ds,
-			const Real vi, const Real vf, const Real si, const Real sf, CONSTRAINT_TYPE constrainttype);
+		TOPP(const MatrixX& q_data, const SerialOpenChainPtr& soc, const Real vi, const Real vf, 
+			const Real ds = 1e-3, const Real si = 0, const Real sf = 1, CONSTRAINT_TYPE constrainttype = TORQUE);
 		~TOPP() {}
 
 		void generateTrajectory();
 		void initialization();
+		void calculateAllMVCPoint();
+		void calculateAllSwitchPoint();
 
 		void setConstraintType(CONSTRAINT_TYPE constraintType) { _constraintType = constraintType; }
 		void setSerialOpenChain(const SerialOpenChainPtr& soc) { _soc = soc; }
@@ -38,9 +40,12 @@ namespace rovin {
 
 		const std::list<Real>& gets() const { return _s; }
 		const std::list<Real>& getsdot() const { return _sdot; }
+		const std::vector<Vector2>& getAllMVCPoint() const { return _allMVCPoints; }
+		const std::vector<SwitchPoint>& getAllSwitchPoint() const { return _switchPoint; }
 		const Real TOPP::getFinalTime() const { return _tf_result; }
 		const MatrixX& TOPP::getTorqueTrajectory() const { return _torque_result; }
 		const unsigned int TOPP::getdof() const { return _dof; }
+
 
 	private:
 		Vector2 determineAlphaBeta(Real s, Real sdot);
@@ -77,13 +82,14 @@ namespace rovin {
 		std::list<Real> _s;
 		std::list<Real> _sdot;
 		std::vector<SwitchPoint> _switchPoint;
+		std::vector<Vector2> _allMVCPoints;
 
 		VectorX _torqueConstraint;
 		VectorX _velConstraint;
 		VectorX _accConstraint;
 		
-		int	_nconstraints;
-		int _nconstraintsWithoutVel; 
+		unsigned int _nconstraints;
+		unsigned int _nconstraintsWithoutVel;
 	};
 
 	class SwitchPoint

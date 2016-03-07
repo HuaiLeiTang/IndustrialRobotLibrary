@@ -5,8 +5,8 @@ using namespace std;
 
 namespace rovin {
 
-	TOPP::TOPP(const MatrixX & q_data, const SerialOpenChainPtr & soc, 
-		const Real ds, const Real vi, const Real vf, const Real si, const Real sf, CONSTRAINT_TYPE constraintType)
+	TOPP::TOPP(const MatrixX & q_data, const SerialOpenChainPtr & soc, const Real vi, const Real vf,
+		const Real ds, const Real si, const Real sf, CONSTRAINT_TYPE constraintType)
 	{
 		// _q_data dimesion : dof * number of data
 		_q_data = q_data;
@@ -24,7 +24,7 @@ namespace rovin {
 		_velConstraint.resize(_dof * 2);
 		_accConstraint.resize(_dof * 2);
 
-		for (int i = 0; i < _dof; i++)
+		for (unsigned int i = 0; i < _dof; i++)
 		{
 			_torqueConstraint[i] = _soc->getMotorJointPtr(i)->getLimitTorqueUpper();
 			_torqueConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitTorqueLower();
@@ -83,7 +83,37 @@ namespace rovin {
 
 	void TOPP::initialization()
 	{
+		_s.clear();
+		_sdot.clear();
+		_switchPoint.clear();
+	}
 
+	void TOPP::calculateAllMVCPoint()
+	{
+		Real s = _si, sdot;
+		Vector2 MVCPoint;
+		int flag;
+		while (true)
+		{
+			sdot = calculateMVCPoint(s, flag);
+			MVCPoint[0] = s; MVCPoint[1] = sdot;
+			_allMVCPoints.push_back(MVCPoint);
+			s += _ds;
+			if (s > _sf)
+				break;
+		}
+	}
+
+	void TOPP::calculateAllSwitchPoint()
+	{
+		Real s = _si;
+		while (findNearestSwitchPoint(s))
+		{
+			s = _switchPoint[_switchPoint.size() - 1]._s;
+			s += _ds;
+			if (s > _sf)
+				break;
+		}
 	}
 
 	void TOPP::calculateA(Real s, VectorX& a)
@@ -105,7 +135,7 @@ namespace rovin {
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
 			a = VectorX(_torqueConstraint.size());
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				a[i] = tmp_a[i];
 				a[i + _dof] = -tmp_a[i];
@@ -115,7 +145,7 @@ namespace rovin {
 		{
 			a = VectorX(_torqueConstraint.size() + _accConstraint.size());
 			qs = _dqds(s);
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				a[i] = tmp_a[i];
 				a[i + _dof] = -tmp_a[i];
@@ -146,14 +176,14 @@ namespace rovin {
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
 			VectorX b(_torqueConstraint.size()), c(_torqueConstraint.size());
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				b[i] = tmp_b[i];
 				b[i + _dof] = -tmp_b[i];
 				c[i] = tmp_c[i];
 				c[i + _dof] = -tmp_c[i];
 			}
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				c[i] -= _torqueConstraint[i];
 				c[i + _dof] += _torqueConstraint[i + _dof];
@@ -164,7 +194,7 @@ namespace rovin {
 		{
 			VectorX b(_torqueConstraint.size() + _accConstraint.size()), c(_torqueConstraint.size() + _accConstraint.size());
 			VectorX qss = _ddqdds(s);
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				b[i] = tmp_b[i];
 				b[i + _dof] = -tmp_b[i];
@@ -175,7 +205,7 @@ namespace rovin {
 				c[i + _dof * 2] = -_accConstraint[i];
 				c[i + _dof * 3] = _accConstraint[i + _dof];
 			}
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				c[i] -= _torqueConstraint[i];
 				c[i + _dof] += _torqueConstraint[i + _dof];
@@ -204,7 +234,7 @@ namespace rovin {
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
 			left_vec = VectorX(_torqueConstraint.size());
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				left_vec(i) = -tau(i) + _torqueConstraint(i);
 				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
@@ -214,7 +244,7 @@ namespace rovin {
 		{
 			left_vec = VectorX(_torqueConstraint.size()+ _accConstraint.size());
 			VectorX qss = _ddqdds(s)*sdot*sdot;
-			for (int i = 0; i < _dof; i++)
+			for (unsigned int i = 0; i < _dof; i++)
 			{
 				left_vec(i) = -tau(i) + _torqueConstraint(i);
 				left_vec(i + _dof) = tau(i) - _torqueConstraint(i + _dof);
@@ -251,7 +281,7 @@ namespace rovin {
 	void TOPP::determineVelminmax(Real s, Vector2& minmax)
 	{
 		VectorX qs = _dqds(s), qs_vec(_dof * 2), left_vec(_dof * 2);
-		for (int i = 0; i < _dof; i++)
+		for (unsigned int i = 0; i < _dof; i++)
 		{
 			qs_vec(i) = qs(i);
 			qs_vec(i + _dof) = -qs(i);
@@ -260,7 +290,7 @@ namespace rovin {
 		}
 		minmax(0) = -std::numeric_limits<Real>::max();
 		minmax(1) = std::numeric_limits<Real>::max();
-		for (int i = 0; i < _dof * 2; i++)
+		for (unsigned int i = 0; i < _dof * 2; i++)
 		{
 			Real tmp = left_vec(i) / qs_vec(i);
 			if (qs_vec(i) > RealEps) // upper bound beta
@@ -303,9 +333,9 @@ namespace rovin {
 		unsigned int kk;
 		unsigned int mm;
 
-		for (int k = 0; k < _nconstraintsWithoutVel; k++)
+		for (unsigned int k = 0; k < _nconstraintsWithoutVel; k++)
 		{
-			for (int m = k + 1; m < _nconstraintsWithoutVel; m++)
+			for (unsigned int m = k + 1; m < _nconstraintsWithoutVel; m++)
 			{
 				Real num, denum, r;
 				// If we have a pair of alpha and beta bounds, then determine the sdot for which the two bounds are equal
@@ -361,9 +391,9 @@ namespace rovin {
 			sdot_VelC = minmax(1);
 		}
 
-		for (int k = 0; k < _nconstraintsWithoutVel; k++)
+		for (unsigned int k = 0; k < _nconstraintsWithoutVel; k++)
 		{
-			for (int m = k + 1; m < _nconstraintsWithoutVel; m++)
+			for (unsigned int m = k + 1; m < _nconstraintsWithoutVel; m++)
 			{
 				// exclude iExclude-th inequality constraint
 				if (k == iExclude || m == iExclude) {
@@ -587,6 +617,8 @@ namespace rovin {
 
 	void TOPP::generateTrajectory()
 	{
+		initialization();
+
 		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm(), sdot_MVC;
 		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 		
@@ -645,7 +677,7 @@ namespace rovin {
 									if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
 									{
 										Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-										for (int i = 0; i < numOfSPInt; i++)
+										for (unsigned int i = 0; i < numOfSPInt; i++)
 										{
 											s_cur -= _ds;
 											sdot_cur -= lambda * _ds;
@@ -696,7 +728,7 @@ namespace rovin {
 											if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
 											{
 												Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-												for (int i = 0; i < numOfSPInt; i++)
+												for (unsigned int i = 0; i < numOfSPInt; i++)
 												{
 													s_cur -= _ds;
 													sdot_cur -= lambda * _ds;
@@ -741,7 +773,7 @@ namespace rovin {
 							if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
 							{
 								Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-								for (int i = 0; i < numOfSPInt; i++)
+								for (unsigned int i = 0; i < numOfSPInt; i++)
 								{
 									s_cur -= _ds;
 									sdot_cur -= lambda * _ds;
@@ -780,7 +812,7 @@ namespace rovin {
 					sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 					s_cur = _s.back();
 
-					LOGIF(_sdot.back() > sdot_cur,"Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+					LOGIF((_sdot.back() > sdot_cur),"Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
 					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
 
 					while (_sdot.back() > sdot_cur)
@@ -810,7 +842,7 @@ namespace rovin {
 					{
 						// proceed following beta profile
 						Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-						for (int i = 0; i < numOfSPInt; i++)
+						for (unsigned int i = 0; i < numOfSPInt; i++)
 						{
 							s_cur += _ds;
 							sdot_cur += lambda * _ds;
@@ -835,9 +867,9 @@ namespace rovin {
 
 		if (!swiPoint_swi) // case 1. when can't find switching point until final s
 		{
-			LOGIF(_sdot.back() > sdot_cur, "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
+			LOGIF((_sdot.back() > sdot_cur), "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
 			
-			while (s_cur >= _s.back())
+			while ((s_cur >= _s.back()))
 			{
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
@@ -852,11 +884,11 @@ namespace rovin {
 			sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 			s_cur = _s.back();
 
-			LOGIF(_sdot.back() > sdot_cur, "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+			LOGIF((_sdot.back() > sdot_cur), "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
 		}
 		else // case 2. when forward integration reach final s
 		{
-			LOGIF(_sdot.back() > sdot_cur, "step 3 error(swiPoint_swi) : s_end has to be smaller than _sdot.back().");
+			LOGIF((_sdot.back() > sdot_cur), "step 3 error(swiPoint_swi) : s_end has to be smaller than _sdot.back().");
 
 			_s.pop_back();
 			_sdot.pop_back();
@@ -918,7 +950,7 @@ namespace rovin {
 		Real s_k = _s.front(), sdot_k = _sdot.front();
 		Real s_k1, sdot_k1, dt;
 
-		for (int i = 1; i < _s.size(); i++)
+		for (unsigned int i = 1; i < _s.size(); i++)
 		{
 			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
 			dt = 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
