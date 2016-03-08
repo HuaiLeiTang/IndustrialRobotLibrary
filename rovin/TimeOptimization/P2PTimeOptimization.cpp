@@ -134,29 +134,45 @@ namespace rovin
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
 		_tree->_avp_rrt->_topp->calculateAllMVCPoint();
 		allMVCPoints = _tree->_avp_rrt->_topp->getAllMVCPoint();
-		LOG("calculate allMVCPoints complete.")
+		LOG("calculate allMVCPoints complete.");
 
-		// calculate CLC  ----> 이 알고리즘이 너무 비효율적인거 같은데.. 다른 아이디어?
 		std::vector<SwitchPoint> allSwitchPoint;
 		_tree->_avp_rrt->_topp->calculateAllSwitchPoint();
 		allSwitchPoint = _tree->_avp_rrt->_topp->getAllSwitchPoint();
-		LOG("calculate allSwitchPoint complete.")
+		LOG("calculate allSwitchPoint complete.");
 
 		// calcuate all LC ----> 이 알고리즘이 너무 비효율적인거 같은데.. 다른 아이디어?
-		// A1
 		bool A1switch;
 		std::vector<std::list<Real>> LC;
 		A1switch = calculateLimitingCurves(allMVCPoints, allSwitchPoint, LC);
-		LOG("calculate Limiting curves complete.")
+		LOG("calculate Limiting curves complete.");
 
+		// case A1
 		if (A1switch == false)
 		{
 			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
 			return false;
 		}
 
+		// calculate CLC
+		std::vector<Real> CLC;
+		calculateCLC(LC, CLC);
 
+		// save
+		saveMVC(allMVCPoints);
+		saveRealVector2txt(CLC, "C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt");
+		saveRealList2txt(LC[LC.size()-1], "C:/Users/crazy/Desktop/Time optimization/sdot_LC.txt");
 
+		std::vector<Real> s_sw;
+		std::vector<Real> sdot_sw;
+		for (unsigned int i = 0; i < allSwitchPoint.size(); i++)
+		{
+			std::cout << allSwitchPoint[i]._id << std::endl;
+			s_sw.push_back(allSwitchPoint[i]._s);
+			sdot_sw.push_back(allSwitchPoint[i]._sdot);
+		}
+		saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+		saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
 
 		return true;
 	}
@@ -171,10 +187,17 @@ namespace rovin
 		unsigned int numOfswi = allSwitchPoint.size();
 
 		Real alpha_cur, beta_cur;
+		std::list<Real> tmp_list;
+		std::list<Real> tmp_s_list;
+
+		//std::cout << numOfswi << std::endl;
 
 		for (unsigned int i = 0; i < numOfswi; i++)
 		{
-			std::list<Real> tmp_list;
+			//std::cout << "Switch tpye : " << allSwitchPoint[i]._id << std::endl;
+
+			tmp_s_list.clear(); ///<
+			tmp_list.clear();
 			LC.push_back(tmp_list);
 
 			// switchpoint rounding
@@ -186,29 +209,39 @@ namespace rovin
 			sdot_cur = sdot_swi;
 			LC[i].push_front(sdot_cur);
 
+			//std::cout << s_cur << std::endl;
+			tmp_s_list.push_front(s_cur); ///<
+
 			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
 			{
 				Real lambda = allSwitchPoint[i]._lambda;
 				unsigned int numOfSPInt = 3;
-				for (unsigned int i = 0; i < numOfSPInt; i++)
+				for (unsigned int j = 0; j < numOfSPInt; j++)
 				{
 					s_cur -= ds;
 					sdot_cur -= lambda * ds;
 					LC[i].push_front(sdot_cur);
+					
+					//std::cout << s_cur << std::endl;
+					tmp_s_list.push_front(s_cur); ///<
 				}
 			}
+
 
 			while (s_cur > si)
 			{
 				alpha_cur = _tree->_avp_rrt->_topp->determineAlphaBeta(s_cur, sdot_cur)(0);
 				_tree->_avp_rrt->_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				//sdot_MVC = _tree->_avp_rrt->topp->calculateMVCPoint(s_cur, flag);
-				sdot_MVC = allMVCPoints[s_cur / ds](1);
-
+				//sdot_MVC = _tree->_avp_rrt->_topp->calculateMVCPoint(s_cur, flag);
+				sdot_MVC = allMVCPoints[round(s_cur / ds)](1);
+				
 				if (sdot_cur < 1e-4)
 					return false;
 
 				LC[i].push_front(sdot_cur);
+
+				//std::cout << s_cur << std::endl;
+				tmp_s_list.push_front(s_cur); ///<
 
 				if (sdot_cur > sdot_MVC)
 				{
@@ -216,11 +249,15 @@ namespace rovin
 					break;
 				}
 			}
+
+
 			while (s_cur > si)
 			{
 				s_cur -= ds;
-				sdot_cur = std::numeric_limits<Real>::max();
-				LC[i].push_front(sdot_cur);
+				LC[i].push_front(std::numeric_limits<Real>::max());
+
+				//std::cout << s_cur << std::endl;
+				tmp_s_list.push_front(s_cur); ///<
 			}
 
 			// forward integration
@@ -231,24 +268,30 @@ namespace rovin
 			{
 				Real lambda = allSwitchPoint[i]._lambda;
 				unsigned int numOfSPInt = 3;
-				for (unsigned int i = 0; i < numOfSPInt; i++)
+				for (unsigned int j = 0; j < numOfSPInt; j++)
 				{
 					s_cur += ds;
 					sdot_cur += lambda * ds;
-					LC[i].push_front(sdot_cur);
+					LC[i].push_back(sdot_cur);
+
+					//std::cout << s_cur << std::endl;
+					tmp_s_list.push_back(s_cur); ///<
 				}
 			}
 
-			while (s_cur > si)
+			while (s_cur < sf)
 			{
 				beta_cur = _tree->_avp_rrt->_topp->determineAlphaBeta(s_cur, sdot_cur)(1);
 				_tree->_avp_rrt->_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
-				//sdot_MVC = _tree->_avp_rrt->topp->calculateMVCPoint(s_cur, flag);
-				sdot_MVC = allMVCPoints[s_cur / ds](1);
+				//sdot_MVC = _tree->_avp_rrt->_topp->calculateMVCPoint(s_cur, flag);
+				sdot_MVC = allMVCPoints[round(s_cur / ds)](1);
 
 				if (sdot_cur < 1e-4)
 					return false;
 				LC[i].push_back(sdot_cur);
+
+				//std::cout << s_cur << std::endl;
+				tmp_s_list.push_front(s_cur); ///<
 
 				if (sdot_cur > sdot_MVC)
 				{
@@ -256,17 +299,49 @@ namespace rovin
 					break;
 				}
 			}
-
-			while (s_cur > si)
+			while (s_cur < sf)
 			{
-				s_cur -= ds;
-				sdot_cur = std::numeric_limits<Real>::max();
-				LC[i].push_back(sdot_cur);
+				s_cur += ds;
+				LC[i].push_back(std::numeric_limits<Real>::max());
+
+				//std::cout << s_cur << std::endl;
+				tmp_s_list.push_front(s_cur); ///<
 			}
+
+			//std::cout << LC[i].size() << std::endl;
 		}
+
 
 		return true;
 	}
+
+	void Extend::calculateCLC(std::vector<std::list<Real>>& LC, std::vector<Real>& CLC)
+	{
+		int LCsize = LC.size();
+
+		std::vector<std::list<Real>::iterator> it;
+
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			std::list<Real>::iterator it_tmp;
+			it_tmp = LC[i].begin();
+			it.push_back(it_tmp);
+		}
+
+		for (std::list<Real>::iterator it_tmp = LC[0].begin(); it_tmp != LC[0].end(); ++it_tmp)
+		{
+			Real tmp = std::numeric_limits<Real>::max();
+			for (unsigned int i = 0; i < LCsize; i++)
+			{
+				if (*(it[i]) < tmp)
+					tmp = *(it[i]);
+				it[i]++;
+			}
+			CLC.push_back(tmp);
+		}
+	}
+
+	
 
 	
 

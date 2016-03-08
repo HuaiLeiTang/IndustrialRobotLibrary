@@ -71,9 +71,6 @@ int main()
 
 	// consider only torque constraint
 	TOPP* topp = new TOPP(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
-	std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
-	topp->calculateAllMVCPoint();
-	allMVCPoints = topp->getAllMVCPoint();
 
 	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
 	avp_rrt.setTOPP(topp);

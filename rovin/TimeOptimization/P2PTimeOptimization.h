@@ -2,6 +2,10 @@
 
 #include "TOPP.h"
 
+#include <fstream>
+#include <string>
+
+
 // inpath 는 bspline 으로 ? 아니면 discrete 하게??? 그리고 inpath는 q0 ~ q1 사이의 값들인가 그리고 linear 하게 만들면 되나?
 // RRT step size 같은건 어디서 가지고 있어야하나용?????
 // TOPP 는 누가 가지고 있는게 좋을까 ----> 가장 큰 클래스!
@@ -143,6 +147,7 @@ namespace rovin
 
 	public:
 		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<SwitchPoint>& allSwitchPoint, std::vector<std::list<Real>>& LC);
+		void calculateCLC(std::vector<std::list<Real>>& LC, std::vector<Real>& CLC);
 
 	public:
 		Tree* _tree;
@@ -155,5 +160,51 @@ namespace rovin
 		Vector2 _intervalnew;
 		MatrixX _pathnew; //BSpline<-1, -1, -1> _pathnew; // VectorX _inpath; ---> 생각좀.... spline 써야되나??
 		unsigned int _nearestVertexIdx;
+		
+
+		/////////////////////////////////////////////////
+
+	public:
+		std::vector<Real> s;
+		std::vector<Real> sdot_MVC;
+
+		std::vector<Real> sdot_LC;
+		std::vector<Real> sdot_CLC;
+
+		void saveRealVector2txt(std::vector<Real> in, std::string filename)
+		{
+			std::ofstream fout;
+			fout.open(filename);
+
+			for (unsigned int i = 0; i < in.size(); i++)
+				fout << in[i] << std::endl;
+
+			fout.close();
+		}
+
+		void saveMVC(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints)
+		{
+			std::string name = "C:/Users/crazy/Desktop/Time optimization";
+			std::vector<Real> s, sdot;
+			for (unsigned int i = 0; i < allMVCPoints.size(); i++)
+			{
+				s.push_back(allMVCPoints[i](0));
+				sdot.push_back(allMVCPoints[i](1));
+			}
+
+			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt");
+		}
+
+		void saveRealList2txt(std::list<Real> in, std::string filename)
+		{
+			std::vector<Real> vec;
+			for (std::list<Real>::iterator it = in.begin(); it != in.end(); ++it)
+			{
+				vec.push_back(*(it));
+			}
+			saveRealVector2txt(vec, filename);
+		}
+
 	};
 }

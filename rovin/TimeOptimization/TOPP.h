@@ -74,7 +74,7 @@ namespace rovin {
 		void calculateFinalTime();
 		void calculateTorqueTrajectory();
 
-	private:
+	public:
 		CONSTRAINT_TYPE _constraintType;
 		SerialOpenChainPtr _soc;
 		unsigned int _dof;
@@ -113,7 +113,7 @@ namespace rovin {
 	public:
 		enum SPID
 		{
-			SINGULAR, TANGENT, DISCONTIUOUS
+			SINGULAR = 0, TANGENT, DISCONTIUOUS
 		};
 	public:
 		SwitchPoint() {}
