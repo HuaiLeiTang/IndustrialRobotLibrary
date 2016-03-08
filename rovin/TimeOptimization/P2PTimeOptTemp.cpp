@@ -18,14 +18,14 @@ namespace rovin
 		// EXTRACT FINAL PATH
 	}
 
-	void AVP_RRT::generateTrajectorySegment(int idx)
+	AVP_RRT::RETURNFLAG AVP_RRT::generateTrajectorySegment(int idx)
 	{
 		// start tree, goal tree -> waypont 로 initialize
 		treeInitialization(idx);
 
 		VectorX qrand;
-
 		RETURNFLAG flag;
+
 		bool connected = false;
 
 		// RUN AVP-RRT!!!
@@ -37,8 +37,18 @@ namespace rovin
 
 			// 이렇게 하면 안되지롱... avp_backward 따로 있으니까... 나눠서.... 흠 일단 ㄱ
 			// extendTree도 vertex 받기.....
-			extendTree(&_startTree, qrand);
-			extendTree(&_goalTree, qrand);
+			Vertex * candiVertex = extendTree(&_startTree, qrand, true);
+			if (candiVertex != NULL)
+			{
+				// add vertex
+				_startTree.addVertex(candiVertex);
+				
+				// connection test to the _goalTree
+			}
+
+
+
+			extendTree(&_goalTree, qrand, false);
 
 			// if extend succeed -> add vertex -> try to connect
 
@@ -62,10 +72,12 @@ namespace rovin
 			_wayPointInterval = _goalTree._nodes[0]->_interval;
 		}
 
+		return flag;
 	}
 
 	void AVP_RRT::treeInitialization(int idx)
 	{
+
 		_startTree.clearTree();
 		_goalTree.clearTree();
 
@@ -85,42 +97,95 @@ namespace rovin
 
 	void AVP_RRT::makeRandomConfig(VectorX & qrand)
 	{
-		//make random config and save at qrand;
+		Real lb, ub;
+		//make random config and then save at qrand;
+		for (unsigned int i = 0; i < _dof; i++)
+		{
+			lb = _robot->getMotorJointPtr(i)->getLimitPosLower();
+			ub = _robot->getMotorJointPtr(i)->getLimitPosUpper();
+			qrand(i) = (Real)( ((ub - lb)*rand()) / (RAND_MAX + 0.0) + lb);
+		}
 	}
 
-	Vertex * AVP_RRT::extendTree(Tree * tree, const VectorX qrand) // 반환 Vertex* 로??
+	Vertex * AVP_RRT::extendTree(Tree * tree, const VectorX qrand, bool atStartTree) // 반환 Vertex* 로??
 	{
+		// find nearest vertex
 		double tmpDist;
 		Vertex * nVertex = tree->findNearestNeighbor(qrand, &tmpDist);
 
+		// interpolate between nVertex.config and qnew(configuration far away from nVertex.config about stepsize)
+		MatrixX Pnew;
+		VectorX qnew;
+		interpolate(nVertex, qrand, tmpDist, Pnew, qnew);
+
+		// run AVP algorithm
 		Vector2 endInterval;
-		Vertex * candVertex = runAVP(nVertex, endInterval);
+		bool isSucceeded;
+		if (atStartTree)
+			isSucceeded = runAVP(Pnew, nVertex->_interval, endInterval);
+		else
+			isSucceeded = runAVPbackward(Pnew, nVertex->_interval, endInterval);
 
+		// feasibility check! (if fails -> delete nVertex)
+		// collision check
+		for (int i = 0; i < Pnew.cols(); i++)
+		{
+			// TO DO:
+			// collision check! of Pnew.col(i)
+			// if coliision detected, isSucceeded = false and break!
+		}
 
-		return candVertex;
+		if (isSucceeded)
+			return new Vertex(qnew, endInterval, Pnew, nVertex);
+		else
+			return NULL;
 
 	}
 
-	Vertex * AVP_RRT::runAVP(Vertex * nVertex, Vector2 & endInterval)
+	void AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const double dist, MatrixX & Pnew, VectorX & qnew)
 	{
-		///// nVertex : nearest vertex, 아래 주석처럼 사용.
-		//Vector2 begInterval = nVertex->_interval;
-		//MatrixX inpath = nVertex->_inpath;
+		if (dist < _stepsize)
+			qnew = qrand;
+		else
+			qnew = nVertex->_config + (qrand - nVertex->_config)*_stepsize / dist;
 
-		endInterval(0) = 0.0;
-		endInterval(1) = 0.5;
+		// TO DO: INTERPOLATE
 
-		Vertex * candVertex = new Vertex();
 
-		// if succeeded avp.
-		// candVertex setting 함수들 불러서 멤버변수4개 세팅해주고 return;
-		return candVertex;
+	}
+
+	bool AVP_RRT::testConnection(Vertex * vertex, Tree * tree, Vertex ** oVertex)
+	{
+		// tree 에서 vertex가 extended 되었을때, vertex랑 tree를 집어넣어서 connection test..
+		// oVertex 는 tree에서 연결이 되면 vertex point 아니면... NULL로 가자
+		// 연결되면 treu, 안되면 false..
+		// 이 함수에서도 avp test 해야함
+
+		return false;
+	}
+
+	bool AVP_RRT::runAVP(const MatrixX& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
+	{
+		endInterval(0) = 0;
+		endInterval(1) = 0;
+		return false;
+	}
+
+	bool AVP_RRT::runAVPbackward(const MatrixX& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
+	{
+		endInterval(0) = 0;
+		endInterval(1) = 0;
+		return false;
 	}
 
 
 
 
-	void Tree::initializeTree(Vertex * rootVertex) {
+
+
+	void Tree::initializeTree(Vertex * rootVertex) 
+	{
+
 		_mpnnTree = new MultiANN(rootVertex->_config.size(), MPNN_TREE_MAXIMUM_NODES);
 
 		//_nodes.clear();

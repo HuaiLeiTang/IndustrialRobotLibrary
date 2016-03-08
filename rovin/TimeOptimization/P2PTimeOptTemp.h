@@ -106,9 +106,15 @@ namespace rovin
 		enum RETURNFLAG {SUCCESS, EXCEED_MAX_ITER}; // more flags are needed
 
 	public:
-		AVP_RRT();
+		AVP_RRT() {
+			srand(time(NULL));
+		};
 		~AVP_RRT();
-		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType);
+		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType){
+			_robot = robot;
+			_constraintType = constraintType;
+			srand(time(NULL));
+		}
 
 		void setWayPoints(const std::vector<WayPoint>& waypoints) { _waypoints = waypoints; }
 		void addWayPoints(const WayPoint& waypoint) { _waypoints.push_back(waypoint); }
@@ -119,18 +125,19 @@ namespace rovin
 		// int 받아서 i-th segment에 대해서 도는 generate Trajectory 만들고, 최종 경로를 저장하는 컨테이너 하나 만들기.. vector로?
 		// idx는 waypoint 개수 -1
 		void generateTrajectory();
-		void generateTrajectorySegment(int idx);
+		RETURNFLAG generateTrajectorySegment(int idx);
 
 		void treeInitialization(int idx);
 
 
 	private:
 		void makeRandomConfig(VectorX& qrand);
-		Vertex * extendTree(Tree* tree, const VectorX qrand);
+		Vertex * extendTree(Tree* tree, const VectorX qrand, bool atStartTree);
+		void interpolate(Vertex * nVertex, const VectorX qrand, const double dist, /* OUTPUT */ MatrixX& Pnew, VectorX& qnew);
+		bool testConnection(Vertex * vertex, Tree * tree, /* OUTPUT */ Vertex ** oVertex);
 
-
-		Vertex * runAVP(Vertex * nVertex, Vector2& endInterval /* OUTPUT */);
-		void runAVPbackward();
+		bool runAVP(const MatrixX& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+		bool runAVPbackward(const MatrixX& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		
 
 	private:
@@ -149,6 +156,7 @@ namespace rovin
 		unsigned int _numSegment;
 		double _stepsize;
 		Vector2 _wayPointInterval;
+
 
 	};
 
