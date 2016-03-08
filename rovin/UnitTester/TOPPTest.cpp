@@ -2,6 +2,7 @@
 #include <fstream>
 #include <conio.h>
 #include <rovin\TimeOptimization\TOPP.h>
+#include <rovin\TimeOptimization\P2PTimeOptimization.h>
 
 #include "efortRobot.h"
 #include <string>
@@ -17,6 +18,48 @@ unsigned int dof;
 
 int main()
 {
+	//state = robot->makeState();
+	//dof = robot->getNumOfJoint();
+
+	//MatrixX q_data;
+	//loadData(q_data);
+
+	//// Time optimization
+	//Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
+
+	//// consider only torque constraint
+	//TOPP topp1(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE);
+	//topp1.generateTrajectory();
+	//cout << "[ consider only torque constraint ]" << endl;
+	//cout << "Final time : " << topp1.getFinalTime() << endl << endl;
+
+	//// consider torque, velocity and acceleration constraint
+	//TOPP topp2(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	//topp2.generateTrajectory();
+	//cout << "[ consider torque, velocity and acceleration constraint ]" << endl;
+	//cout << "Final time : " << topp2.getFinalTime() << endl << endl;
+
+	//topp2.calculateAllSwitchPoint();
+	//std::vector<SwitchPoint> swiPoint = topp2.getAllSwitchPoint();
+	//for (unsigned int i = 0; i < swiPoint.size(); i++)
+	//{
+	//	cout << "[ " << i << "-th switch point ]" << endl;
+	//	cout << "s : " << swiPoint[i]._s << endl;
+	//	cout << "sdot : " << swiPoint[i]._sdot << endl;
+	//}
+	//cout << endl;
+	//for (unsigned int i = 0; i < swiPoint.size(); i++)
+	//{
+	//	// rounding
+	//	Real s, sdot;
+	//	s = round(swiPoint[i]._s / ds) * ds;
+	//	cout << "[ " << i << "-th switch point after rounding ]" << endl;
+	//	cout << "s : " << s << endl;
+	//	cout << "sdot : " << swiPoint[i]._sdot << endl;
+	//}
+
+
+	///////////////////////////////////////////////////////////////////////////
 	state = robot->makeState();
 	dof = robot->getNumOfJoint();
 
@@ -27,16 +70,19 @@ int main()
 	Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 
 	// consider only torque constraint
-	TOPP topp1(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE);
-	topp1.generateTrajectory();
-	cout << "[ consider only torque constraint ]" << endl;
-	cout << "Final time : " << topp1.getFinalTime() << endl << endl;
+	TOPP* topp = new TOPP(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+	topp->calculateAllMVCPoint();
+	allMVCPoints = topp->getAllMVCPoint();
 
-	// consider torque, velocity and acceleration constraint
-	TOPP topp2(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
-	topp2.generateTrajectory();
-	cout << "[ consider torque, velocity and acceleration constraint ]" << endl;
-	cout << "Final time : " << topp2.getFinalTime() << endl << endl;
+	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	avp_rrt.setTOPP(topp);
+	Tree* tree = new Tree(&avp_rrt);
+	Extend* extend = new Extend(tree);
+	tree->addextend(extend);
+	avp_rrt.addtree(tree);
+	bool a;
+	a = avp_rrt._tree[0]->_extend->AVP();
 
 	cout << "Program complete" << endl;
 	_getch();
@@ -69,8 +115,8 @@ void loadData(MatrixX& data)
 	unsigned int data_num = cnt / dof;
 	MatrixX q(dof, data_num);
 
-	for (int i = 0; i < data_num; i++)
-		for (int j = 0; j < dof; j++)
+	for (unsigned int i = 0; i < data_num; i++)
+		for (unsigned int j = 0; j < dof; j++)
 			trajectory >> q(j, i);
 
 	trajectory.close();

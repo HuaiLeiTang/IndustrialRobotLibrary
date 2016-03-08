@@ -48,22 +48,25 @@ namespace rovin {
 		
 		const std::list<Real>& gets() const { return _s; }
 		const std::list<Real>& getsdot() const { return _sdot; }
-		const std::vector<Vector2>& getAllMVCPoint() const { return _allMVCPoints; }
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& getAllMVCPoint() const { return _allMVCPoints; }
 		const std::vector<SwitchPoint>& getAllSwitchPoint() const { return _switchPoint; }
-		const Real TOPP::getFinalTime() const { return _tf_result; }
-		const MatrixX& TOPP::getTorqueTrajectory() const { return _torque_result; }
-		const unsigned int TOPP::getdof() const { return _dof; }
+		const Real getFinalTime() const { return _tf_result; }
+		const Real getStepSize() const { return _ds; }
+		const Real getInitialParam() const { return _si; }
+		const Real getFinalParam() const { return _sf; }
+		const MatrixX& getTorqueTrajectory() const { return _torque_result; }
+		const unsigned int getdof() const { return _dof; }
 
-	private:
+		void forwardIntegrate(Real& s, Real& sdot, Real sddot);
+		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
 		Vector2 determineAlphaBeta(Real s, Real sdot);
+	
 		std::vector<VectorX> calculateBandC(Real s);
 		void settingconstraint();
 		void makespline();
 		void calculateA(Real s, VectorX& a);
 		void determineVelminmax(Real s, Vector2& minmax);
-		void forwardIntegrate(Real& s, Real& sdot, Real sddot);
-		void backwardIntegrate(Real& s, Real& sdot, Real sddot);
-
+		
 		bool findNearestSwitchPoint(Real s);
 		Real calculateMVCPoint(Real s, int& flag);
 		Real calculateMVCPointExclude(Real s, int iExclude, int& flag);
@@ -92,7 +95,7 @@ namespace rovin {
 		std::list<Real> _sdot;
 		std::list<Real> _sddot;
 		std::vector<SwitchPoint> _switchPoint;
-		std::vector<Vector2> _allMVCPoints;
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> _allMVCPoints;
 
 		VectorX _torqueConstraint;
 		VectorX _velConstraint;
@@ -100,6 +103,9 @@ namespace rovin {
 		
 		unsigned int _nconstraints;
 		unsigned int _nconstraintsWithoutVel;
+
+	public:
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	};
 
 	class SwitchPoint

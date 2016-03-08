@@ -29,23 +29,33 @@ namespace rovin
 
 		const std::vector<WayPoint>& getWayPoints() const { return _waypoints; }
 		const std::vector<Tree*>& getTree() const { return _tree; }
-
 		void generateTrajectory();
 
-	private:
+	public:
 		void initialization();
 		void makeRandomConfig(VectorX& qrand);
 		
 
-	private:
+	public:
+		
+
+
 		SerialOpenChainPtr _robot;
-		TOPP* topp;
+		TOPP* _topp;
 		std::vector<WayPoint> _waypoints;
 		std::vector<Tree*> _tree;
 
 		BSpline<-1, -1, -1> _finalPath;
 		// MatrixX _finalPath; //---> 이게 더 괜찮아보임
 		unsigned int _dof;
+
+
+
+	public:
+		//////// function for test ///////
+		void setTOPP(TOPP* topp) { _topp = topp; }
+		void extendsetting() {}
+		void addtree(Tree* tree) { _tree.push_back(tree); }
 	};
 
 	class Vertex
@@ -93,11 +103,12 @@ namespace rovin
 		Tree() {}
 		~Tree() { if (_extend != NULL) delete _extend; }
 		Tree(AVP_RRT* avp_rrt, const WayPoint& initPoint, const WayPoint& finalPoint);
+		Tree(AVP_RRT* avp_rrt) : _avp_rrt(avp_rrt){}
 
 		bool extend(VectorX& qrand);
 		void makepath(); // 최종 path 생성
 
-	private:
+	public:
 		AVP_RRT* _avp_rrt;
 		Extend* _extend;
 		std::vector<Vertex> _vertices;
@@ -107,6 +118,11 @@ namespace rovin
 
 		WayPoint _initPoint;
 		WayPoint _finalPoint;
+
+	public:
+		//////// function for test ///////
+		void addextend(Extend* extend) { _extend = extend; }
+
 	};
 
 	class Extend
@@ -125,10 +141,10 @@ namespace rovin
 		bool collisioncheck();
 		bool AVP();
 
-	private:
+	public:
+		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<SwitchPoint>& allSwitchPoint, std::vector<std::list<Real>>& LC);
 
-
-	private:
+	public:
 		Tree* _tree;
 		
 		Vertex _Vnear;

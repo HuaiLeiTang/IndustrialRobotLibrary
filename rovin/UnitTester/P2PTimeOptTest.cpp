@@ -2,6 +2,7 @@
 #include <fstream>
 #include <conio.h>
 #include <rovin\TimeOptimization\TOPP.h>
+#include <rovin\TimeOptimization\P2PTimeOptimization.h>
 
 #include "efortRobot.h"
 #include <string>
@@ -17,6 +18,11 @@ int main()
 
 	state = robot->makeState();
 	dof = robot->getNumOfJoint();
+
+
+
+
+
 
 
 

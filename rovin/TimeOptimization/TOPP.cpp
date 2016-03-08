@@ -132,7 +132,7 @@ namespace rovin {
 		while (true)
 		{
 			sdot = calculateMVCPoint(s, flag);
-			MVCPoint[0] = s; MVCPoint[1] = sdot;
+			MVCPoint(0) = s; MVCPoint(1) = sdot;
 			_allMVCPoints.push_back(MVCPoint);
 			s += _ds;
 			if (s > _sf)
@@ -142,6 +142,8 @@ namespace rovin {
 
 	void TOPP::calculateAllSwitchPoint()
 	{
+		initialization();
+
 		Real s = _si;
 		while (findNearestSwitchPoint(s))
 		{
@@ -502,7 +504,8 @@ namespace rovin {
 	{
 		int flag;
 
-		Real ds = 0.0005;
+		//Real ds = 0.0005;
+		Real ds = _ds;
 		Real s_bef = s;
 		Real sdot_bef = calculateMVCPoint(s_bef, flag);
 		Real s_cur = s_bef + ds;
@@ -883,6 +886,7 @@ namespace rovin {
 					{
 						_s.pop_back();
 						_sdot.pop_back();
+						_sddot.pop_back();  ///< 3/7 modicifation
 						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 						alpha_cur = alphabeta(0);
 						_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation

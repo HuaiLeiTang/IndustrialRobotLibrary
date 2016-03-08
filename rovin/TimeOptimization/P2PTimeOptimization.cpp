@@ -11,7 +11,7 @@ namespace rovin
 		unsigned int treesize = _tree.size();
 		for (unsigned int i = 0; i < treesize; i++)
 			delete _tree[i];
-		delete topp;
+		delete _topp;
 	}
 	
 	AVP_RRT::AVP_RRT(const SerialOpenChainPtr & robot, CONSTRAINT_TYPE constraintType)
@@ -20,7 +20,7 @@ namespace rovin
 		_dof = robot->getNumOfJoint();
 
 		Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
-		topp = new TOPP(_robot, vi, vf, ds, si, sf, constraintType);
+		_topp = new TOPP(_robot, vi, vf, ds, si, sf, constraintType);
 	}
 
 	void AVP_RRT::initialization()
@@ -127,24 +127,143 @@ namespace rovin
 		// calculate Vnew interval sdot_min, sdot_max
 		
 		// make topp
-		_tree->_avp_rrt->topp->setJointTrajectory(_pathnew);
+		//_tree->_avp_rrt->_topp->setJointTrajectory(_pathnew);
 
 		// Step A. Computing the limiting curves
 		// Acalculate MVC
-		std::vector<Vector2> allMVCPoints;
-		_tree->_avp_rrt->topp->calculateAllMVCPoint();
-		allMVCPoints = _tree->_avp_rrt->topp->getAllMVCPoint();
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+		_tree->_avp_rrt->_topp->calculateAllMVCPoint();
+		allMVCPoints = _tree->_avp_rrt->_topp->getAllMVCPoint();
+		LOG("calculate allMVCPoints complete.")
 
-		// calculate CLC
+		// calculate CLC  ----> 이 알고리즘이 너무 비효율적인거 같은데.. 다른 아이디어?
 		std::vector<SwitchPoint> allSwitchPoint;
-		_tree->_avp_rrt->topp->calculateAllSwitchPoint();
-		allSwitchPoint = _tree->_avp_rrt->topp->getAllSwitchPoint();
+		_tree->_avp_rrt->_topp->calculateAllSwitchPoint();
+		allSwitchPoint = _tree->_avp_rrt->_topp->getAllSwitchPoint();
+		LOG("calculate allSwitchPoint complete.")
 
+		// calcuate all LC ----> 이 알고리즘이 너무 비효율적인거 같은데.. 다른 아이디어?
 		// A1
+		bool A1switch;
+		std::vector<std::list<Real>> LC;
+		A1switch = calculateLimitingCurves(allMVCPoints, allSwitchPoint, LC);
+		LOG("calculate Limiting curves complete.")
+
+		if (A1switch == false)
+		{
+			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
+			return false;
+		}
 
 
-		// A2-5
 
+
+		return true;
+	}
+
+	bool Extend::calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<SwitchPoint>& allSwitchPoint, std::vector<std::list<Real>>& LC)
+	{
+		Real s_cur, sdot_cur, s_swi, sdot_swi, sdot_MVC;
+		Real ds = _tree->_avp_rrt->_topp->getStepSize();
+		Real si = _tree->_avp_rrt->_topp->getInitialParam();
+		Real sf = _tree->_avp_rrt->_topp->getFinalParam();
+		int flag, idx;
+		unsigned int numOfswi = allSwitchPoint.size();
+
+		Real alpha_cur, beta_cur;
+
+		for (unsigned int i = 0; i < numOfswi; i++)
+		{
+			std::list<Real> tmp_list;
+			LC.push_back(tmp_list);
+
+			// switchpoint rounding
+			s_swi = round(allSwitchPoint[i]._s / ds) * ds;
+			sdot_swi = allSwitchPoint[i]._sdot;
+
+			// backward integration
+			s_cur = s_swi;
+			sdot_cur = sdot_swi;
+			LC[i].push_front(sdot_cur);
+
+			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
+			{
+				Real lambda = allSwitchPoint[i]._lambda;
+				unsigned int numOfSPInt = 3;
+				for (unsigned int i = 0; i < numOfSPInt; i++)
+				{
+					s_cur -= ds;
+					sdot_cur -= lambda * ds;
+					LC[i].push_front(sdot_cur);
+				}
+			}
+
+			while (s_cur > si)
+			{
+				alpha_cur = _tree->_avp_rrt->_topp->determineAlphaBeta(s_cur, sdot_cur)(0);
+				_tree->_avp_rrt->_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+				//sdot_MVC = _tree->_avp_rrt->topp->calculateMVCPoint(s_cur, flag);
+				sdot_MVC = allMVCPoints[s_cur / ds](1);
+
+				if (sdot_cur < 1e-4)
+					return false;
+
+				LC[i].push_front(sdot_cur);
+
+				if (sdot_cur > sdot_MVC)
+				{
+					LC[i].pop_front(); LC[i].push_front(sdot_MVC);
+					break;
+				}
+			}
+			while (s_cur > si)
+			{
+				s_cur -= ds;
+				sdot_cur = std::numeric_limits<Real>::max();
+				LC[i].push_front(sdot_cur);
+			}
+
+			// forward integration
+			s_cur = s_swi;
+			sdot_cur = sdot_swi;
+
+			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
+			{
+				Real lambda = allSwitchPoint[i]._lambda;
+				unsigned int numOfSPInt = 3;
+				for (unsigned int i = 0; i < numOfSPInt; i++)
+				{
+					s_cur += ds;
+					sdot_cur += lambda * ds;
+					LC[i].push_front(sdot_cur);
+				}
+			}
+
+			while (s_cur > si)
+			{
+				beta_cur = _tree->_avp_rrt->_topp->determineAlphaBeta(s_cur, sdot_cur)(1);
+				_tree->_avp_rrt->_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
+				//sdot_MVC = _tree->_avp_rrt->topp->calculateMVCPoint(s_cur, flag);
+				sdot_MVC = allMVCPoints[s_cur / ds](1);
+
+				if (sdot_cur < 1e-4)
+					return false;
+				LC[i].push_back(sdot_cur);
+
+				if (sdot_cur > sdot_MVC)
+				{
+					LC[i].pop_back(); LC[i].push_back(sdot_MVC);
+					break;
+				}
+			}
+
+			while (s_cur > si)
+			{
+				s_cur -= ds;
+				sdot_cur = std::numeric_limits<Real>::max();
+				LC[i].push_back(sdot_cur);
+			}
+		}
 
 		return true;
 	}
