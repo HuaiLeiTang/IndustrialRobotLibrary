@@ -13,12 +13,45 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="NearestNeighbor">
+      <UniqueIdentifier>{4c34d828-56cb-455d-89e4-0a93f5e304d2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TOPP.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="P2PTimeOptimization.h">
+    <ClInclude Include="NearestNeighbor\kd_search.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\kd_split.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\kd_tree.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\kd_util.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\multiann.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\nn.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\pr_queue_k.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\ANN.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\ANNperf.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="NearestNeighbor\ANNx.h">
+      <Filter>NearestNeighbor</Filter>
+    </ClInclude>
+    <ClInclude Include="P2PTimeOptTemp.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
@@ -26,7 +59,28 @@
     <ClCompile Include="TOPP.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="P2PTimeOptimization.cpp">
+    <ClCompile Include="NearestNeighbor\kd_split.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="NearestNeighbor\kd_tree.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="NearestNeighbor\kd_util.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="NearestNeighbor\multiann.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="NearestNeighbor\nn.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="NearestNeighbor\ANN.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="NearestNeighbor\kd_search.cpp">
+      <Filter>NearestNeighbor</Filter>
+    </ClCompile>
+    <ClCompile Include="P2PTimeOptTemp.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

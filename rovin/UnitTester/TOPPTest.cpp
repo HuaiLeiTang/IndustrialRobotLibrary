@@ -15,6 +15,7 @@ SerialOpenChainPtr robot(new efortRobot());
 StatePtr state;
 unsigned int dof;
 
+
 int main()
 {
 	state = robot->makeState();

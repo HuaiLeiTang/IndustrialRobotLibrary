@@ -1,0 +1,173 @@
+#pragma once
+
+#include "TOPP.h"
+#include "NearestNeighbor/multiann.h"
+
+// inpath 는 bspline 으로 ? 아니면 discrete 하게??? 그리고 inpath는 q0 ~ q1 사이의 값들인가 그리고 linear 하게 만들면 되나?
+// s, sdot 은 저장할필요없나?? 없을듯
+// RRT step size 같은건 어디서 가지고 있어야하나용?????
+// TOPP 는 누가 가지고 있는게 좋을까 ----> 가장 큰 클래스!!
+
+#define MPNN_TREE_MAXIMUM_NODES	10000
+#define AVP_RRT_MAX_ITER		10000
+
+namespace rovin
+{
+	class Vertex;
+	class Tree;
+	class AVP_RRT;
+	//class Extend;
+	class WayPoint;
+
+
+	//class aaaa;
+	//class bbbb;
+
+	//class aaaa
+	//{
+	//public:
+	//	bbbb btmp;
+	//};
+	//class bbbb
+	//{
+	//public:
+	//	bbbb() {}
+
+	//};
+
+	class Vertex
+	{
+		friend class Tree;
+		friend class AVP_RRT;
+	public:
+		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(MatrixX()), _parentVertex(NULL) {}
+		~Vertex() { delete _parentVertex; }
+		Vertex(const VectorX& config, const Vector2& interval, const MatrixX& inpath, Vertex * parentVertex)
+			: _config(config), _interval(interval), _inpath(inpath), _parentVertex(parentVertex) {}
+
+		void setconfig(const VectorX& config) { _config = config; }
+		void setinterval(const Vector2& interval) { _interval = interval; }
+		void setinpath(const MatrixX& inpath) { _inpath = inpath; }
+		void setparentVertex(Vertex * parentVertex) { _parentVertex = parentVertex; }
+
+	private:
+		VectorX _config;
+		Vector2 _interval;
+		MatrixX _inpath;
+		Vertex * _parentVertex;
+	public:
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+	};
+
+	class Tree
+	{
+		friend class AVP_RRT;
+	public:
+		// robotdof 대신 rootVertex->_config.size() 해도 될듯..
+		Tree() {}
+		//Tree(Vertex * rootVertex) {
+		//	initializeTree(rootVertex);
+		//}
+		~Tree() {
+			clearTree();
+		}
+
+		void clearTree()
+		{
+			if (_mpnnTree != NULL)
+				delete _mpnnTree;
+			for (unsigned int i = 0; i < _nodes.size(); i++)
+				if (_nodes[i] != NULL)
+					delete _nodes[i];
+			_nodes.clear();
+
+		}
+
+		void initializeTree(Vertex * rootVertex);
+
+		Vertex * findNearestNeighbor(VectorX targetConfig, double * distance);
+
+		// addVertex 부르기 전에 vertex 멤버변수 다 값 저장한다음에 넣기
+		void addVertex(Vertex* vertex);
+
+	private:
+		MultiANN * _mpnnTree;
+		//Vertex * _rootVertex;
+		std::vector<Vertex*> _nodes; ///> [0] component has root vertex;
+									 //unsigned int _numNodes;
+
+	};
+
+	class AVP_RRT
+	{
+		
+	public:
+		enum RETURNFLAG {SUCCESS, EXCEED_MAX_ITER}; // more flags are needed
+
+	public:
+		AVP_RRT();
+		~AVP_RRT();
+		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType);
+
+		void setWayPoints(const std::vector<WayPoint>& waypoints) { _waypoints = waypoints; }
+		void addWayPoints(const WayPoint& waypoint) { _waypoints.push_back(waypoint); }
+		void clearWayPoints() { _waypoints.clear(); }
+
+		const std::vector<WayPoint>& getWayPoints() const {	return _waypoints; }
+
+		// int 받아서 i-th segment에 대해서 도는 generate Trajectory 만들고, 최종 경로를 저장하는 컨테이너 하나 만들기.. vector로?
+		// idx는 waypoint 개수 -1
+		void generateTrajectory();
+		void generateTrajectorySegment(int idx);
+
+		void treeInitialization(int idx);
+
+
+	private:
+		void makeRandomConfig(VectorX& qrand);
+		Vertex * extendTree(Tree* tree, const VectorX qrand);
+
+
+		Vertex * runAVP(Vertex * nVertex, Vector2& endInterval /* OUTPUT */);
+		void runAVPbackward();
+		
+
+	private:
+		SerialOpenChainPtr _robot;
+
+		CONSTRAINT_TYPE _constraintType;
+		std::vector<WayPoint> _waypoints; // contains q and qdot
+		
+		Tree _startTree;
+		Tree _goalTree; ///> start and goal trees are made for every segment
+		std::vector<MatrixX> _segmentPath;
+
+		MatrixX _finalPath; ///> concatenation of _segmentPath
+//		TOPP * topp; // 나중에 finalPath 만들고 그때 돌릴때 생각하기...
+		unsigned int _dof;
+		unsigned int _numSegment;
+		double _stepsize;
+		Vector2 _wayPointInterval;
+
+	};
+
+	
+
+	class WayPoint
+	{
+	public:
+		WayPoint(const VectorX& q, const VectorX& qdot) : _q(q), _qdot(qdot) {}
+		WayPoint() {}
+		~WayPoint() {}
+	public:
+		void setJointq(const VectorX& q) { _q = q; }
+		void setJointqdot(const VectorX& qdot) { _qdot = qdot; }
+		const VectorX& getJointq() const { return _q; }
+		const VectorX& getJointqdot() const { return _qdot; }
+	private:
+		VectorX _q;
+		VectorX _qdot;
+	};
+
+}

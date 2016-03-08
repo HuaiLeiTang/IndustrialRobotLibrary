@@ -114,11 +114,31 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="P2PTimeOptimization.h" />
+    <ClInclude Include="NearestNeighbor\ANN.h" />
+    <ClInclude Include="NearestNeighbor\ANNperf.h" />
+    <ClInclude Include="NearestNeighbor\ANNx.h" />
+    <ClInclude Include="NearestNeighbor\kd_search.h" />
+    <ClInclude Include="NearestNeighbor\kd_split.h" />
+    <ClInclude Include="NearestNeighbor\kd_tree.h" />
+    <ClInclude Include="NearestNeighbor\kd_util.h" />
+    <ClInclude Include="NearestNeighbor\multiann.h" />
+    <ClInclude Include="NearestNeighbor\nn.h" />
+    <ClInclude Include="NearestNeighbor\pr_queue_k.h" />
+    <ClInclude Include="P2PTimeOptTemp.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="TOPP.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="P2PTimeOptimization.cpp" />
+    <ClCompile Include="NearestNeighbor\ANN.cpp" />
+    <ClCompile Include="NearestNeighbor\kd_search.cpp" />
+    <ClCompile Include="NearestNeighbor\kd_split.cpp" />
+    <ClCompile Include="NearestNeighbor\kd_tree.cpp" />
+    <ClCompile Include="NearestNeighbor\kd_util.cpp" />
+    <ClCompile Include="NearestNeighbor\multiann.cpp" />
+    <ClCompile Include="NearestNeighbor\nn.cpp" />
+    <ClCompile Include="P2PTimeOptTemp.cpp" />
     <ClCompile Include="TOPP.cpp" />
   </ItemGroup>
   <ItemGroup>
