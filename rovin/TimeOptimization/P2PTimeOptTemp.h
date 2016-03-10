@@ -151,7 +151,6 @@ namespace rovin
 		std::vector<MatrixX> _segmentPath;
 
 		MatrixX _finalPath; ///> concatenation of _segmentPath
-		//TOPP* topp; // 나중에 finalPath 만들고 그때 돌릴때 생각하기...
 		TOPPPtr _topp;
 		unsigned int _dof;
 		unsigned int _numSegment;

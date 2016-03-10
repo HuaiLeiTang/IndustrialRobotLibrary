@@ -46,7 +46,7 @@ namespace rovin {
 
 	void TOPP::setJointTrajectory(const MatrixX & q_data)
 	{
-		LOGIF((q_data.col(0).size() != _dof), "TOPP::setJointTrajectory error : q_data size is wrong.");
+		LOGIF((q_data.rows() == _dof), "TOPP::setJointTrajectory error : q_data size is wrong.");
 		_q_data = q_data;
 		makespline();
 	}

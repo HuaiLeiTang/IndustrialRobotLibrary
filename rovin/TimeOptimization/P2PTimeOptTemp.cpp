@@ -227,6 +227,8 @@ namespace rovin
 		endInterval(0) = 0;
 		endInterval(1) = 0;
 
+		// topp initialization
+
 
 		unsigned int RowSize = Pnew.front().size();
 		unsigned int ColSize = Pnew.size();
@@ -238,7 +240,7 @@ namespace rovin
 		_topp->setJointTrajectory(q_data);
 
 		// Step A. Computing the limiting curves
-		// Acalculate MVC
+		// calculate MVC
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
 		std::vector<unsigned int> allMVCPointsFlag;
 		_topp->calculateAllMVCPoint();
@@ -246,11 +248,391 @@ namespace rovin
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		LOG("calculate allMVCPoints complete.");
 
+		
+
+		// calculate switching points
+		std::vector<SwitchPoint> allSwitchPoint;
+		_topp->calculateAllSwitchPoint();
+		allSwitchPoint = _topp->getAllSwitchPoint();
+		LOG("calculate allSwitchPoint complete.");
+
+		// calculate all LC
+		bool A1switch;
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
+		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
+		LOG("calculate Limiting curves complete.");
+
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
+		LC_copy = LC;
+
+		// case A1
+		if (A1switch == false)
+		{
+			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
+			//return false;
+		}
+
+		// calculate CLC
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> CLC;
+		calculateCLC(LC, CLC);
+		LOG("calculate CLC complete.");
+
+
+		////////////////////////////////////////////////////////
+		//////////////////////////  save  //////////////////////
+		////////////////////////////////////////////////////////
+
 		// save MVC
 		saveMVC(allMVCPoints);
 
-		
+		// save switch point
+		std::vector<Real> s_sw;
+		std::vector<Real> sdot_sw;
+		for (unsigned int i = 0; i < allSwitchPoint.size(); i++)
+		{
+			s_sw.push_back(allSwitchPoint[i]._s);
+			sdot_sw.push_back(allSwitchPoint[i]._sdot);
+		}
+		saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+		saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+
+		// save LC
+		for (unsigned int i = 0; i < LC_copy.size(); i++)
+		{
+			std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+			std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+			s_string = s_string + std::to_string(i) + ".txt";
+			sdot_string = sdot_string + std::to_string(i) + ".txt";
+			saveLC(LC_copy[i], s_string, sdot_string);
+		}
+
+		// save CLC
+		std::vector<Real> s_CLC;
+		std::vector<Real> sdot_CLC;
+		for (unsigned int i = 0; i < CLC.size(); i++)
+		{
+			s_CLC.push_back(CLC[i](0));
+			sdot_CLC.push_back(CLC[i](1));
+		}
+		saveRealVector2txt(s_CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt");
+		saveRealVector2txt(sdot_CLC, "C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt");
+
 		return false;
+	}
+
+	bool AVP_RRT::calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC)
+	{
+		Real s_cur, sdot_cur, s_swi, sdot_swi, sdot_MVC, s_next, sdot_next, slope;
+		Real ds = _topp->getStepSize();
+		Real si = _topp->getInitialParam();
+		Real sf = _topp->getFinalParam();
+		int flag;
+		unsigned int idx;
+		unsigned int numOfswi = allSwitchPoint.size();
+
+
+		Vector2 alphabeta;
+		Real alpha_cur, beta_cur;
+		std::list<Vector2, Eigen::aligned_allocator<Vector2>> tmp_list;
+
+		for (unsigned int i = 0; i < numOfswi; i++)
+		{
+			tmp_list.clear();
+			LC.push_back(tmp_list);
+
+			s_swi = round(allSwitchPoint[i]._s / ds) * ds;
+			sdot_swi = allSwitchPoint[i]._sdot;
+
+			// backward integration
+			s_cur = s_swi;
+			sdot_cur = sdot_swi;
+			LC[i].push_front(Vector2(s_cur, sdot_cur));
+
+			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
+			{
+				Real lambda = allSwitchPoint[i]._lambda;
+				unsigned int numOfSPInt = 3;
+				for (unsigned int j = 0; j < numOfSPInt; j++)
+				{
+					s_cur -= ds;
+					sdot_cur -= lambda * ds;
+					LC[i].push_front(Vector2(s_cur, sdot_cur));
+				}
+			}
+
+			while (s_cur > si)
+			{
+				alpha_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(0);
+				_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+
+				idx = round(s_cur / ds);
+				sdot_MVC = allMVCPoints[idx](1);
+				//sdot_MVC2 = _tree->_avp_rrt->_topp->calculateMVCPoint(s_cur, flag);
+
+				flag = allMVCPointsFlag[idx];
+
+				if (sdot_cur < 1e-4)
+					return false;
+
+				LC[i].push_front(Vector2(s_cur, sdot_cur));
+				if (sdot_cur > sdot_MVC)
+				{
+					//sdot_cur = sdot_MVC;
+					//LC[i].pop_front(); LC[i].push_front(Vector2(s_cur, sdot_cur));
+					
+					s_cur += ds;
+					LC[i].pop_back();
+					break;
+
+					//if (flag == 2)
+					//{
+					//	//LC[i].pop_front(); LC[i].push_front(Vector2(s_cur, sdot_cur));
+					//	s_cur += ds;
+					//	LC[i].pop_front();
+					//	break;
+					//}
+					//else if (flag == 1)
+					//{
+					//	s_cur += ds;
+					//	LC[i].pop_front();
+					//	while (true)
+					//	{
+					//		s_next = s_cur - ds;
+					//		if (s_next < si)
+					//			break;
+
+					//		idx = round(s_next / ds);
+					//		sdot_next = allMVCPoints[idx](1);
+					//		flag = allMVCPointsFlag[idx];
+
+					//		// 가속도/토크 constraint 만나면 나가라!!
+					//		if (flag == 2)
+					//			break;
+
+					//		alphabeta = _topp->determineAlphaBeta(s_cur, sdot_cur);
+					//		alpha_cur = alphabeta(0);
+					//		beta_cur = alphabeta(1);
+
+					//		slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+					//		s_cur = s_next; sdot_cur = sdot_next;
+					//		LC[i].push_back(Vector2(s_cur, sdot_cur));
+
+					//		//if (beta_cur >= slope && slope >= alpha_cur)
+					//		//{
+					//		//	s_cur = s_next; sdot_cur = sdot_next;
+					//		//	
+					//		//}
+
+
+
+					//	}
+					//}
+
+				}
+			}
+
+			// forward integration
+			s_cur = s_swi;
+			sdot_cur = sdot_swi;
+
+			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
+			{
+				Real lambda = allSwitchPoint[i]._lambda;
+				unsigned int numOfSPInt = 3;
+				for (unsigned int j = 0; j < numOfSPInt; j++)
+				{
+					s_cur += ds;
+					sdot_cur += lambda * ds;
+					LC[i].push_back(Vector2(s_cur, sdot_cur));
+				}
+			}
+
+			while (s_cur < sf)
+			{
+				beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
+				_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
+				//sdot_MVC = _tree->_avp_rrt->_topp->calculateMVCPoint(s_cur, flag);
+				idx = round(s_cur / ds);
+				sdot_MVC = allMVCPoints[idx](1);
+				flag = allMVCPointsFlag[idx];
+
+				if (sdot_cur < 1e-4)
+					return false;
+				LC[i].push_back(Vector2(s_cur, sdot_cur));
+				if (sdot_cur > sdot_MVC)
+				{
+					//sdot_cur = sdot_MVC;
+					if (flag == 2)
+					{
+						//LC[i].pop_back(); LC[i].push_back(Vector2(s_cur, sdot_cur));
+						s_cur -= ds;
+						LC[i].pop_back();
+						break;
+					}
+					else if (flag == 1)
+					{
+						s_cur -= ds;
+						LC[i].pop_back();
+						while (true)
+						{
+							s_next = s_cur + ds;
+							idx = round(s_next / ds);
+							sdot_next = allMVCPoints[idx](1);
+							flag = allMVCPointsFlag[idx];
+
+							// 가속도/토크 constraint 만나면 나가라!!
+							if (flag == 2)
+								break;
+
+							alphabeta = _topp->determineAlphaBeta(s_cur, sdot_cur);
+							alpha_cur = alphabeta(0);
+							beta_cur = alphabeta(1);
+
+							slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+							//
+							s_cur = s_next; sdot_cur = sdot_next;
+							LC[i].push_back(Vector2(s_cur, sdot_cur));
+
+							//if (beta_cur >= slope && slope >= alpha_cur)
+							//{
+							//	s_cur = s_next; sdot_cur = sdot_next;
+							//	LC[i].push_back(Vector2(s_cur, sdot_cur));
+							//}
+							//else if (beta_cur < slope)
+							//{
+							//	// forward integrate..,.
+							//}
+
+
+
+						}
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	void AVP_RRT::calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC)
+	{
+		unsigned int LCsize = LC.size();
+
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator> it_begin;
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator> it_end;
+
+		Real s_begin, s_end;
+
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator it_tmp;
+			it_tmp = LC[i].end(); it_tmp--;
+			it_end.push_back(it_tmp);
+		}
+
+		// find s_end
+		Real tmp = -std::numeric_limits<Real>::max();
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			if ((*(it_end[i]))(0) > tmp)
+				tmp = (*(it_end[i]))(0);
+		}
+		s_end = tmp;
+
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator it_tmp;
+			it_tmp = LC[i].begin();
+			it_begin.push_back(it_tmp);
+		}
+
+		// find s_begin
+		tmp = std::numeric_limits<Real>::max();
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			if ((*(it_begin[i]))(0) < tmp)
+				tmp = (*(it_begin[i]))(0);
+		}
+		s_begin = tmp;
+
+		std::cout << "s_begin : " << s_begin << std::endl;
+		std::cout << "s_end : " << s_end << std::endl;
+
+		// find CLC
+		Real s_cur = s_begin;
+		std::vector<unsigned int> idx;
+		Real ds = _topp->getStepSize();
+		while (s_cur < s_end)
+		{
+			idx.clear();
+
+			for (unsigned int i = 0; i < LCsize; i++)
+			{
+				if ((*(it_end[i]))(0) <= s_cur)
+				{
+					it_end.erase(it_end.begin() + i);
+					it_begin.erase(it_begin.begin() + i);
+					LC.erase(LC.begin() + i);
+					LCsize -= 1;
+				}
+			}
+
+			for (unsigned int i = 0; i < LCsize; i++)
+			{
+				if ((*(it_begin[i]))(0) < s_cur)
+					idx.push_back(i); // 우선 비교 idx만 저장
+			}
+
+			Real tmp_min = std::numeric_limits<Real>::max();
+			if (idx.size() == 0)
+				CLC.push_back(Vector2(s_cur, tmp_min));
+			else
+			{
+				for (unsigned int i = 0; i < idx.size(); i++)
+				{
+					if ((*(it_begin[idx[i]]))(1) < tmp_min)
+						tmp_min = (*(it_begin[idx[i]]))(1);
+					it_begin[idx[i]]++;
+				}
+				CLC.push_back(Vector2(s_cur, tmp_min));
+			}
+			s_cur += ds;
+		}
+
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			if ((*(it_end[i]))(0) < s_cur)
+			{
+				it_end.erase(it_end.begin() + i);
+				it_begin.erase(it_begin.begin() + i);
+				LC.erase(LC.begin() + i);
+				LCsize -= 1;
+			}
+		}
+
+		for (unsigned int i = 0; i < LCsize; i++)
+		{
+			if ((*(it_begin[i]))(0) <= s_cur)
+				idx.push_back(i);
+		}
+
+		Real tmp_min = std::numeric_limits<Real>::max();
+		if (idx.size() == 0)
+			CLC.push_back(Vector2(s_cur, tmp_min));
+		else
+		{
+			for (unsigned int i = 0; i < idx.size(); i++)
+			{
+				if ((*(it_begin[idx[i]]))(1) < tmp_min)
+					tmp_min = (*(it_begin[idx[i]]))(1);
+				it_begin[idx[i]]++;
+			}
+			CLC.push_back(Vector2(s_cur, tmp_min));
+		}
 	}
 
 	bool AVP_RRT::runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
