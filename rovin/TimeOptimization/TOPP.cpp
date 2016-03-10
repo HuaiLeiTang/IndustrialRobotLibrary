@@ -135,6 +135,7 @@ namespace rovin {
 		{
 			MVCPoint(0) = s; MVCPoint(1) = sdot;
 			_allMVCPoints.push_back(MVCPoint);
+			_allMVCPointsFlag.push_back(flag);
 
 			s += _ds;
 			sdot = calculateMVCPoint(s, flag);
@@ -142,6 +143,7 @@ namespace rovin {
 		sdot = calculateMVCPoint(s - 1e-5, flag);
 		MVCPoint(0) = s; MVCPoint(1) = sdot;
 		_allMVCPoints.push_back(MVCPoint);
+		_allMVCPointsFlag.push_back(flag);
 	}
 
 	void TOPP::calculateAllSwitchPoint()
@@ -157,8 +159,6 @@ namespace rovin {
 				break;
 		}
 	}
-
-	
 
 	void TOPP::calculateA(Real s, VectorX& a)
 	{

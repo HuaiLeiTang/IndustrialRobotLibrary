@@ -49,6 +49,7 @@ namespace rovin {
 		const std::list<Real>& gets() const { return _s; }
 		const std::list<Real>& getsdot() const { return _sdot; }
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& getAllMVCPoint() const { return _allMVCPoints; }
+		const std::vector<unsigned int>& getAllMVCPointFlag() const { return _allMVCPointsFlag; }
 		const std::vector<SwitchPoint>& getAllSwitchPoint() const { return _switchPoint; }
 		const Real getFinalTime() const { return _tf_result; }
 		const Real getStepSize() const { return _ds; }
@@ -96,6 +97,7 @@ namespace rovin {
 		std::list<Real> _sddot;
 		std::vector<SwitchPoint> _switchPoint;
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> _allMVCPoints;
+		std::vector<unsigned int> _allMVCPointsFlag;
 
 		VectorX _torqueConstraint;
 		VectorX _velConstraint;

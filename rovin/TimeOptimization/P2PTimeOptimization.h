@@ -65,7 +65,8 @@ namespace rovin
 	class Vertex
 	{
 	public:
-		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(BSpline<-1, -1, -1>()), _parentVertexIdx(-1) {}
+		Vertex() {}
+		//Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(BSpline<-1, -1, -1>()), _parentVertexIdx(-1) {}
 		~Vertex() {}
 		Vertex(const VectorX& config, const Vector2& interval, const BSpline<-1, -1, -1>& inpath, const int parentVertexIdx)
 			: _config(config), _interval(interval), _inpath(inpath), _parentVertexIdx(parentVertexIdx) {}
@@ -146,8 +147,11 @@ namespace rovin
 		bool AVP();
 
 	public:
-		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<SwitchPoint>& allSwitchPoint, std::vector<std::list<Real>>& LC);
-		void calculateCLC(std::vector<std::list<Real>>& LC, std::vector<Real>& CLC);
+		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, 
+			const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint, 
+			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC);
+		void calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC);
 
 	public:
 		Tree* _tree;
@@ -162,12 +166,16 @@ namespace rovin
 		unsigned int _nearestVertexIdx;
 		
 
-		/////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
 
 	public:
 		std::vector<Real> s;
 		std::vector<Real> sdot_MVC;
 
+		std::vector<Real> s_LC;
 		std::vector<Real> sdot_LC;
 		std::vector<Real> sdot_CLC;
 
@@ -205,6 +213,24 @@ namespace rovin
 			}
 			saveRealVector2txt(vec, filename);
 		}
+
+		void saveLC(std::list<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_s, std::string filename_sdot)
+		{
+			std::vector<Real> s;
+			std::vector<Real> sdot;
+
+			Vector2 tmp;
+
+			for (std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator it = in.begin(); it != in.end(); ++it)
+			{
+				tmp = *(it);
+				s.push_back(tmp[0]);
+				sdot.push_back(tmp[1]);
+			}
+			saveRealVector2txt(s, filename_s);
+			saveRealVector2txt(sdot, filename_sdot);
+		}
+
 
 	};
 }
