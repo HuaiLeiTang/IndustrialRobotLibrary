@@ -40,20 +40,22 @@ namespace rovin
 		friend class Tree;
 		friend class AVP_RRT;
 	public:
-		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(MatrixX()), _parentVertex(NULL) {}
+		// 여기 inpath 어떻게 하징?
+		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(), _parentVertex(NULL) {}
 		~Vertex() { delete _parentVertex; }
-		Vertex(const VectorX& config, const Vector2& interval, const MatrixX& inpath, Vertex * parentVertex)
+		Vertex(const VectorX& config, const Vector2& interval, const std::list<VectorX>& inpath, Vertex * parentVertex)
 			: _config(config), _interval(interval), _inpath(inpath), _parentVertex(parentVertex) {}
 
 		void setconfig(const VectorX& config) { _config = config; }
 		void setinterval(const Vector2& interval) { _interval = interval; }
-		void setinpath(const MatrixX& inpath) { _inpath = inpath; }
+		void setinpath(const std::list<VectorX>& inpath) { _inpath = inpath; }
 		void setparentVertex(Vertex * parentVertex) { _parentVertex = parentVertex; }
 
 	private:
 		VectorX _config;
 		Vector2 _interval;
-		MatrixX _inpath;
+		//MatrixX _inpath;
+		std::list<VectorX> _inpath;
 		Vertex * _parentVertex;
 	public:
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -133,11 +135,13 @@ namespace rovin
 	private:
 		void makeRandomConfig(VectorX& qrand);
 		Vertex * extendTree(Tree* tree, const VectorX qrand, bool atStartTree);
-		void interpolate(Vertex * nVertex, const VectorX qrand, const double dist, /* OUTPUT */ MatrixX& Pnew, VectorX& qnew);
-		bool testConnection(Vertex * vertex, Tree * tree, /* OUTPUT */ Vertex ** oVertex);
+		void interpolate(Vertex * nVertex, const VectorX qrand, const double dist, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew);
+		bool testConnection(Vertex * vertex, Tree * tree, /* OUTPUT */ Vertex ** oVertex, Vertex ** cVertex);
+		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
+		void extractPath(Vertex * sVertex, Vertex * gVertex, int idx);
 
-		bool runAVP(const MatrixX& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
-		bool runAVPbackward(const MatrixX& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+		bool runAVP(const std::list<VectorX>& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+		bool runAVPbackward(const std::list<VectorX>& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		
 
 	private:

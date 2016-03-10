@@ -17,7 +17,7 @@ unsigned int dof;
 
 
 int main()
-{
+{	
 	state = robot->makeState();
 	dof = robot->getNumOfJoint();
 

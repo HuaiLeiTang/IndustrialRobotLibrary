@@ -34,9 +34,10 @@ namespace rovin
 		do // MAIN LOOP
 		{
 			makeRandomConfig(qrand);
+			//if collisionchekc(qrand)
+			//	continue;
 
-			// 이렇게 하면 안되지롱... avp_backward 따로 있으니까... 나눠서.... 흠 일단 ㄱ
-			// extendTree도 vertex 받기.....
+
 			Vertex * candiVertex = extendTree(&_startTree, qrand, true);
 			if (candiVertex != NULL)
 			{
@@ -44,6 +45,16 @@ namespace rovin
 				_startTree.addVertex(candiVertex);
 				
 				// connection test to the _goalTree
+				Vertex * oppVertex = NULL;
+				Vertex * conVertex = NULL;
+				if (testConnection(candiVertex, &_goalTree, &oppVertex, &conVertex))
+				{
+					// oppVertex and conVertex have same configuration but conVertex is in startTree and oppVertex is in goalTree
+										
+					// extract path!!!!
+					extractPath(conVertex, oppVertex, idx);
+					return SUCCESS;
+				}
 			}
 
 
@@ -83,11 +94,11 @@ namespace rovin
 
 		Vertex * startVertex;
 		if (idx == 0)
-			startVertex = new Vertex(_waypoints[idx].getJointq(), Vector2().setZero(), MatrixX().setZero(), NULL);
+			startVertex = new Vertex(_waypoints[idx].getJointq(), Vector2().setZero(), std::list<VectorX>(), NULL);
 		else
-			startVertex = new Vertex(_waypoints[idx].getJointq(), _wayPointInterval, MatrixX().setZero(), NULL);
+			startVertex = new Vertex(_waypoints[idx].getJointq(), _wayPointInterval, std::list<VectorX>(), NULL);
 
-		Vertex * goalVertex = new Vertex(_waypoints[idx + 1].getJointq(), Vector2().setZero(), MatrixX().setZero(), NULL);
+		Vertex * goalVertex = new Vertex(_waypoints[idx + 1].getJointq(), Vector2().setZero(), std::list<VectorX>(), NULL);
 
 
 		_startTree.initializeTree(startVertex);
@@ -114,7 +125,7 @@ namespace rovin
 		Vertex * nVertex = tree->findNearestNeighbor(qrand, &tmpDist);
 
 		// interpolate between nVertex.config and qnew(configuration far away from nVertex.config about stepsize)
-		MatrixX Pnew;
+		std::list<VectorX> Pnew;
 		VectorX qnew;
 		interpolate(nVertex, qrand, tmpDist, Pnew, qnew);
 
@@ -128,10 +139,13 @@ namespace rovin
 
 		// feasibility check! (if fails -> delete nVertex)
 		// collision check
-		for (int i = 0; i < Pnew.cols(); i++)
+		std::list<VectorX>::iterator Piter;
+		VectorX tmpVec;
+		for (Piter = Pnew.begin(); Piter != Pnew.end(); Piter++)
 		{
 			// TO DO:
 			// collision check! of Pnew.col(i)
+			tmpVec = (*Piter);
 			// if coliision detected, isSucceeded = false and break!
 		}
 
@@ -142,7 +156,7 @@ namespace rovin
 
 	}
 
-	void AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const double dist, MatrixX & Pnew, VectorX & qnew)
+	void AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const double dist, std::list<VectorX> & Pnew, VectorX & qnew)
 	{
 		if (dist < _stepsize)
 			qnew = qrand;
@@ -154,24 +168,67 @@ namespace rovin
 
 	}
 
-	bool AVP_RRT::testConnection(Vertex * vertex, Tree * tree, Vertex ** oVertex)
+	bool AVP_RRT::testConnection(Vertex * vertex, Tree * tree, /* OUTPUT */ Vertex ** oVertex, Vertex ** cVertex)
 	{
 		// tree 에서 vertex가 extended 되었을때, vertex랑 tree를 집어넣어서 connection test..
 		// oVertex 는 tree에서 연결이 되면 vertex point 아니면... NULL로 가자
-		// 연결되면 treu, 안되면 false..
+		// 연결되면 true, 안되면 false..
 		// 이 함수에서도 avp test 해야함
+		double tmpDist;
+		(*oVertex) = tree->findNearestNeighbor(vertex->_config, &tmpDist);
 
+		// connectivity test
+		if (tmpDist < _stepsize)
+		{
+			std::list<VectorX> Ptmp;
+			VectorX qtmp;
+			interpolate(vertex, (*oVertex)->_config, tmpDist, Ptmp, qtmp);
+
+			Vector2 endInterval;
+			// 아... 이것도 backward 따로 해야할듯.... 아오 일단 forward 부분만 구현..
+			if (runAVP(Ptmp, vertex->_interval, endInterval))
+			{
+				if (checkIntersectionOfTwoIntervals(endInterval, (*oVertex)->_interval))
+				{
+					(*cVertex)->_config = (*oVertex)->_config;
+					(*cVertex)->_inpath = Ptmp;
+					(*cVertex)->_interval = endInterval;
+					(*cVertex)->_parentVertex = vertex;
+					return true;
+				}
+			}
+		}
+
+		(*cVertex) = NULL;
 		return false;
 	}
 
-	bool AVP_RRT::runAVP(const MatrixX& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
+	bool AVP_RRT::checkIntersectionOfTwoIntervals(const Vector2 & vec1, const Vector2 & vec2)
+	{
+		// if intersection of two intervals is null set -> return false, otherwise -> return true
+		return std::max(vec1.minCoeff(), vec2.minCoeff()) <= std::min(vec1.maxCoeff(), vec2.maxCoeff());
+	}
+
+	void AVP_RRT::extractPath(Vertex * sVertex, Vertex * gVertex, int idx)
+	{
+		// input: sVertex (start tree), gVertex (goal tree)
+		// output: save at _segmentPath[idx]
+
+
+
+
+		MatrixX path;
+		_segmentPath[idx] = path;
+	}
+
+	bool AVP_RRT::runAVP(const std::list<VectorX>& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
 	{
 		endInterval(0) = 0;
 		endInterval(1) = 0;
 		return false;
 	}
 
-	bool AVP_RRT::runAVPbackward(const MatrixX& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
+	bool AVP_RRT::runAVPbackward(const std::list<VectorX>& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
 	{
 		endInterval(0) = 0;
 		endInterval(1) = 0;
