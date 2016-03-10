@@ -3,6 +3,9 @@
 #include "TOPP.h"
 #include "NearestNeighbor/multiann.h"
 
+#include <fstream>
+#include <string>
+
 // inpath 는 bspline 으로 ? 아니면 discrete 하게??? 그리고 inpath는 q0 ~ q1 사이의 값들인가 그리고 linear 하게 만들면 되나?
 // s, sdot 은 저장할필요없나?? 없을듯
 // RRT step size 같은건 어디서 가지고 있어야하나용?????
@@ -16,24 +19,7 @@ namespace rovin
 	class Vertex;
 	class Tree;
 	class AVP_RRT;
-	//class Extend;
 	class WayPoint;
-
-
-	//class aaaa;
-	//class bbbb;
-
-	//class aaaa
-	//{
-	//public:
-	//	bbbb btmp;
-	//};
-	//class bbbb
-	//{
-	//public:
-	//	bbbb() {}
-
-	//};
 
 	class Vertex
 	{
@@ -111,10 +97,14 @@ namespace rovin
 		AVP_RRT() {
 			srand(time(NULL));
 		};
-		~AVP_RRT();
+		~AVP_RRT() {}
 		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType){
 			_robot = robot;
-			_constraintType = constraintType;
+			_constraintType = constraintType; 
+			
+			Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
+			_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
+
 			srand(time(NULL));
 		}
 
@@ -140,9 +130,15 @@ namespace rovin
 		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
 		void extractPath(Vertex * sVertex, Vertex * gVertex, int idx);
 
-		bool runAVP(const std::list<VectorX>& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
-		bool runAVPbackward(const std::list<VectorX>& Pnew, const Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
-		
+		// calculate for AVP
+	public:
+		bool runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+		bool runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
+			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC);
+		void calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC);
 
 	private:
 		SerialOpenChainPtr _robot;
@@ -155,16 +151,81 @@ namespace rovin
 		std::vector<MatrixX> _segmentPath;
 
 		MatrixX _finalPath; ///> concatenation of _segmentPath
-//		TOPP * topp; // 나중에 finalPath 만들고 그때 돌릴때 생각하기...
+		//TOPP* topp; // 나중에 finalPath 만들고 그때 돌릴때 생각하기...
+		TOPPPtr _topp;
 		unsigned int _dof;
 		unsigned int _numSegment;
 		double _stepsize;
 		Vector2 _wayPointInterval;
 
 
-	};
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////////////////////////////////
 
-	
+	public:
+		std::vector<Real> s;
+		std::vector<Real> sdot_MVC;
+
+		std::vector<Real> s_LC;
+		std::vector<Real> sdot_LC;
+		std::vector<Real> sdot_CLC;
+
+		void saveRealVector2txt(std::vector<Real> in, std::string filename)
+		{
+			std::ofstream fout;
+			fout.open(filename);
+
+			for (unsigned int i = 0; i < in.size(); i++)
+				fout << in[i] << std::endl;
+
+			fout.close();
+		}
+
+		void saveMVC(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints)
+		{
+			std::string name = "C:/Users/crazy/Desktop/Time optimization";
+			std::vector<Real> s, sdot;
+			for (unsigned int i = 0; i < allMVCPoints.size(); i++)
+			{
+				s.push_back(allMVCPoints[i](0));
+				sdot.push_back(allMVCPoints[i](1));
+			}
+
+			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/s.txt");
+			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt");
+		}
+
+		void saveRealList2txt(std::list<Real> in, std::string filename)
+		{
+			std::vector<Real> vec;
+			for (std::list<Real>::iterator it = in.begin(); it != in.end(); ++it)
+			{
+				vec.push_back(*(it));
+			}
+			saveRealVector2txt(vec, filename);
+		}
+
+		void saveLC(std::list<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_s, std::string filename_sdot)
+		{
+			std::vector<Real> s;
+			std::vector<Real> sdot;
+
+			Vector2 tmp;
+
+			for (std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator it = in.begin(); it != in.end(); ++it)
+			{
+				tmp = *(it);
+				s.push_back(tmp[0]);
+				sdot.push_back(tmp[1]);
+			}
+			saveRealVector2txt(s, filename_s);
+			saveRealVector2txt(sdot, filename_sdot);
+		}
+
+
+	};
 
 	class WayPoint
 	{

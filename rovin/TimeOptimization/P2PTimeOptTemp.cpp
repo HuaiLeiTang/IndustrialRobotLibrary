@@ -4,6 +4,7 @@ namespace rovin
 {
 
 
+
 	void AVP_RRT::generateTrajectory()
 	{
 		// initialization! -> way point setting
@@ -221,24 +222,43 @@ namespace rovin
 		_segmentPath[idx] = path;
 	}
 
-	bool AVP_RRT::runAVP(const std::list<VectorX>& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
+	bool AVP_RRT::runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
+	{
+		endInterval(0) = 0;
+		endInterval(1) = 0;
+
+
+		unsigned int RowSize = Pnew.front().size();
+		unsigned int ColSize = Pnew.size();
+		MatrixX q_data(RowSize, ColSize);
+		unsigned int cnt = 0;
+		for (std::list<VectorX>::iterator it = Pnew.begin(); it != Pnew.end(); it++)
+			q_data.col(cnt++) = (*it);
+
+		_topp->setJointTrajectory(q_data);
+
+		// Step A. Computing the limiting curves
+		// Acalculate MVC
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+		std::vector<unsigned int> allMVCPointsFlag;
+		_topp->calculateAllMVCPoint();
+		allMVCPoints = _topp->getAllMVCPoint();
+		allMVCPointsFlag = _topp->getAllMVCPointFlag();
+		LOG("calculate allMVCPoints complete.");
+
+		// save MVC
+		saveMVC(allMVCPoints);
+
+		
+		return false;
+	}
+
+	bool AVP_RRT::runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
 	{
 		endInterval(0) = 0;
 		endInterval(1) = 0;
 		return false;
 	}
-
-	bool AVP_RRT::runAVPbackward(const std::list<VectorX>& Pnew, const Vector2& nearInterval, Vector2 & endInterval)
-	{
-		endInterval(0) = 0;
-		endInterval(1) = 0;
-		return false;
-	}
-
-
-
-
-
 
 	void Tree::initializeTree(Vertex * rootVertex) 
 	{

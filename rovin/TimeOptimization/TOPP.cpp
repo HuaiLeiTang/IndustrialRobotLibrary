@@ -11,14 +11,57 @@ namespace rovin {
 		// _q_data dimesion : dof * number of data
 		_q_data = q_data;
 		_soc = soc;
-		_ds = ds;
 		_dof = _soc->getNumOfJoint();
+		_ds = ds;
 		_vi = vi;
 		_vf = vf;
 		_si = si;
 		_sf = sf;
 		_constraintType = constraintType;
 
+		// make b-spline
+		makespline();
+
+		// setting contraint
+		settingconstraint();
+	}
+
+	TOPP::TOPP(const SerialOpenChainPtr & soc, const Real vi, const Real vf, const Real ds, const Real si, const Real sf, CONSTRAINT_TYPE constraintType)
+	{
+		_soc = soc;
+		_dof = _soc->getNumOfJoint();
+		_ds = ds; _vi = vi; _vf = vf; _si = si; _sf = sf;
+		_constraintType = constraintType;
+
+		settingconstraint();
+	}
+
+	void TOPP::initialization()
+	{
+		_s.clear();
+		_sdot.clear();
+		_sddot.clear();
+		_switchPoint.clear();
+	}
+
+	void TOPP::setJointTrajectory(const MatrixX & q_data)
+	{
+		LOGIF((q_data.col(0).size() != _dof), "TOPP::setJointTrajectory error : q_data size is wrong.");
+		_q_data = q_data;
+		makespline();
+	}
+
+	void TOPP::setSerialOpenChain(const SerialOpenChainPtr & soc)
+	{
+		_soc = soc;
+		_dof = _soc->getNumOfJoint();
+		LOGIF((_q_data.col(0).size() != _dof), "TOPP::setSerialOpenChain error : q_data size is wrong.");
+
+		settingconstraint();
+	}
+
+	void TOPP::settingconstraint()
+	{
 		// insert torque constraint, velocity constraint, acceleration constraint
 		_torqueConstraint.resize(_dof * 2);
 		_velConstraint.resize(_dof * 2);
@@ -36,28 +79,10 @@ namespace rovin {
 			_accConstraint[i + _dof] = _soc->getMotorJointPtr(i)->getLimitAccLower();
 		}
 
-		// make b-spline by wooyoung
-		unsigned int degreeOfBSpline = 3;
-		unsigned int orderOfBSpline = degreeOfBSpline + 1;
-		unsigned int MaxNumOfCP = 7;
-		unsigned int numData = _q_data.cols();
-		if (numData > MaxNumOfCP)
-		{
-			cout << "Make b-spline using fitting" << endl;
-			_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, si, sf);
-		}
-		else
-		{
-			cout << "Make b-spline using interpolation" << endl;
-			_q = BSplineInterpolation(_q_data, orderOfBSpline, si, sf);
-		}
-		_dqds = _q.derivative();
-		_ddqdds = _dqds.derivative();
-
 		// calcuate number of constraints according to constraint type
-		if (_constraintType == TORQUE) 
-		{ 
-			_nconstraints = _torqueConstraint.size(); 
+		if (_constraintType == TORQUE)
+		{
+			_nconstraints = _torqueConstraint.size();
 			_nconstraintsWithoutVel = _nconstraints;
 		}
 		else if (_constraintType == TORQUE_VEL)
@@ -65,8 +90,8 @@ namespace rovin {
 			_nconstraints = _torqueConstraint.size() + _velConstraint.size();
 			_nconstraintsWithoutVel = _torqueConstraint.size();
 		}
-		else if (_constraintType == TORQUE_ACC) 
-		{ 
+		else if (_constraintType == TORQUE_ACC)
+		{
 			_nconstraints = _torqueConstraint.size() + _accConstraint.size();
 			_nconstraintsWithoutVel = _nconstraints;
 		}
@@ -76,36 +101,55 @@ namespace rovin {
 			_nconstraintsWithoutVel = _torqueConstraint.size() + _accConstraint.size();
 		}
 		else
-		{
 			LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
-		}
 	}
 
-	void TOPP::initialization()
+	void TOPP::makespline()
 	{
-		_s.clear();
-		_sdot.clear();
-		_switchPoint.clear();
+		unsigned int degreeOfBSpline = 3;
+		unsigned int orderOfBSpline = degreeOfBSpline + 1;
+		unsigned int MaxNumOfCP = 7;
+		unsigned int numData = _q_data.cols();
+		if (numData > MaxNumOfCP)
+		{
+			cout << "Make b-spline using fitting" << endl;
+			_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, _si, _sf);
+		}
+		else
+		{
+			cout << "Make b-spline using interpolation" << endl;
+			_q = BSplineInterpolation(_q_data, orderOfBSpline, _si, _sf);
+		}
+		_dqds = _q.derivative();
+		_ddqdds = _dqds.derivative();
 	}
 
 	void TOPP::calculateAllMVCPoint()
 	{
-		Real s = _si, sdot;
-		Vector2 MVCPoint;
 		int flag;
-		while (true)
+		Real s = _si;
+		Real sdot = calculateMVCPoint(s, flag);
+		Vector2 MVCPoint;
+
+		while (s <= _sf)
 		{
-			sdot = calculateMVCPoint(s, flag);
-			MVCPoint[0] = s; MVCPoint[1] = sdot;
+			MVCPoint(0) = s; MVCPoint(1) = sdot;
 			_allMVCPoints.push_back(MVCPoint);
+			_allMVCPointsFlag.push_back(flag);
+
 			s += _ds;
-			if (s > _sf)
-				break;
+			sdot = calculateMVCPoint(s, flag);
 		}
+		sdot = calculateMVCPoint(s - 1e-5, flag);
+		MVCPoint(0) = s; MVCPoint(1) = sdot;
+		_allMVCPoints.push_back(MVCPoint);
+		_allMVCPointsFlag.push_back(flag);
 	}
 
 	void TOPP::calculateAllSwitchPoint()
 	{
+		initialization();
+
 		Real s = _si;
 		while (findNearestSwitchPoint(s))
 		{
@@ -123,7 +167,7 @@ namespace rovin {
 		StatePtr state = _soc->makeState();
 		state->setJointStatePos(q);	state->setJointStateVel(qdot); state->setJointStateAcc(qs);
 		_soc->solveInverseDynamics(*state);
-		
+
 		VectorX tau = state->getJointStateTorque();
 
 		qs.setZero();
@@ -171,7 +215,7 @@ namespace rovin {
 
 		VectorX tmp_c = state->getJointStateTorque();
 		VectorX tmp_b = tau - tmp_c;
-		
+
 		std::vector<VectorX> result;
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
@@ -218,12 +262,14 @@ namespace rovin {
 		return result;
 	}
 
+
+
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
 
 		VectorX a;
 		calculateA(s, a);
-			
+
 		VectorX q = _q(s), qdot = _dqds(s)*sdot, qddot = _ddqdds(s)*sdot*sdot;
 		StatePtr state = _soc->makeState();
 		state->setJointStatePos(q); state->setJointStateVel(qdot); state->setJointStateAcc(qddot);
@@ -242,7 +288,7 @@ namespace rovin {
 		}
 		else if (_constraintType == TORQUE_ACC || _constraintType == TORQUE_VEL_ACC)
 		{
-			left_vec = VectorX(_torqueConstraint.size()+ _accConstraint.size());
+			left_vec = VectorX(_torqueConstraint.size() + _accConstraint.size());
 			VectorX qss = _ddqdds(s)*sdot*sdot;
 			for (unsigned int i = 0; i < _dof; i++)
 			{
@@ -252,7 +298,7 @@ namespace rovin {
 				left_vec(i + _dof * 3) = qss(i) - _accConstraint(i + _dof);
 			}
 		}
-		else 
+		else
 			LOGIF(false, "TOPP::determineAlphaBeta error : contraint type is wrong.");
 
 		Vector2 result; // result[0] is alpha, result[1] is beta
@@ -277,7 +323,7 @@ namespace rovin {
 		}
 		return result;
 	}
-	
+
 	void TOPP::determineVelminmax(Real s, Vector2& minmax)
 	{
 		VectorX qs = _dqds(s), qs_vec(_dof * 2), left_vec(_dof * 2);
@@ -382,7 +428,7 @@ namespace rovin {
 		VectorX b = BandC[0], c = BandC[1];
 
 		LOGIF(((a.size() == b.size()) && (a.size() == c.size()) && (b.size() == c.size())), "TOPP::calulateMVCPoint error : a, b, c vector size is wrong.");
-		
+
 		Real sdot_VelC = std::numeric_limits<Real>::max();
 		Vector2 minmax;
 		if (_constraintType == TORQUE_VEL || _constraintType == TORQUE_VEL_ACC)
@@ -443,7 +489,7 @@ namespace rovin {
 	}
 
 	void TOPP::forwardIntegrate(Real & s, Real & sdot, Real sddot)
-	{		
+	{
 		Real tmp = 2 * sddot*_ds + sdot*sdot;
 		LOGIF((tmp > 0), "TOPP::forwardIntegrate error : the value has to be positive.");
 		s = s + _ds;
@@ -462,7 +508,8 @@ namespace rovin {
 	{
 		int flag;
 
-		Real ds = 0.0005;
+		//Real ds = 0.0005;
+		Real ds = _ds;
 		Real s_bef = s;
 		Real sdot_bef = calculateMVCPoint(s_bef, flag);
 		Real s_cur = s_bef + ds;
@@ -621,47 +668,59 @@ namespace rovin {
 
 		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm(), sdot_MVC;
 		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-		
+
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
+		_sddot.push_back(beta_cur); ///< 3/7 modicifation
 
 		std::list<Real> _s_tmp;
 		std::list<Real> _sdot_tmp;
+		std::list<Real> _sddot_tmp; ///< 3/7 modicifation
 
 		int flag; ///< 1 : velocity contraint, 2 : acc-torque contraint
 		bool FI_SW = true, BI_SW = false, I_SW = true;
 		bool swiPoint_swi;
 		unsigned int numOfSPInt = 3; ///< singular point integration number
-		
 
-		// Step 1 & 2 : Forward & backward integration
+									 // Step 1 & 2 : Forward & backward integration
 		while (I_SW)
 		{
 			while (FI_SW) ///< Forward integration
 			{
 				forwardIntegrate(s_cur, sdot_cur, beta_cur);
 				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-				
-				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
+
+				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1); ///< 3/7 modicifation
+				_sddot.push_back(beta_cur); ///< 3/7 modicifation
+
 				sdot_MVC = calculateMVCPoint(s_cur, flag);
 
-				if(sdot_cur >= sdot_MVC)
+				if (sdot_cur >= sdot_MVC)
 				{
-					sdot_cur = sdot_MVC; _sdot.pop_back(); _sdot.push_back(sdot_cur);
+					sdot_cur = sdot_MVC;
+					_sdot.pop_back();
+					_sdot.push_back(sdot_cur);
+
+					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1); ///< 3/7 modicifation
+					_sddot.pop_back(); ///< 3/7 modicifation
+					_sddot.push_back(beta_cur); ///< 3/7 modicifation
 
 					if (flag == 1) ///< velocity contraint case
 					{
-						Real s_tmp_beta, sdot_tmp_beta;
-						Real s_tmp_alpha, sdot_tmp_alpha;
+						//Real s_tmp_beta, sdot_tmp_beta; ///< no need
+						//Real s_tmp_alpha, sdot_tmp_alpha; ///< no need
+
+						Real slope;
 						Real s_next, sdot_next;
 						while (true)
 						{
-							s_tmp_beta = s_cur; sdot_tmp_beta = sdot_cur;
-							s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;
+							//s_tmp_beta = s_cur; sdot_tmp_beta = sdot_cur;
+							//s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;
+
 							s_next = s_cur + _ds;
 							sdot_next = calculateMVCPoint(s_next, flag);
-							
+
 							if (flag == 2)
 							{
 								swiPoint_swi = findNearestSwitchPoint(s_cur);
@@ -679,6 +738,7 @@ namespace rovin {
 										Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
 										for (unsigned int i = 0; i < numOfSPInt; i++)
 										{
+											_sddot_tmp.push_front(lambda); ///< 3/7 modicifation
 											s_cur -= _ds;
 											sdot_cur -= lambda * _ds;
 											_s_tmp.push_front(s_cur);
@@ -693,23 +753,32 @@ namespace rovin {
 							alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 							alpha_cur = alphabeta(0);
 							beta_cur = alphabeta(1);
-							forwardIntegrate(s_tmp_beta, sdot_tmp_beta, beta_cur);
-							forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur);
-							if (sdot_tmp_beta >= sdot_next && sdot_next >= sdot_tmp_alpha)
+
+							slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+							//forwardIntegrate(s_tmp_beta, sdot_tmp_beta, beta_cur); ///< no need
+							//forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur); ///< no need
+
+							if (beta_cur >= slope && slope >= alpha_cur)
+								//if (sdot_tmp_beta >= sdot_next && sdot_next >= sdot_tmp_alpha)
 							{
 								s_cur = s_next; sdot_cur = sdot_next;
 								_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+								_sddot.push_back(slope); ///< 3/7 modicifation
 							}
-							else if (sdot_tmp_beta < sdot_next)
+							else if (beta_cur < slope)
+								//else if (sdot_tmp_beta < sdot_next)
 							{
 								FI_SW = true; BI_SW = false;
 								break;
 							}
-							else if (sdot_tmp_alpha > sdot_next)
+							else if (alpha_cur > slope)
+								//else if (sdot_tmp_alpha > sdot_next)
 							{
-								while (sdot_tmp_alpha > sdot_next)
+								//while (sdot_tmp_alpha > sdot_next)
+								while (alpha_cur > slope)
 								{
-									s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;
+									//s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;	
 									s_next = s_cur + _ds;
 									sdot_next = calculateMVCPoint(s_next, flag);
 
@@ -730,6 +799,7 @@ namespace rovin {
 												Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
 												for (unsigned int i = 0; i < numOfSPInt; i++)
 												{
+													_sddot_tmp.push_front(lambda); ///< 3/7 modicifation
 													s_cur -= _ds;
 													sdot_cur -= lambda * _ds;
 													_s_tmp.push_front(s_cur);
@@ -740,9 +810,9 @@ namespace rovin {
 										}
 										break;
 									}
-
 									alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
-									forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur);
+									slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+									//forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur);
 									s_cur = s_next; sdot_cur = sdot_next;
 								}
 								s_cur -= _ds;
@@ -758,7 +828,7 @@ namespace rovin {
 							}
 						}
 					}
-					else if (flag == 2) /// acc-torque constraint case
+					else if (flag == 2) /// acceleration-torque constraint case
 					{
 						swiPoint_swi = findNearestSwitchPoint(s_cur);
 						if (!swiPoint_swi) /// if swtich point doesn't exist until s_end --> go to step 3
@@ -775,6 +845,7 @@ namespace rovin {
 								Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
 								for (unsigned int i = 0; i < numOfSPInt; i++)
 								{
+									_sddot_tmp.push_front(lambda); ///< 3/7 modicifation
 									s_cur -= _ds;
 									sdot_cur -= lambda * _ds;
 									_s_tmp.push_front(s_cur);
@@ -797,10 +868,10 @@ namespace rovin {
 
 			while (BI_SW) ///< Backward integration
 			{
-
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
 				beta_cur = alphabeta(1);
+				_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
 
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
 				_s_tmp.push_front(s_cur);
@@ -812,15 +883,17 @@ namespace rovin {
 					sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
 					s_cur = _s.back();
 
-					LOGIF((_sdot.back() > sdot_cur),"Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+					LOGIF((_sdot.back() > sdot_cur), "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
 					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
 
 					while (_sdot.back() > sdot_cur)
 					{
 						_s.pop_back();
 						_sdot.pop_back();
+						_sddot.pop_back();  ///< 3/7 modicifation
 						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 						alpha_cur = alphabeta(0);
+						_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
 
 						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
 						_s_tmp.push_front(s_cur);
@@ -832,9 +905,11 @@ namespace rovin {
 
 					_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
 					_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
+					_sddot.insert(_sddot.end(), _sddot_tmp.begin(), _sddot_tmp.end()); ///< 3/7 modicifation
 
 					_s_tmp.clear();
 					_sdot_tmp.clear();
+					_sddot_tmp.clear();
 
 					s_cur = _s.back();
 					sdot_cur = _sdot.back();
@@ -848,7 +923,9 @@ namespace rovin {
 							sdot_cur += lambda * _ds;
 							_s.push_back(s_cur);
 							_sdot.push_back(sdot_cur);
+							_sddot.push_back(lambda); ///< 3/7 modicifation
 						}
+						_sddot.pop_back(); ///< 3/7 modicifation
 					}
 					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
 
@@ -859,8 +936,8 @@ namespace rovin {
 		}
 
 		// Step 3 : there exist two cases.
-		s_cur = _sf-0.0001;
-		sdot_cur = _vf / _dqds(_sf-0.0001).norm();
+		s_cur = _sf - 0.0001;
+		sdot_cur = _vf / _dqds(_sf - 0.0001).norm();
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
@@ -868,11 +945,13 @@ namespace rovin {
 		if (!swiPoint_swi) // case 1. when can't find switching point until final s
 		{
 			LOGIF((_sdot.back() > sdot_cur), "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
-			
+
 			while ((s_cur >= _s.back()))
 			{
 				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 				alpha_cur = alphabeta(0);
+				_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
+
 				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
 				_s_tmp.push_front(s_cur);
 				_sdot_tmp.push_front(sdot_cur);
@@ -895,8 +974,9 @@ namespace rovin {
 
 			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 			alpha_cur = alphabeta(0);
+			_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
 
-			Real delta = std::abs((s_cur-_s.back()));
+			Real delta = std::abs((s_cur - _s.back()));
 			Real tmp = -2 * alpha_cur*delta + sdot_cur*sdot_cur;
 			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
 
@@ -912,6 +992,8 @@ namespace rovin {
 			_sdot.pop_back();
 			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 			alpha_cur = alphabeta(0);
+			_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
+
 			backwardIntegrate(s_cur, sdot_cur, alpha_cur);
 			_s_tmp.push_front(s_cur);
 			_sdot_tmp.push_front(sdot_cur);
@@ -922,17 +1004,16 @@ namespace rovin {
 
 		_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
 		_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
+		_sddot.insert(_sddot.end(), _sddot_tmp.begin(), _sddot_tmp.end()); ///< 3/7 modicifation
 		_s_tmp.clear();
 		_sdot_tmp.clear();
+		_sddot_tmp.clear(); ///< 3/7 modicifation
 
 		calculateFinalTime();
 		//calculateTorqueTrajectory();
 
 		cout << "trajectory generation finished." << endl;
 	}
-
-
-
 
 	/////////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////// HAVE TO DO //////////////////////////////////////////
