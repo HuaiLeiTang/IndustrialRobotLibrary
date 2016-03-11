@@ -44,7 +44,7 @@ int main()
 	state = robot->makeState();
 	dof = robot->getNumOfJoint();
 
-	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE);
 
 	MatrixX q_data;
 	loadData(q_data);

@@ -134,11 +134,25 @@ namespace rovin
 	public:
 		bool runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		bool runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+		
 		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
 			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC);
 		void calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
 			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC);
+
+		unsigned int determineAresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star);
+		unsigned int determineBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_beg_max_star, 
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi);
+		bool IS_VALID(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi, 
+			const Vector2& nearInterval, const Real sdot_test);
+		Real findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
+			const Vector2& nearInterval, const Real sdot_test);
+
 
 	private:
 		SerialOpenChainPtr _robot;
@@ -196,6 +210,18 @@ namespace rovin
 			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt");
 		}
 
+		void savevectorOfVector2(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_first, std::string filename_second)
+		{
+			std::vector<Real> s, sdot;
+			for (unsigned int i = 0; i < in.size(); i++)
+			{
+				s.push_back(in[i](0));
+				sdot.push_back(in[i](1));
+			}
+			saveRealVector2txt(s, filename_first);
+			saveRealVector2txt(sdot, filename_second);
+		}
+
 		void saveRealList2txt(std::list<Real> in, std::string filename)
 		{
 			std::vector<Real> vec;
@@ -223,6 +249,18 @@ namespace rovin
 			saveRealVector2txt(sdot, filename_sdot);
 		}
 
+		void saveSwitchPoint(std::vector<SwitchPoint>& allSwitchPoint)
+		{
+			std::vector<Real> s_sw;
+			std::vector<Real> sdot_sw;
+			for (unsigned int i = 0; i < allSwitchPoint.size(); i++)
+			{
+				s_sw.push_back(allSwitchPoint[i]._s);
+				sdot_sw.push_back(allSwitchPoint[i]._sdot);
+			}
+			saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+			saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+		}
 
 	};
 
