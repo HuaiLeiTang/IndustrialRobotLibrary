@@ -92,6 +92,7 @@ namespace rovin
 		
 	public:
 		enum RETURNFLAG {SUCCESS, EXCEED_MAX_ITER}; // more flags are needed
+		enum AVPFLAG {FORWARD, BACKWARD};
 
 	public:
 		AVP_RRT() {
@@ -135,23 +136,31 @@ namespace rovin
 		bool runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		bool runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		
+		void settingtopp(std::list<VectorX>& Pnew);
+
 		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
 			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC);
 		void calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
 			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC);
-
 		unsigned int determineAresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
-			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star);
-		unsigned int determineBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
-			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_beg_max_star, 
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star, AVPFLAG avpflag);
+		
+		unsigned int determineAVPBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi);
+		unsigned int determineAVPBackwardBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
 			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi);
 		bool IS_VALID(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi, 
 			const Vector2& nearInterval, const Real sdot_test);
-		Real findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		bool IS_VALID_backward(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 			const Vector2& nearInterval, const Real sdot_test);
+		Real findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
+			const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag);
 
 
 	private:

@@ -51,10 +51,14 @@ int main()
 	std::list<VectorX> Pnew;
 	for (int i = 0; i < q_data.cols(); i++)
 		Pnew.push_back(q_data.col(i));
-	Vector2 nearInterval(0, 1);
+	Vector2 nearInterval(0, 0.5);
 	Vector2 endInterval;
+	
+	// AVP test
 	avp_rrt.runAVP(Pnew, nearInterval, endInterval);
 
+	// AVP_backward test
+	//avp_rrt.runAVPbackward(Pnew, nearInterval, endInterval);
 
 	cout << "Program complete" << endl;
 	_getch();

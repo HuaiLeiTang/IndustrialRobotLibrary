@@ -224,42 +224,26 @@ namespace rovin
 
 	bool AVP_RRT::runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
 	{
+		settingtopp(Pnew);
+		
 		Real sdot_beg_min = nearInterval(0);
 		Real sdot_beg_max = nearInterval(1);
 
-		// topp initialization
-		_topp->initialization();
-
-		// Start AVP algorithm
-		unsigned int RowSize = Pnew.front().size();
-		unsigned int ColSize = Pnew.size();
-		MatrixX q_data(RowSize, ColSize);
-		unsigned int cnt = 0;
-		for (std::list<VectorX>::iterator it = Pnew.begin(); it != Pnew.end(); it++)
-			q_data.col(cnt++) = (*it);
-
-		_topp->setJointTrajectory(q_data);
-
 		/* Step A. Computing the limiting curves */
-		// calculate MVC
+		// variables
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> CLC;
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
 		std::vector<unsigned int> allMVCPointsFlag;
+		std::vector<SwitchPoint> allSwitchPoint;
+		bool A1switch;
+
 		_topp->calculateAllMVCPoint();
+		_topp->calculateAllSwitchPoint();
 		allMVCPoints = _topp->getAllMVCPoint();
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
-		LOG("calculate allMVCPoints complete.");
-
-		// calculate switching points
-		std::vector<SwitchPoint> allSwitchPoint;
-		_topp->calculateAllSwitchPoint();
 		allSwitchPoint = _topp->getAllSwitchPoint();
-		LOG("calculate allSwitchPoint complete.");
-
-		// calculate all LC
-		bool A1switch;
-		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
 		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
-		LOG("calculate Limiting curves complete.");
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
@@ -271,14 +255,10 @@ namespace rovin
 			return false;
 		}
 
-		// calculate CLC
-		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> CLC;
 		calculateCLC(LC, CLC);
-		LOG("calculate CLC complete.");
-
 		unsigned int Acase;
 		Real sdot_beg_star;
-		Acase = determineAresult(allMVCPoints, CLC, sdot_beg_star);
+		Acase = determineAresult(allMVCPoints, CLC, sdot_beg_star, FORWARD);
 
 		/* Step B : determining the maximum final velocity */
 		if (sdot_beg_min > sdot_beg_star)
@@ -286,13 +266,13 @@ namespace rovin
 			LOG("sdot_beg_min > sdot_beg_star, the path is not traversable. AVP failure.");
 			return false;
 		}
+
 		Real sdot_beg_max_star = std::min(sdot_beg_max, sdot_beg_star);
 		Vector2 _nearInterval(sdot_beg_min, sdot_beg_max_star);
-		
-		unsigned int Bcase;
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> phi;
-
-		Bcase = determineBresult(allMVCPoints, CLC, sdot_beg_max_star, phi);
+		unsigned int Bcase;
+		
+		Bcase = determineAVPBresult(allMVCPoints, CLC, sdot_beg_max_star, phi);
 
 		if (Bcase == 1)
 		{
@@ -330,7 +310,8 @@ namespace rovin
 		}
 
 		/* Step C : determining the minimum final velocity */
-		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1));
+		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1), FORWARD);
+		std::cout << endInterval << std::endl;
 
 		///////////////////////////////  save  ///////////////////////////////
 
@@ -351,6 +332,132 @@ namespace rovin
 			"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
 
 		return true;
+	}
+
+	bool AVP_RRT::runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
+	{
+		settingtopp(Pnew);
+
+		Real sdot_end_min = nearInterval(0);
+		Real sdot_end_max = nearInterval(1);
+
+		/* Step A. Computing the limiting curves */
+		// variables
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> CLC;
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
+		std::vector<unsigned int> allMVCPointsFlag;
+		std::vector<SwitchPoint> allSwitchPoint;
+		bool A1switch;
+
+		_topp->calculateAllMVCPoint();
+		_topp->calculateAllSwitchPoint();
+		allMVCPoints = _topp->getAllMVCPoint();
+		allMVCPointsFlag = _topp->getAllMVCPointFlag();
+		allSwitchPoint = _topp->getAllSwitchPoint();
+		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
+
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
+		LC_copy = LC; ///< for save LC
+
+					  // case A1
+		if (A1switch == false)
+		{
+			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
+			return false;
+		}
+
+		calculateCLC(LC, CLC);
+		unsigned int Acase;
+		Real sdot_end_star;
+		Acase = determineAresult(allMVCPoints, CLC, sdot_end_star, BACKWARD);
+
+		/* Step B : determining the maximum final velocity */
+		if (sdot_end_min > sdot_end_star)
+		{
+			LOG("sdot_end_min > sdot_end_star, the path is not traversable. AVP backward failure.");
+			return false;
+		}
+
+		Real sdot_end_max_star = std::min(sdot_end_max, sdot_end_star);  ///< 이게 맞는건지 모르겠음..
+		Vector2 _nearInterval(sdot_end_min, sdot_end_max_star); ///< 이게 맞는건지 모르겠음..
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> phi;
+		unsigned int Bcase;
+
+		Bcase = determineAVPBackwardBresult(allMVCPoints, CLC, sdot_end_max_star, phi);
+		std::cout << "Bcase : " << Bcase << std::endl;
+
+		if (Bcase == 1)
+		{
+			LOG("phi hits sdot = 0, the path is not traversable. AVP backward failure.");
+			return false;
+		}
+		else if (Bcase == 2)
+		{
+			endInterval(1) = phi.front()(1);
+		}
+		else if (Bcase == 3)
+		{
+			if (Acase == 4 || Acase == 5)
+				endInterval(1) = CLC.front()(1);
+			else if (Acase == 2 || Acase == 3)
+			{
+				if (IS_VALID_backward(allMVCPoints, CLC, phi, _nearInterval, allMVCPoints.front()(1)))
+					endInterval(1) = allMVCPoints.front()(1);
+				else
+				{
+					LOG("Case B3b, isValid is false, the path is not traversable. AVP backward failure.");
+					return false;
+				}
+			}
+		}
+		else if (Bcase == 4)
+		{
+			if (IS_VALID_backward(allMVCPoints, CLC, phi, _nearInterval, allMVCPoints.front()(1)))
+				endInterval(1) = allMVCPoints.front()(1);
+			else
+			{
+				LOG("Case B4, isValid is false, the path is not traversable. AVP backward failure.");
+				return false;
+			}
+		}
+
+		/* Step C : determining the minimum final velocity */
+		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1), BACKWARD);
+		std::cout << endInterval << std::endl;
+
+		///////////////////////////////  save  ///////////////////////////////
+
+		savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+		saveSwitchPoint(allSwitchPoint);
+		for (unsigned int i = 0; i < LC_copy.size(); i++)
+		{
+			std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+			std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+			s_string = s_string + std::to_string(i) + ".txt";
+			sdot_string = sdot_string + std::to_string(i) + ".txt";
+			saveLC(LC_copy[i], s_string, sdot_string);
+		}
+		savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
+		savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
+
+		return true;
+	}
+
+	void AVP_RRT::settingtopp(std::list<VectorX>& Pnew)
+	{
+		_topp->initialization();
+		unsigned int RowSize = Pnew.front().size();
+		unsigned int ColSize = Pnew.size();
+		MatrixX q_data(RowSize, ColSize);
+		unsigned int cnt = 0;
+		for (std::list<VectorX>::iterator it = Pnew.begin(); it != Pnew.end(); it++)
+			q_data.col(cnt++) = (*it);
+
+		_topp->setJointTrajectory(q_data);
 	}
 
 	bool AVP_RRT::calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
@@ -671,10 +778,8 @@ namespace rovin
 	}
 
 	unsigned int AVP_RRT::determineAresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star)
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star, AVPFLAG avpflag)
 	{
-		unsigned int Aresult;
-
 		bool si_col = false, sf_col = false;
 
 		Real eps_init = std::pow((CLC.front()(0) - _topp->getInitialParam()),2);
@@ -687,32 +792,50 @@ namespace rovin
 
 		if (si_col == false && sf_col == false)
 		{
-			sdot_beg_star = allMVCPoints.front()(1);
-			Aresult = 2;
-			return Aresult;
+			if (avpflag == FORWARD)
+				sdot_beg_star = allMVCPoints.front()(1);
+			else if (avpflag == BACKWARD)
+				sdot_beg_star = allMVCPoints.back()(1);
+			return 2;
 		}
 		else if (si_col == true && sf_col == false)
 		{
-			sdot_beg_star = CLC.front()(1);
-			Aresult = 3;
-			return Aresult;
+			if (avpflag == FORWARD)
+			{
+				sdot_beg_star = CLC.front()(1);
+				return 3;
+			}
+			else if (avpflag == BACKWARD)
+			{
+				sdot_beg_star = allMVCPoints.back()(1);
+				return 4;
+			}
 		}
 		else if (si_col == false && sf_col == true)
 		{
-			sdot_beg_star = allMVCPoints.front()(1);
-			Aresult = 4;
-			return Aresult;
+			if (avpflag == FORWARD)
+			{
+				sdot_beg_star = allMVCPoints.front()(1);
+				return 4;
+			}
+			else if (avpflag == BACKWARD)
+			{
+				sdot_beg_star = CLC.back()(1);
+				return 3;
+			}
 		}
 		else if (si_col == true && sf_col == true)
 		{
-			sdot_beg_star = CLC.front()(1);
-			Aresult = 5;
-			return Aresult;
+			if (avpflag == FORWARD)
+				sdot_beg_star = CLC.front()(1);
+			else if (avpflag == BACKWARD)
+				sdot_beg_star = CLC.back()(1);
+			return 5;
 		}
 	}
 
-	unsigned int AVP_RRT::determineBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_beg_max_star, 
+	unsigned int AVP_RRT::determineAVPBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init, 
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
 	{
 		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_MVC, sdot_CLC;
@@ -720,7 +843,7 @@ namespace rovin
 		sf = _topp->getFinalParam();
 		ds = _topp->getStepSize();
 		s_cur = _topp->getInitialParam();
-		sdot_cur = sdot_beg_max_star;
+		sdot_cur = sdot_init;
 		phi.push_back(Vector2(s_cur, sdot_cur));
 
 		while (true)
@@ -742,6 +865,59 @@ namespace rovin
 
 			phi.push_back(Vector2(s_cur, sdot_cur));
 		}
+	}
+
+	unsigned int AVP_RRT::determineAVPBackwardBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
+	{
+		std::list<Vector2, Eigen::aligned_allocator<Vector2>> phi_tmp;
+		Real s_cur, sdot_cur, alpha_cur, si, ds, sdot_MVC, sdot_CLC;
+		int idx, flag;
+		si = _topp->getInitialParam();
+		ds = _topp->getStepSize();
+		s_cur = _topp->getFinalParam() - 1e-6;
+		sdot_cur = sdot_init;
+		phi_tmp.push_front(Vector2(s_cur, sdot_cur));
+
+		unsigned int Bresult;
+
+		while (true)
+		{
+			alpha_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(0);
+			_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+			idx = round(s_cur / ds);
+			sdot_MVC = allMVCPoints[idx](1);
+			sdot_CLC = CLC[idx](1);
+
+			if (sdot_cur < 0)
+			{
+				Bresult = 1;
+				break;
+			}
+			else if (s_cur < si)
+			{
+				Bresult = 2;
+				break;
+			}
+
+			else if (sdot_cur > sdot_CLC)
+			{
+				Bresult = 3;
+				break;
+			}
+			else if (sdot_cur > sdot_MVC)
+			{
+				Bresult = 4;
+				break;
+			}
+			phi_tmp.push_front(Vector2(s_cur, sdot_cur));
+		}
+
+		for (std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator it = phi_tmp.begin(); it != phi_tmp.end(); it++)
+			phi.push_back(*it);
+
+		return Bresult;
 	}
 
 	bool AVP_RRT::IS_VALID(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
@@ -785,36 +961,106 @@ namespace rovin
 		return false;
 	}
 
-	Real AVP_RRT::findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+	bool AVP_RRT::IS_VALID_backward(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 		const Vector2& nearInterval, const Real sdot_test)
 	{
-		Real sdot_end_max = sdot_test;
-		Real sdot_end_min = 0;
+		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_phi, sdot_CLC;
+		int idx, flag;
+		sf = _topp->getFinalParam();
+		ds = _topp->getStepSize();
+		s_cur = _topp->getInitialParam();
+		sdot_cur = sdot_test;
 
-		unsigned int maxinteration = 100;
+		Real s_phi_init = phi.front()(0);
 		unsigned int cnt = 0;
 
 		while (true)
 		{
+			beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
+			_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
+			idx = round(s_cur / ds);
+			sdot_CLC = CLC[idx](1);
+			if (s_cur < s_phi_init)
+				sdot_phi = std::numeric_limits<Real>::max();
+			else if (s_cur >= s_phi_init)
+				sdot_phi = phi[cnt++](1);
+				
 
-
-			cnt++;
+			if (sdot_cur < 0)
+				return false;
+			else if (s_cur > sf)
+			{
+				if (sdot_cur < nearInterval(0))
+					return false;
+				else if (sdot_cur > nearInterval(0))
+					return true;
+			}
+			else if (sdot_cur > sdot_phi)
+				return true;
+			else if (sdot_cur > sdot_CLC)
+				return true;
 		}
-
-		return sdot_end_min;
-	}
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	bool AVP_RRT::runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
-	{
-		endInterval(0) = 0;
-		endInterval(1) = 0;
 		return false;
 	}
+
+	Real AVP_RRT::findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
+		const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag)
+	{
+		Real sdot_max = sdot_test;
+		Real sdot_min = 0;
+
+		Real sdot_before;
+		Real sdot_up = sdot_max;
+		Real sdot_down = sdot_min;
+		Real sdot_cur = sdot_min;
+		Real epsilon = sdot_max * 1e-3;
+		unsigned int max_iter = 100;
+		unsigned int cnt = 0;
+		bool isValid;
+
+		if (avpflag == FORWARD)
+			isValid = IS_VALID(allMVCPoints, CLC, phi, nearInterval, sdot_cur);
+		else if (avpflag == BACKWARD)
+			isValid = IS_VALID_backward(allMVCPoints, CLC, phi, nearInterval, sdot_cur);
+		if (isValid)
+			return 0;
+
+		while (true)
+		{
+			if (isValid)
+			{
+				sdot_before = sdot_cur;
+				sdot_up = sdot_cur;
+				sdot_cur = (sdot_cur + sdot_down) * 0.5;
+			}
+			else
+			{
+				sdot_before = sdot_cur;
+				sdot_down = sdot_cur;
+				sdot_cur = (sdot_cur + sdot_up) * 0.5;
+			}
+
+			if (avpflag == FORWARD)
+				isValid = IS_VALID(allMVCPoints, CLC, phi, nearInterval, sdot_cur);
+			else if (avpflag == BACKWARD)
+				isValid = IS_VALID_backward(allMVCPoints, CLC, phi, nearInterval, sdot_cur);
+
+			if (isValid == true && cnt > max_iter)
+				break;
+			else if (isValid == true && std::abs(sdot_before - sdot_cur) < epsilon)
+				break;
+
+			cnt++;
+
+		}
+		return sdot_cur;
+	}
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	void Tree::initializeTree(Vertex * rootVertex) 
 	{

@@ -266,6 +266,8 @@ namespace rovin {
 
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
+		if (s == _sf)
+			s -= 1e-6;
 
 		VectorX a;
 		calculateA(s, a);
@@ -666,7 +668,7 @@ namespace rovin {
 	{
 		initialization();
 
-		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm(), sdot_MVC;
+		Real s_cur = 0, sdot_cur = _vi / _dqds(1e-4).norm(), sdot_MVC;
 		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
@@ -937,7 +939,7 @@ namespace rovin {
 
 		// Step 3 : there exist two cases.
 		s_cur = _sf - 0.0001;
-		sdot_cur = _vf / _dqds(_sf - 0.0001).norm();
+		sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
