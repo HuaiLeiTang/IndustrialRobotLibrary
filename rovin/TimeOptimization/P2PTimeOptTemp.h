@@ -106,6 +106,10 @@ namespace rovin
 			Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 			_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
 
+			_ds = _topp->getStepSize();
+			_si = _topp->getInitialParam();
+			_sf = _topp->getFinalParam();
+
 			srand(time(NULL));
 		}
 
@@ -162,6 +166,26 @@ namespace rovin
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 			const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag);
 
+		unsigned int forwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int forwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		void forwardbackInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+
+		unsigned int backwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int backwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		void backwardforInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+
 
 	private:
 		SerialOpenChainPtr _robot;
@@ -179,6 +203,10 @@ namespace rovin
 		unsigned int _numSegment;
 		double _stepsize;
 		Vector2 _wayPointInterval;
+
+		Real _ds;
+		Real _si;
+		Real _sf;
 
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////

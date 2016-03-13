@@ -16,11 +16,6 @@ SerialOpenChainPtr robot(new efortRobot());
 StatePtr state;
 unsigned int dof;
 
-
-int fcn(int a, int& b);
-int add(int a, int b);
-int noact(const int a);
-
 int main()
 {	
 	//state = robot->makeState();
@@ -64,38 +59,24 @@ int main()
 	// AVP_backward test
 	//avp_rrt.runAVPbackward(Pnew, nearInterval, endInterval);
 
-	//int(*fcnpointer)(int a, int& b);
-	//int(*fcnpointer2)(const int a);
-	//fcnpointer = fcn;
-	//fcnpointer2 = noact;
+	//std::list<Real> a;
+	//std::list<Real> b;
+	//a.push_back(1);
+	//a.push_back(2);
+	//a.push_back(3);
 
-	//int b;
-	//int c = fcnpointer(1, b);
-	//int d = fcnpointer2(20);
-	//cout << b << endl;
-	//cout << c << endl;
-	//cout << d << endl;
+	//b.push_front(10);
+	//b.push_front(20);
+	//b.push_front(30);
+
+	//a.insert(a.begin(), b.begin(), b.end());
+	//for (std::list<Real>::iterator it = a.begin(); it != a.end(); it++)
+	//	cout << *it << endl;
 
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
 }
-
-int noact(const int a)
-{
-	int b = a;
-	return b;
-}
-
-int fcn(int a, int& b)
-{
-	a += 1;
-	b = a;
-	if (a == 10)
-		return 100;
-	return fcn(a, b);
-}
-
 
 void loadData(MatrixX& data)
 {

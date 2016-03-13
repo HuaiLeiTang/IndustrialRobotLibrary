@@ -266,6 +266,8 @@ namespace rovin {
 
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
+		//if (s == _si)
+		//	s += 1e-6;
 		if (s == _sf)
 			s -= 1e-6;
 
