@@ -466,26 +466,22 @@ namespace rovin
 	{
 		Real s_cur, sdot_cur, s_swi, sdot_swi;
 		unsigned int numOfswi = allSwitchPoint.size();
+		unsigned int swi;
 
 		Vector2 alphabeta;
 		Real alpha_cur, beta_cur;
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> tmp_list;
+		std::list<Vector2, Eigen::aligned_allocator<Vector2>> backward_list;
+		std::list<Vector2, Eigen::aligned_allocator<Vector2>> forward_list;
 
 		for (unsigned int i = 0; i < numOfswi; i++)
 		{
+			backward_list.clear();
+			forward_list.clear();
 			tmp_list.clear();
 			LC.push_back(tmp_list);
-
 			s_swi = round(allSwitchPoint[i]._s / _ds) * _ds;
 			sdot_swi = allSwitchPoint[i]._sdot;
-
-			std::cout << "///////////////////////////////////////////////////////////////////" << std::endl;
-			std::cout << "///////////////////////////////////////////////////////////////////" << std::endl;
-			std::cout << "///////////////////////////////////////////////////////////////////" << std::endl;
-			std::cout << i << std::endl;
-
-			if (i == 4)
-				std::cout << std::endl;
 
 			// backward integration
 			s_cur = s_swi;
@@ -504,27 +500,11 @@ namespace rovin
 				}
 			}
 
-			unsigned int swi_backward;
-			unsigned int swi_backwardVel = 2;
-			while (true)
+			swi = backwardIntegrate(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
+			if (swi == 0)
 			{
-				if (swi_backwardVel == 2)
-					swi_backward = backwardInt(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-
-				if (swi_backward == 0)
-					return false;
-				else if (swi_backward == 1)
-					break;
-				else if (swi_backward == 2)
-					swi_backwardVel = backwardIntVel(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-
-				if (swi_backwardVel == 1)
-					break;
-				else if (swi_backwardVel == 3)
-				{
-					backwardforInt(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-					swi_backward == 2;
-				}
+				s_swi = LC[i].back()(0);
+				sdot_swi = LC[i].back()(1);
 			}
 
 			// forward integration
@@ -543,30 +523,40 @@ namespace rovin
 				}
 			}
 
-			unsigned int swi_forward;
-			unsigned int swi_forwardVel = 2;
-			while (true)
-			{
-				if(swi_forwardVel == 2)
-					swi_forward = forwardInt(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-				
-				if (swi_forward == 0)
-					return false;
-				else if (swi_forward == 1)
-					break;
-				else if (swi_forward == 2)
-					swi_forwardVel = forwardIntVel(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-
-				if (swi_forwardVel == 1)
-					break;
-				else if (swi_forwardVel == 3)
-				{
-					forwardbackInt(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-					swi_forward == 2;
-				}
-			}
+			swi = forwardIntegrate(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
+			
 		}
 		return true;
+	}
+
+	unsigned int AVP_RRT::forwardIntegrate(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		const std::vector<unsigned int>& allMVCPointsFlag)
+	{
+		unsigned int swi_forward;
+		unsigned int swi_forwardVel = 2;
+		unsigned int swi_forwardback = 1;
+		while (true)
+		{
+			if (swi_forwardVel == 2)
+				swi_forward = forwardInt(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
+
+			if (swi_forward == 0)
+				return false;
+			else if (swi_forward == 1)
+				break;
+			else if (swi_forward == 2)
+				swi_forwardVel = forwardIntVel(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
+
+			if (swi_forwardVel == 1)
+				break;
+			else if (swi_forwardVel == 3)
+			{
+				swi_forwardback = forwardbackInt(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
+				swi_forward == 2;
+			}
+		}
+		return swi_forwardback;
 	}
 
 	unsigned int AVP_RRT::forwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
@@ -644,7 +634,7 @@ namespace rovin
 		}
 	}
 
-	void AVP_RRT::forwardbackInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+	unsigned int AVP_RRT::forwardbackInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 		const std::vector<unsigned int>& allMVCPointsFlag)
 	{
@@ -676,6 +666,7 @@ namespace rovin
 		}
 		
 		// backward integration
+		unsigned int result;
 		Real sdot_LC;
 		Real s_LC_back = LC.back()(0);
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> tmp_back_list;
@@ -689,7 +680,10 @@ namespace rovin
 			{
 				sdot_LC = LC.back()(1);
 				if (sdot_cur > sdot_LC)
+				{
+					result = 1;
 					break;
+				}
 				LC.pop_back();
 				tmp_back_list.push_front(Vector2(s_cur, sdot_cur));
 
@@ -699,9 +693,17 @@ namespace rovin
 					_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
 					sdot_LC = LC.back()(1);
 					if (sdot_cur > sdot_LC)
+					{
+						result = 1;
 						break;
+					}
 					LC.pop_back();
 					tmp_back_list.push_front(Vector2(s_cur, sdot_cur));
+					if (LC.size() == 0)
+					{
+						result = 0;
+						break;
+					}
 				}
 				break;
 			}
@@ -710,6 +712,37 @@ namespace rovin
 		s_cur = tmp_back_list.back()(0);
 		sdot_cur = tmp_back_list.back()(1);
 		LC.insert(LC.end(), tmp_back_list.begin(), tmp_back_list.end());
+		return result;
+	}
+
+	unsigned int AVP_RRT::backwardIntegrate(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+		const std::vector<unsigned int>& allMVCPointsFlag)
+	{
+		unsigned int swi_backward;
+		unsigned int swi_backwardVel = 2;
+		unsigned int swi_backwardfor = 1;
+		while (true)
+		{
+			if (swi_backwardVel == 2)
+				swi_backward = backwardInt(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
+
+			if (swi_backward == 0)
+				return false;
+			else if (swi_backward == 1)
+				break;
+			else if (swi_backward == 2)
+				swi_backwardVel = backwardIntVel(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
+
+			if (swi_backwardVel == 1)
+				break;
+			else if (swi_backwardVel == 3)
+			{
+				swi_backwardfor = backwardforInt(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
+				swi_backward == 2;
+			}
+		}
+		return swi_backwardfor;
 	}
 
 	unsigned int AVP_RRT::backwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
@@ -787,7 +820,7 @@ namespace rovin
 		}
 	}
 
-	void AVP_RRT::backwardforInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+	unsigned int AVP_RRT::backwardforInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 		const std::vector<unsigned int>& allMVCPointsFlag)
 	{
@@ -819,6 +852,7 @@ namespace rovin
 		}
 
 		// forward integration
+		unsigned int result;
 		Real sdot_LC;
 		Real s_LC_front = LC.front()(0);
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> tmp_front_list;
@@ -832,7 +866,10 @@ namespace rovin
 			{
 				sdot_LC = LC.front()(1);
 				if (sdot_cur > sdot_LC)
+				{
+					result = 1;
 					break;
+				}
 				LC.pop_front();
 				tmp_front_list.push_back(Vector2(s_cur, sdot_cur));
 
@@ -842,9 +879,17 @@ namespace rovin
 					_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
 					sdot_LC = LC.front()(1);
 					if (sdot_cur > sdot_LC)
+					{
+						result = 1;
 						break;
+					}
 					LC.pop_front();
 					tmp_front_list.push_back(Vector2(s_cur, sdot_cur));
+					if (LC.size() == 0)
+					{
+						result = 0;
+						break;
+					}
 				}
 				break;
 			}
@@ -853,6 +898,7 @@ namespace rovin
 		s_cur = tmp_front_list.front()(0);
 		sdot_cur = tmp_front_list.front()(1);
 		LC.insert(LC.begin(), tmp_front_list.begin(), tmp_front_list.end());
+		return result;
 	}
 
 	void AVP_RRT::calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,

@@ -166,23 +166,29 @@ namespace rovin
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 			const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag);
 
+		unsigned int forwardIntegrate(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
 		unsigned int forwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
 		unsigned int forwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
-		void forwardbackInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+		unsigned int forwardbackInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
-
+		
+		unsigned int backwardIntegrate(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
 		unsigned int backwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
 		unsigned int backwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
-		void backwardforInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+		unsigned int backwardforInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
 

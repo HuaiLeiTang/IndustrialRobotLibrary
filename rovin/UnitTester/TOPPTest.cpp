@@ -28,7 +28,7 @@ int main()
 	//Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 
 	//// consider only torque constraint
-	//TOPP topp1(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE);
+	//TOPP topp1(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
 	//topp1.generateTrajectory();
 	//cout << "[ consider only torque constraint ]" << endl;
 	//cout << "Final time : " << topp1.getFinalTime() << endl << endl;
@@ -55,23 +55,7 @@ int main()
 	
 	// AVP test
 	avp_rrt.runAVP(Pnew, nearInterval, endInterval);
-
-	// AVP_backward test
 	//avp_rrt.runAVPbackward(Pnew, nearInterval, endInterval);
-
-	//std::list<Real> a;
-	//std::list<Real> b;
-	//a.push_back(1);
-	//a.push_back(2);
-	//a.push_back(3);
-
-	//b.push_front(10);
-	//b.push_front(20);
-	//b.push_front(30);
-
-	//a.insert(a.begin(), b.begin(), b.end());
-	//for (std::list<Real>::iterator it = a.begin(); it != a.end(); it++)
-	//	cout << *it << endl;
 
 	cout << "Program complete" << endl;
 	_getch();
