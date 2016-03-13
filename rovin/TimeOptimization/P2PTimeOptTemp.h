@@ -103,8 +103,11 @@ namespace rovin
 			_robot = robot;
 			_constraintType = constraintType; 
 			
-			Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
-			_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
+			Real _ds = 1e-3, _vi = 0, _vf = 0, _si = 0, _sf = 1;
+			_topp = TOPPPtr(new TOPP(_robot, _vi, _vf, _ds, _si, _sf, constraintType));
+			ds = _topp->getStepSize();
+			sf = _topp->getFinalParam();
+			si = _topp->getInitialParam();
 
 			srand(time(NULL));
 		}
@@ -137,7 +140,7 @@ namespace rovin
 		bool runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		
 		void settingtopp(std::list<VectorX>& Pnew);
-
+		
 		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
 			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC);
@@ -162,6 +165,15 @@ namespace rovin
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 			const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag);
 
+		int forwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag);
+		int forwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag);
+		int backwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag);
+		int backwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag);
+
 
 	private:
 		SerialOpenChainPtr _robot;
@@ -180,6 +192,15 @@ namespace rovin
 		double _stepsize;
 		Vector2 _wayPointInterval;
 
+		typedef int(AVP_RRT::*AVP_fcnpointer)(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag);
+		AVP_fcnpointer forward_fcnpointer;
+		AVP_fcnpointer backward_fcnpointer;
+
+		Real ds;
+		Real sf;
+		Real si;
+
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -193,6 +214,28 @@ namespace rovin
 		std::vector<Real> s_LC;
 		std::vector<Real> sdot_LC;
 		std::vector<Real> sdot_CLC;
+
+		void savedata(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, 
+			std::vector<SwitchPoint>& allSwitchPoint, std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC_copy,
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, 
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
+		{
+			savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+			saveSwitchPoint(allSwitchPoint);
+			for (unsigned int i = 0; i < LC_copy.size(); i++)
+			{
+				std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+				std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+				s_string = s_string + std::to_string(i) + ".txt";
+				sdot_string = sdot_string + std::to_string(i) + ".txt";
+				saveLC(LC_copy[i], s_string, sdot_string);
+			}
+			savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
+			savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
+		}
 
 		void saveRealVector2txt(std::vector<Real> in, std::string filename)
 		{

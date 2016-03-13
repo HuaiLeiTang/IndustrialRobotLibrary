@@ -80,6 +80,7 @@ namespace rovin {
 	public:
 		CONSTRAINT_TYPE _constraintType;
 		SerialOpenChainPtr _soc;
+		StatePtr _state;
 		unsigned int _dof;
 
 		MatrixX _q_data;

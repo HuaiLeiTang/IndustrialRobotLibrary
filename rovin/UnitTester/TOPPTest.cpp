@@ -17,6 +17,10 @@ StatePtr state;
 unsigned int dof;
 
 
+int fcn(int a, int& b);
+int add(int a, int b);
+int noact(const int a);
+
 int main()
 {	
 	//state = robot->makeState();
@@ -44,7 +48,7 @@ int main()
 	state = robot->makeState();
 	dof = robot->getNumOfJoint();
 
-	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE);
+	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
 
 	MatrixX q_data;
 	loadData(q_data);
@@ -60,10 +64,38 @@ int main()
 	// AVP_backward test
 	//avp_rrt.runAVPbackward(Pnew, nearInterval, endInterval);
 
+	//int(*fcnpointer)(int a, int& b);
+	//int(*fcnpointer2)(const int a);
+	//fcnpointer = fcn;
+	//fcnpointer2 = noact;
+
+	//int b;
+	//int c = fcnpointer(1, b);
+	//int d = fcnpointer2(20);
+	//cout << b << endl;
+	//cout << c << endl;
+	//cout << d << endl;
+
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
 }
+
+int noact(const int a)
+{
+	int b = a;
+	return b;
+}
+
+int fcn(int a, int& b)
+{
+	a += 1;
+	b = a;
+	if (a == 10)
+		return 100;
+	return fcn(a, b);
+}
+
 
 void loadData(MatrixX& data)
 {
