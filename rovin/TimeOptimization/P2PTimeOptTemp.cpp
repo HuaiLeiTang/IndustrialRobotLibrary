@@ -479,6 +479,14 @@ namespace rovin
 			s_swi = round(allSwitchPoint[i]._s / _ds) * _ds;
 			sdot_swi = allSwitchPoint[i]._sdot;
 
+			std::cout << "///////////////////////////////////////////////////////////////////" << std::endl;
+			std::cout << "///////////////////////////////////////////////////////////////////" << std::endl;
+			std::cout << "///////////////////////////////////////////////////////////////////" << std::endl;
+			std::cout << i << std::endl;
+
+			if (i == 4)
+				std::cout << std::endl;
+
 			// backward integration
 			s_cur = s_swi;
 			sdot_cur = sdot_swi;
@@ -894,27 +902,38 @@ namespace rovin
 		// find CLC
 		Real s_cur = s_begin;
 		std::vector<unsigned int> idx;
+		std::list<unsigned int> idx_erase;
 		Real ds = _topp->getStepSize();
-
 		Real tmp_min;
+		unsigned int list_size;
+
 		while (s_cur < s_end)
 		{
 			idx.clear();
 
 			for (unsigned int i = 0; i < LCsize; i++)
 			{
-				if ((*(it_end[i]))(0) < s_cur)
+				if (s_cur > ((*(it_end[i]))(0)+_ds*0.5))
 				{
-					it_end.erase(it_end.begin() + i);
-					it_begin.erase(it_begin.begin() + i);
-					LC.erase(LC.begin() + i);
+					idx_erase.push_back(i);
 					LCsize -= 1;
 				}
 			}
 
+			list_size = idx_erase.size();
+			for (unsigned int i = 0; i < list_size; i++)
+			{
+				it_end.erase(it_end.begin() + idx_erase.front());
+				it_begin.erase(it_begin.begin() + idx_erase.front());
+				LC.erase(LC.begin() + idx_erase.front());
+				idx_erase.pop_front();
+				for (std::list<unsigned int>::iterator it = idx_erase.begin(); it != idx_erase.end(); it++)
+					*it -= 1;
+			}
+
 			for (unsigned int i = 0; i < LCsize; i++)
 			{
-				if ((*(it_begin[i]))(0) <= s_cur)
+				if (std::pow(((*(it_begin[i]))(0)- s_cur),2) < _ds*_ds*1e-1) 
 					idx.push_back(i);
 			}
 
@@ -934,24 +953,33 @@ namespace rovin
 			s_cur += ds;
 		}
 
+		// for last value
 		idx.clear();
 		s_cur = s_end;
 		
-		// for last value
 		for (unsigned int i = 0; i < LCsize; i++)
 		{
-			if ((*(it_end[i]))(0) < s_end)
+			if (s_cur >((*(it_end[i]))(0) + _ds*0.5))
 			{
-				it_end.erase(it_end.begin() + i);
-				it_begin.erase(it_begin.begin() + i);
-				LC.erase(LC.begin() + i);
+				idx_erase.push_back(i);
 				LCsize -= 1;
 			}
 		}
 
+		list_size = idx_erase.size();
+		for (unsigned int i = 0; i < list_size; i++)
+		{
+			it_end.erase(it_end.begin() + idx_erase.front());
+			it_begin.erase(it_begin.begin() + idx_erase.front());
+			LC.erase(LC.begin() + idx_erase.front());
+			idx_erase.pop_front();
+			for (std::list<unsigned int>::iterator it = idx_erase.begin(); it != idx_erase.end(); it++)
+				*it -= 1;
+		}
+
 		for (unsigned int i = 0; i < LCsize; i++)
 		{
-			if ((*(it_begin[i]))(0) <= s_cur)
+			if (std::pow(((*(it_begin[i]))(0) - s_cur), 2) < _ds*_ds*1e-1)
 				idx.push_back(i);
 		}
 
