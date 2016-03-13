@@ -2,6 +2,9 @@
 
 namespace rovin
 {
+
+
+
 	void AVP_RRT::generateTrajectory()
 	{
 		// initialization! -> way point setting
@@ -41,14 +44,14 @@ namespace rovin
 			{
 				// add vertex
 				_startTree.addVertex(candiVertex);
-				
+
 				// connection test to the _goalTree
 				Vertex * oppVertex = NULL;
 				Vertex * conVertex = NULL;
 				if (testConnection(candiVertex, &_goalTree, &oppVertex, &conVertex))
 				{
 					// oppVertex and conVertex have same configuration but conVertex is in startTree and oppVertex is in goalTree
-										
+
 					// extract path!!!!
 					extractPath(conVertex, oppVertex, idx);
 					return SUCCESS;
@@ -112,7 +115,7 @@ namespace rovin
 		{
 			lb = _robot->getMotorJointPtr(i)->getLimitPosLower();
 			ub = _robot->getMotorJointPtr(i)->getLimitPosUpper();
-			qrand(i) = (Real)( ((ub - lb)*rand()) / (RAND_MAX + 0.0) + lb);
+			qrand(i) = (Real)(((ub - lb)*rand()) / (RAND_MAX + 0.0) + lb);
 		}
 	}
 
@@ -222,7 +225,7 @@ namespace rovin
 	bool AVP_RRT::runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
 	{
 		settingtopp(Pnew);
-		
+
 		Real sdot_beg_min = nearInterval(0);
 		Real sdot_beg_max = nearInterval(1);
 
@@ -245,7 +248,7 @@ namespace rovin
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
 
-		// case A1
+					  // case A1
 		if (A1switch == false)
 		{
 			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
@@ -268,7 +271,7 @@ namespace rovin
 		Vector2 _nearInterval(sdot_beg_min, sdot_beg_max_star);
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> phi;
 		unsigned int Bcase;
-		
+
 		Bcase = determineAVPBresult(allMVCPoints, CLC, sdot_beg_max_star, phi);
 
 		if (Bcase == 1)
@@ -310,7 +313,23 @@ namespace rovin
 		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1), FORWARD);
 		std::cout << endInterval << std::endl;
 
-		savedata(allMVCPoints, allSwitchPoint, LC_copy, CLC, phi);
+		///////////////////////////////  save  ///////////////////////////////
+
+		savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+		saveSwitchPoint(allSwitchPoint);
+		for (unsigned int i = 0; i < LC_copy.size(); i++)
+		{
+			std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+			std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+			s_string = s_string + std::to_string(i) + ".txt";
+			sdot_string = sdot_string + std::to_string(i) + ".txt";
+			saveLC(LC_copy[i], s_string, sdot_string);
+		}
+		savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
+		savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
 
 		return true;
 	}
@@ -407,7 +426,23 @@ namespace rovin
 		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1), BACKWARD);
 		std::cout << endInterval << std::endl;
 
-		savedata(allMVCPoints, allSwitchPoint, LC_copy, CLC, phi);
+		///////////////////////////////  save  ///////////////////////////////
+
+		savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+		saveSwitchPoint(allSwitchPoint);
+		for (unsigned int i = 0; i < LC_copy.size(); i++)
+		{
+			std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+			std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+			s_string = s_string + std::to_string(i) + ".txt";
+			sdot_string = sdot_string + std::to_string(i) + ".txt";
+			saveLC(LC_copy[i], s_string, sdot_string);
+		}
+		savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
+		savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
+			"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
 
 		return true;
 	}
@@ -429,28 +464,32 @@ namespace rovin
 		const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC)
 	{
-		Real s_cur, sdot_cur, s_swi, sdot_swi;
+		Real s_cur, sdot_cur, s_swi, sdot_swi, sdot_MVC, s_next, sdot_next, slope;
 		Real ds = _topp->getStepSize();
 		Real si = _topp->getInitialParam();
 		Real sf = _topp->getFinalParam();
+		int flag;
+		unsigned int idx;
 		unsigned int numOfswi = allSwitchPoint.size();
-		int swi;
+		bool FI_SW, BI_SW, I_SW;
 
+		Vector2 alphabeta;
+		Real alpha_cur, beta_cur;
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> tmp_list;
 
 		for (unsigned int i = 0; i < numOfswi; i++)
 		{
-			std::cout << i << std::endl;
-
-
 			tmp_list.clear();
 			LC.push_back(tmp_list);
+
 			s_swi = round(allSwitchPoint[i]._s / ds) * ds;
 			sdot_swi = allSwitchPoint[i]._sdot;
 
 			// backward integration
-			s_cur = s_swi; sdot_cur = sdot_swi;
+			s_cur = s_swi;
+			sdot_cur = sdot_swi;
 			LC[i].push_front(Vector2(s_cur, sdot_cur));
+
 			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
 			{
 				Real lambda = allSwitchPoint[i]._lambda;
@@ -462,18 +501,80 @@ namespace rovin
 					LC[i].push_front(Vector2(s_cur, sdot_cur));
 				}
 			}
-			backward_fcnpointer = &AVP_RRT::backwardInt;
+
 			while (s_cur > si)
 			{
-				swi = (this->*backward_fcnpointer)(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-				if (swi == 0)
+				alpha_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(0);
+				_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+
+				idx = round(s_cur / ds);
+				sdot_MVC = allMVCPoints[idx](1);
+				flag = allMVCPointsFlag[idx];
+
+				if (sdot_cur < 1e-5)
 					return false;
-				else if (swi == 1)
-					break;
+
+				LC[i].push_front(Vector2(s_cur, sdot_cur));
+				if (sdot_cur > sdot_MVC)
+				{
+					//sdot_cur = sdot_MVC;
+					//LC[i].pop_front(); LC[i].push_front(Vector2(s_cur, sdot_cur));
+
+					//s_cur += ds;
+					//LC[i].pop_front();
+					//break;
+
+					if (flag == 2)
+					{
+						s_cur += ds;
+						LC[i].pop_front();
+						break;
+					}
+					else if (flag == 1)
+					{
+						s_cur += ds;
+						LC[i].pop_front();
+						while (true)
+						{
+							if (s_cur < si)
+							{
+								LC[i].pop_front(); LC[i].push_front(Vector2(si, sdot_cur));
+								break;
+							}
+							else if (flag == 2)
+								break;
+
+							s_next = s_cur - ds;
+							idx = round(s_next / ds);
+							sdot_next = allMVCPoints[idx](1);
+							flag = allMVCPointsFlag[idx];
+
+							alphabeta = _topp->determineAlphaBeta(s_cur, sdot_cur);
+							alpha_cur = alphabeta(0);
+							beta_cur = alphabeta(1);
+
+							//slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+							s_cur = s_next;
+							sdot_cur = sdot_next;
+							LC[i].push_front(Vector2(s_cur, sdot_cur));
+
+							//if (beta_cur >= slope && slope >= alpha_cur)
+							//{
+							//	s_cur = s_next; sdot_cur = sdot_next;
+							//	
+							//}
+						}
+					}
+
+				}
 			}
 
 			// forward integration
-			s_cur = s_swi; sdot_cur = sdot_swi;
+			s_cur = s_swi;
+			sdot_cur = sdot_swi;
+			FI_SW = true, BI_SW = false, I_SW = true;
+
 			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
 			{
 				Real lambda = allSwitchPoint[i]._lambda;
@@ -485,166 +586,71 @@ namespace rovin
 					LC[i].push_back(Vector2(s_cur, sdot_cur));
 				}
 			}
-			forward_fcnpointer = &AVP_RRT::forwardInt;
+
 			while (s_cur < sf)
 			{
-				swi = (this->*forward_fcnpointer)(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
-				if (swi == 0)
+				beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
+				_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
+
+				idx = round(s_cur / ds);
+				sdot_MVC = allMVCPoints[idx](1);
+				flag = allMVCPointsFlag[idx];
+
+				if (sdot_cur < 1e-4)
 					return false;
-				else if (swi == 1)
-					break;
+				LC[i].push_back(Vector2(s_cur, sdot_cur));
+
+				if (sdot_cur > sdot_MVC)
+				{
+					if (flag == 2)
+					{
+						s_cur -= ds;
+						LC[i].pop_back();
+						break;
+					}
+					else if (flag == 1)
+					{
+						s_cur -= ds;
+						LC[i].pop_back();
+						while (true)
+						{
+							if (s_cur > sf)
+							{
+								LC[i].pop_back(); LC[i].push_back(Vector2(sf, sdot_cur));
+								break;
+							}
+							else if (flag == 2)
+								break;
+
+							s_next = s_cur + ds;
+							idx = round(s_next / ds);
+							sdot_next = allMVCPoints[idx](1);
+							flag = allMVCPointsFlag[idx];
+
+							alphabeta = _topp->determineAlphaBeta(s_cur, sdot_cur);
+							alpha_cur = alphabeta(0);
+							beta_cur = alphabeta(1);
+
+							//slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+							s_cur = s_next; sdot_cur = sdot_next;
+							LC[i].push_back(Vector2(s_cur, sdot_cur));
+
+							//if (beta_cur >= slope && slope >= alpha_cur)
+							//{
+							//	s_cur = s_next; sdot_cur = sdot_next;
+							//	LC[i].push_back(Vector2(s_cur, sdot_cur));
+							//}
+							//else if (beta_cur < slope)
+							//{
+							//	// forward integrate..,.
+							//}
+						}
+					}
+				}
 			}
 		}
 		return true;
-	}
-
-	int AVP_RRT::forwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag)
-	{
-		Real beta_cur, sdot_MVC;
-		unsigned int idx;
-		int flag;
-
-		beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
-		_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
-		if (s_cur > sf)
-			return 1;
-		idx = round(s_cur / ds);
-		sdot_MVC = allMVCPoints[idx](1);
-		flag = allMVCPointsFlag[idx];
-
-		if (sdot_cur < 1e-5)
-			return 0;
-		else if (sdot_cur > sdot_MVC)
-		{
-			if (flag == 2)
-				return 1;
-			else if (flag == 1)
-				forward_fcnpointer = &AVP_RRT::forwardIntVel;
-		}
-		
-		LC.push_back(Vector2(s_cur, sdot_cur));
-
-		return (this->*forward_fcnpointer)(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
-	}
-
-	int AVP_RRT::forwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag)
-	{
-		Vector2 alphabeta;
-		Real sdot_MVC, s_next, sdot_next, ds, slope;
-		Real alpha_cur, beta_cur;
-		unsigned int idx;
-		int flag;
-
-		//alphabeta = _topp->determineAlphaBeta(s_cur, sdot_cur);
-		//alpha_cur = alphabeta(0);
-		//beta_cur = alphabeta(1);
-
-		s_next = s_cur + ds;
-		if(s_next > sf)
-			return 1;
-
-		idx = round(s_next / ds);
-		sdot_next = allMVCPoints[idx](1);
-		flag = allMVCPointsFlag[idx];
-		if (flag == 2)
-			return 1;
-
-		//slope = (sdot_next - sdot_cur) / (s_next - s_cur);
-
-
-		//if (beta_cur >= slope && slope >= alpha_cur)
-		//{
-		//	s_cur = s_next; sdot_cur = sdot_next;
-		//	LC.push_back(Vector2(s_cur, sdot_cur));
-		//}
-		//else if (beta_cur < slope)
-		//	forward_fcnpointer = &AVP_RRT::forwardInt;
-		//if (beta_cur >= slope && slope >= alpha_cur)
-		//{
-		//	s_cur = s_next; sdot_cur = sdot_next;
-		//	LC[i].push_back(Vector2(s_cur, sdot_cur));
-		//}
-		//else if (beta_cur < slope)
-		//{
-		//	// forward integrate..,.
-		//}
-
-		LC.push_back(Vector2(s_cur, sdot_cur));
-		return (this->*forward_fcnpointer)(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
-	}
-
-	int AVP_RRT::backwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag)
-	{
-		Real alpha_cur, sdot_MVC;
-		unsigned int idx;
-		int flag;
-
-		alpha_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(0);
-		_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-		if (s_cur < _topp->getInitialParam())
-		//if (s_cur < si)
-			return 1;
-		idx = round(s_cur / _topp->getStepSize());
-		sdot_MVC = allMVCPoints[idx](1);
-		flag = allMVCPointsFlag[idx];
-
-		if (sdot_cur < 1e-5)
-			return 0;
-		else if (sdot_cur > sdot_MVC)
-		{
-			if (flag == 2)
-				return 1;
-			else if (flag == 1)
-				backward_fcnpointer = &AVP_RRT::backwardIntVel;
-		}
-
-		LC.push_front(Vector2(s_cur, sdot_cur));
-		return (this->*backward_fcnpointer)(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
-	}
-	int AVP_RRT::backwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, const std::vector<unsigned int>& allMVCPointsFlag)
-	{
-		Vector2 alphabeta;
-		Real sdot_MVC, s_next, sdot_next, ds, slope;
-		Real alpha_cur, beta_cur;
-		unsigned int idx;
-		int flag;
-
-		ds = _topp->getStepSize();
-
-		//alphabeta = _topp->determineAlphaBeta(s_cur, sdot_cur);
-		//alpha_cur = alphabeta(0);
-		//beta_cur = alphabeta(1);
-
-		s_next = s_cur - ds;
-		if (s_next < _topp->getInitialParam())
-			return 1;
-
-		idx = round(s_next / ds);
-		sdot_next = allMVCPoints[idx](1);
-		flag = allMVCPointsFlag[idx];
-		if (flag == 2)
-			return 1;
-		
-		//slope = (sdot_next - sdot_cur) / (s_next - s_cur);
-
-		s_cur = s_next; sdot_cur = sdot_next;
-
-		//if (beta_cur >= slope && slope >= alpha_cur)
-		//{
-		//	s_cur = s_next; sdot_cur = sdot_next;
-		//	LC[i].push_back(Vector2(s_cur, sdot_cur));
-		//}
-		//else if (beta_cur < slope)
-		//{
-		//	// forward integrate..,.
-		//}
-
-		LC.push_front(Vector2(s_cur, sdot_cur));
-		return (this->*backward_fcnpointer)(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
 	}
 
 	void AVP_RRT::calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
@@ -776,7 +782,7 @@ namespace rovin
 	{
 		bool si_col = false, sf_col = false;
 
-		Real eps_init = std::pow((CLC.front()(0) - _topp->getInitialParam()),2);
+		Real eps_init = std::pow((CLC.front()(0) - _topp->getInitialParam()), 2);
 		Real eps_final = std::pow((CLC.back()(0) - _topp->getFinalParam()), 2);
 
 		if (eps_init <= 1e-5)
@@ -829,7 +835,7 @@ namespace rovin
 	}
 
 	unsigned int AVP_RRT::determineAVPBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init, 
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
 	{
 		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_MVC, sdot_CLC;
@@ -915,7 +921,7 @@ namespace rovin
 	}
 
 	bool AVP_RRT::IS_VALID(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
-		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi, 
+		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 		const Vector2& nearInterval, const Real sdot_test)
 	{
 		Real s_cur, sdot_cur, alpha_cur, si, ds, sdot_phi, sdot_CLC;
@@ -979,7 +985,7 @@ namespace rovin
 				sdot_phi = std::numeric_limits<Real>::max();
 			else if (s_cur >= s_phi_init)
 				sdot_phi = phi[cnt++](1);
-				
+
 
 			if (sdot_cur < 0)
 				return false;
@@ -1052,7 +1058,11 @@ namespace rovin
 		return sdot_cur;
 	}
 
-	void Tree::initializeTree(Vertex * rootVertex) 
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	void Tree::initializeTree(Vertex * rootVertex)
 	{
 
 		_mpnnTree = new MultiANN(rootVertex->_config.size(), MPNN_TREE_MAXIMUM_NODES);
