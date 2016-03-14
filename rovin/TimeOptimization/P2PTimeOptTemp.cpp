@@ -5,7 +5,7 @@ namespace rovin
 	AVP_RRT::AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType) : _robot(robot), _constraintType(constraintType)
 	{
 		_dof = robot->getNumOfJoint();
-		Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
+		Real ds = 1.0/20.0, vi = 0, vf = 0, si = 0, sf = 1;
 		_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
 
 		_ds = _topp->getStepSize();
@@ -74,14 +74,14 @@ namespace rovin
 		int iter = 0;
 		do // MAIN LOOP
 		{
-			//std::cout << iter << std::endl;
+			std::cout << iter << std::endl;
 			makeRandomConfig(qrand);
 			//if collisionchekc(qrand)
 			//	continue;
 
 
 			// extend from start tree to random configuration
-			candiVertex = NULL;
+			candiVertex = new Vertex();
 			extendTree(&_startTree, qrand, true, &candiVertex);
 			if (candiVertex != NULL)
 			{
@@ -104,7 +104,7 @@ namespace rovin
 
 
 			// extend from goal tree to random configuration
-			candiVertex = NULL;
+			candiVertex = new Vertex();
 			extendTree(&_goalTree, qrand, false, &candiVertex);
 			if (candiVertex != NULL)
 			{
@@ -122,9 +122,10 @@ namespace rovin
 				}
 			}
 
-		} while (iter++ < AVP_RRT_MAX_ITER);
+		} while (++iter< AVP_RRT_MAX_ITER);
 
-
+		if (iter >= AVP_RRT_MAX_ITER)
+			flag = EXCEED_MAX_ITER;
 
 
 		//if (flag == SUCCESS)
@@ -144,8 +145,8 @@ namespace rovin
 	{
 		Vector2 tmp(0, std::numeric_limits<Real>::max());
 
-		Vertex * startVertex = new Vertex(_waypoints[idx].getJointq(), tmp, std::list<VectorX>(), NULL);
-		Vertex * goalVertex = new Vertex(_waypoints[idx + 1].getJointq(), tmp, std::list<VectorX>(), NULL);
+		Vertex * startVertex = new Vertex(_waypoints[idx].getJointq(), _waypoints[idx].getJointqdot(), tmp, std::list<VectorX>(), NULL);
+		Vertex * goalVertex = new Vertex(_waypoints[idx + 1].getJointq(), _waypoints[idx + 1].getJointqdot(), tmp, std::list<VectorX>(), NULL);
 		
 		_startTree.initializeTree(startVertex);
 		_goalTree.initializeTree(goalVertex);
@@ -175,8 +176,8 @@ namespace rovin
 
 		// interpolate between nVertex.config and qnew(configuration far away from nVertex.config about stepsize)
 		std::list<VectorX> Pnew;
-		VectorX qnew;
-		if (!interpolate(nVertex, qrand, tmpDist, forward, Pnew, qnew))
+		VectorX qnew, qvel;
+		if (!interpolate(nVertex, qrand, tmpDist, forward, Pnew, qnew, qvel))
 		{
 			//FAILURE!!
 		}
@@ -207,7 +208,7 @@ namespace rovin
 
 		if (isSucceeded)
 		{
-			(*candiVertex) = new Vertex(qnew, endInterval, Pnew, nVertex);
+			(*candiVertex) = new Vertex(qnew, qvel, endInterval, Pnew, nVertex);
 			return true;
 		}
 		else
@@ -218,7 +219,7 @@ namespace rovin
 
 	}
 
-	bool AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew)
+	bool AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew, VectorX & qvel)
 	{
 		VectorX qnear = nVertex->_config;
 		VectorX qnearvel = nVertex->_configVel;
@@ -276,6 +277,11 @@ namespace rovin
 		Pnew.push_back(q(_sf - 1e-5));
 
 
+		qvel = qs(_sf - 1e-5);
+
+
+		// feasibility test
+
 		bool testCollision = true; // true: succeded (no collision), false: collision detected
 								   // collision test routine for Pnew is needed...
 
@@ -312,8 +318,8 @@ namespace rovin
 		if (tmpDist < _stepsize)
 		{
 			std::list<VectorX> Ptmp;
-			VectorX qtmp;
-			if (!interpolate(vertex, (*oVertex)->_config, tmpDist, forward, Ptmp, qtmp))
+			VectorX qtmp, qvel;
+			if (!interpolate(vertex, (*oVertex)->_config, tmpDist, forward, Ptmp, qtmp, qvel))
 				return false;
 
 			Vector2 endInterval;
@@ -324,6 +330,7 @@ namespace rovin
 					if (checkIntersectionOfTwoIntervals(endInterval, (*oVertex)->_interval))
 					{
 						(*cVertex)->_config = (*oVertex)->_config;
+						(*cVertex)->_configVel = qvel;
 						(*cVertex)->_inpath = Ptmp;
 						(*cVertex)->_interval = endInterval;
 						(*cVertex)->_parentVertex = vertex;
@@ -339,6 +346,7 @@ namespace rovin
 					if (checkIntersectionOfTwoIntervals(endInterval, (*oVertex)->_interval))
 					{
 						(*cVertex)->_config = (*oVertex)->_config;
+						(*cVertex)->_configVel = qvel;
 						(*cVertex)->_inpath = Ptmp;
 						(*cVertex)->_interval = endInterval;
 						(*cVertex)->_parentVertex = vertex;
@@ -429,7 +437,7 @@ namespace rovin
 		// feasibility test of sdot_beg_star
 		VectorX tmpVec(_dof);
 		tmpVec = _waypoints[_curSegment].getJointqdot();
-		tmpVec.cwiseProduct(qs.cwiseInverse());
+		tmpVec = tmpVec.cwiseProduct(qs.cwiseInverse());
 
 		if (sdot_beg_star < tmpVec.maxCoeff())
 			return false; // failure case

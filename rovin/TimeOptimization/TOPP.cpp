@@ -44,6 +44,8 @@ namespace rovin {
 		_sdot.clear();
 		_sddot.clear();
 		_switchPoint.clear();
+		_allMVCPoints.clear();
+		_allMVCPointsFlag.clear();
 	}
 
 	void TOPP::setJointTrajectory(const MatrixX & q_data)
@@ -150,7 +152,6 @@ namespace rovin {
 
 	void TOPP::calculateAllSwitchPoint()
 	{
-		initialization();
 
 		Real s = _si;
 		while (findNearestSwitchPoint(s))
