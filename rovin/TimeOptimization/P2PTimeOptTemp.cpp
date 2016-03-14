@@ -2,8 +2,17 @@
 
 namespace rovin
 {
+	AVP_RRT::AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType) : _robot(robot), _constraintType(constraintType)
+	{
+		Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
+		_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
 
+		_ds = _topp->getStepSize();
+		_si = _topp->getInitialParam();
+		_sf = _topp->getFinalParam();
 
+		srand(time(NULL));
+	}
 
 	void AVP_RRT::generateTrajectory()
 	{
@@ -157,8 +166,9 @@ namespace rovin
 
 	}
 
-	void AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const double dist, std::list<VectorX> & Pnew, VectorX & qnew)
+	void AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, std::list<VectorX> & Pnew, VectorX & qnew)
 	{
+		// what is dist???
 		if (dist < _stepsize)
 			qnew = qrand;
 		else
@@ -248,7 +258,6 @@ namespace rovin
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
 
-					  // case A1
 		if (A1switch == false)
 		{
 			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
@@ -313,23 +322,7 @@ namespace rovin
 		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1), FORWARD);
 		std::cout << endInterval << std::endl;
 
-		///////////////////////////////  save  ///////////////////////////////
-
-		savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
-			"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
-		saveSwitchPoint(allSwitchPoint);
-		for (unsigned int i = 0; i < LC_copy.size(); i++)
-		{
-			std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
-			std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
-			s_string = s_string + std::to_string(i) + ".txt";
-			sdot_string = sdot_string + std::to_string(i) + ".txt";
-			saveLC(LC_copy[i], s_string, sdot_string);
-		}
-		savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
-			"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
-		savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
-			"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
+		saveData(allMVCPoints, allSwitchPoint, LC_copy, CLC, phi);
 
 		return true;
 	}
@@ -360,7 +353,6 @@ namespace rovin
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
 
-					  // case A1
 		if (A1switch == false)
 		{
 			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
@@ -426,24 +418,8 @@ namespace rovin
 		endInterval(0) = findsdotminBybinearSearch(allMVCPoints, CLC, phi, _nearInterval, endInterval(1), BACKWARD);
 		std::cout << endInterval << std::endl;
 
-		///////////////////////////////  save  ///////////////////////////////
-
-		savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
-			"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
-		saveSwitchPoint(allSwitchPoint);
-		for (unsigned int i = 0; i < LC_copy.size(); i++)
-		{
-			std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
-			std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
-			s_string = s_string + std::to_string(i) + ".txt";
-			sdot_string = sdot_string + std::to_string(i) + ".txt";
-			saveLC(LC_copy[i], s_string, sdot_string);
-		}
-		savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
-			"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
-		savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
-			"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
-
+		saveData(allMVCPoints, allSwitchPoint, LC_copy, CLC, phi);
+		
 		return true;
 	}
 
@@ -470,7 +446,6 @@ namespace rovin
 
 		Vector2 alphabeta;
 		Real alpha_cur, beta_cur;
-		std::list<Vector2, Eigen::aligned_allocator<Vector2>> tmp_list;
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> backward_list;
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> forward_list;
 
@@ -478,15 +453,13 @@ namespace rovin
 		{
 			backward_list.clear();
 			forward_list.clear();
-			tmp_list.clear();
-			LC.push_back(tmp_list);
 			s_swi = round(allSwitchPoint[i]._s / _ds) * _ds;
 			sdot_swi = allSwitchPoint[i]._sdot;
 
 			// backward integration
 			s_cur = s_swi;
 			sdot_cur = sdot_swi;
-			LC[i].push_front(Vector2(s_cur, sdot_cur));
+			backward_list.push_front(Vector2(s_cur, sdot_cur));
 
 			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
 			{
@@ -496,15 +469,16 @@ namespace rovin
 				{
 					s_cur -= _ds;
 					sdot_cur -= lambda * _ds;
-					LC[i].push_front(Vector2(s_cur, sdot_cur));
+					backward_list.push_front(Vector2(s_cur, sdot_cur));
 				}
 			}
 
-			swi = backwardIntegrate(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
+			swi = backwardIntegrate(s_cur, sdot_cur, backward_list, allMVCPoints, allMVCPointsFlag);
+			
 			if (swi == 0)
 			{
-				s_swi = LC[i].back()(0);
-				sdot_swi = LC[i].back()(1);
+				s_swi = backward_list.back()(0);
+				sdot_swi = backward_list.back()(1);
 			}
 
 			// forward integration
@@ -519,12 +493,37 @@ namespace rovin
 				{
 					s_cur += _ds;
 					sdot_cur += lambda * _ds;
-					LC[i].push_back(Vector2(s_cur, sdot_cur));
+					forward_list.push_back(Vector2(s_cur, sdot_cur));
 				}
 			}
 
-			swi = forwardIntegrate(s_cur, sdot_cur, LC[i], allMVCPoints, allMVCPointsFlag);
+			while (true)
+			{
+				swi = forwardIntegrate(s_cur, sdot_cur, forward_list, allMVCPoints, allMVCPointsFlag);
 			
+				if (swi == 1)
+					break;
+				else if (swi == 0)
+				{
+					backward_list.clear();
+					s_cur = forward_list.front()(0);
+					sdot_cur = forward_list.front()(1);
+				}
+				
+				swi = backwardIntegrate(s_cur, sdot_cur, backward_list, allMVCPoints, allMVCPointsFlag);
+				
+				if (swi == 1)
+					break;
+				else if (swi == 0)
+				{
+					forward_list.clear();
+					s_cur = backward_list.back()(0);
+					sdot_cur = backward_list.back()(1);
+				}
+			}
+
+			backward_list.insert(backward_list.end(), forward_list.begin(), forward_list.end());
+			LC.push_back(backward_list);
 		}
 		return true;
 	}
@@ -1324,10 +1323,6 @@ namespace rovin
 		}
 		return sdot_cur;
 	}
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	void Tree::initializeTree(Vertex * rootVertex)
 	{

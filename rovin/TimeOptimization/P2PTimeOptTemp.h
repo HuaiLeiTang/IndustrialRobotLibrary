@@ -95,23 +95,9 @@ namespace rovin
 		enum AVPFLAG { FORWARD, BACKWARD };
 
 	public:
-		AVP_RRT() {
-			srand(time(NULL));
-		};
+		AVP_RRT() { srand(time(NULL)); }
 		~AVP_RRT() {}
-		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType) {
-			_robot = robot;
-			_constraintType = constraintType;
-
-			Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
-			_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
-
-			_ds = _topp->getStepSize();
-			_si = _topp->getInitialParam();
-			_sf = _topp->getFinalParam();
-
-			srand(time(NULL));
-		}
+		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType);
 
 		void setWayPoints(const std::vector<WayPoint>& waypoints) { _waypoints = waypoints; }
 		void addWayPoints(const WayPoint& waypoint) { _waypoints.push_back(waypoint); }
@@ -125,7 +111,6 @@ namespace rovin
 		RETURNFLAG generateTrajectorySegment(int idx);
 
 		void treeInitialization(int idx);
-
 
 	private:
 		void makeRandomConfig(VectorX& qrand);
@@ -195,25 +180,25 @@ namespace rovin
 
 	private:
 		SerialOpenChainPtr _robot;
-
+		TOPPPtr _topp;
 		CONSTRAINT_TYPE _constraintType;
-		std::vector<WayPoint> _waypoints; // contains q and qdot
+		
+		std::vector<WayPoint> _waypoints; ///< contains q and qdot
 
 		Tree _startTree;
-		Tree _goalTree; ///> start and goal trees are made for every segment
+		Tree _goalTree; ///< start and goal trees are made for every segment
 		std::vector<MatrixX> _segmentPath;
 
-		MatrixX _finalPath; ///> concatenation of _segmentPath
-		TOPPPtr _topp;
-		unsigned int _dof;
-		unsigned int _numSegment;
-		double _stepsize;
+		MatrixX _finalPath; ///< concatenation of _segmentPath
 		Vector2 _wayPointInterval;
 
+		Real _stepsize;
 		Real _ds;
 		Real _si;
 		Real _sf;
-
+		
+		unsigned int _dof;
+		unsigned int _numSegment;
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -227,6 +212,27 @@ namespace rovin
 		std::vector<Real> s_LC;
 		std::vector<Real> sdot_LC;
 		std::vector<Real> sdot_CLC;
+
+		void saveData(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, std::vector<SwitchPoint>& allSwitchPoint, 
+			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC_copy, std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, 
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
+		{
+			savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+			saveSwitchPoint(allSwitchPoint);
+			for (unsigned int i = 0; i < LC_copy.size(); i++)
+			{
+				std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+				std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+				s_string = s_string + std::to_string(i) + ".txt";
+				sdot_string = sdot_string + std::to_string(i) + ".txt";
+				saveLC(LC_copy[i], s_string, sdot_string);
+			}
+			savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
+			savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
+		}
 
 		void saveRealVector2txt(std::vector<Real> in, std::string filename)
 		{
