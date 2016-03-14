@@ -88,28 +88,15 @@ namespace rovin
 
 	class AVP_RRT
 	{
-		
+
 	public:
 		enum RETURNFLAG {SUCCESS = 1, EXCEED_MAX_ITER = -1, EXCEED_MAX_NODE = -2}; // more flags are needed
+		enum AVPFLAG { FORWARD, BACKWARD };
 
 	public:
-		AVP_RRT() {
-			srand(time(NULL));
-		};
+		AVP_RRT() { srand(time(NULL)); }
 		~AVP_RRT() {}
-		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType){
-			_robot = robot;
-			_constraintType = constraintType; 
-			
-			Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
-			_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
-
-			_dof = robot->getNumOfJoint();
-			_stepsize = 0.1;
-			_curSegment = 0;
-
-			srand(time(NULL));
-		}
+		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType);
 
 		void setWayPoints(const std::vector<WayPoint>& waypoints) { _waypoints = waypoints; }
 		void addWayPoints(const WayPoint& waypoint) { _waypoints.push_back(waypoint); }
@@ -125,7 +112,6 @@ namespace rovin
 
 		void treeInitialization(int idx);
 
-
 	private:
 		void makeRandomConfig(VectorX& qrand);
 		Vertex * extendTree(Tree* tree, const VectorX qrand, bool atStartTree);
@@ -138,30 +124,81 @@ namespace rovin
 	public:
 		bool runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
 		bool runAVPbackward(std::list<VectorX>& Pnew, Vector2& nearInterval, /* OUTPUT */ Vector2& endInterval);
+
+		void settingtopp(std::list<VectorX>& Pnew);
+
 		bool calculateLimitingCurves(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag, const std::vector<SwitchPoint>& allSwitchPoint,
 			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC);
 		void calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
 			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC);
+		unsigned int determineAresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star, AVPFLAG avpflag);
+
+		unsigned int determineAVPBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi);
+		unsigned int determineAVPBackwardBresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi);
+		bool IS_VALID(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
+			const Vector2& nearInterval, const Real sdot_test);
+		bool IS_VALID_backward(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
+			const Vector2& nearInterval, const Real sdot_test);
+		Real findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
+			const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag);
+
+		unsigned int forwardIntegrate(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int forwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int forwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC, 
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int forwardbackInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		
+		unsigned int backwardIntegrate(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int backwardInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int backwardIntVel(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+		unsigned int backwardforInt(Real& s_cur, Real& sdot_cur, std::list<Vector2, Eigen::aligned_allocator<Vector2>>& LC,
+			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
+			const std::vector<unsigned int>& allMVCPointsFlag);
+
 
 	private:
 		SerialOpenChainPtr _robot;
-
+		TOPPPtr _topp;
 		CONSTRAINT_TYPE _constraintType;
-		std::vector<WayPoint> _waypoints; // contains q and qdot
 		
+		std::vector<WayPoint> _waypoints; ///< contains q and qdot
+
 		Tree _startTree;
 		Tree _goalTree; ///> start and goal trees are made for every segment
 		std::vector<std::list<VectorX>> _segmentPath;
 		MatrixX _finalPath; ///> concatenation of _segmentPath
 
-		TOPPPtr _topp;
 		unsigned int _dof;
 		unsigned int _numSegment;
 		unsigned int _curSegment;
-		double _stepsize;
 		Vector2 _wayPointInterval; // useless...?
-
+		Real _stepsize;
+		Real _ds;
+		Real _si;
+		Real _sf;
+		
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,6 +212,27 @@ namespace rovin
 		std::vector<Real> s_LC;
 		std::vector<Real> sdot_LC;
 		std::vector<Real> sdot_CLC;
+
+		void saveData(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, std::vector<SwitchPoint>& allSwitchPoint, 
+			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC_copy, std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, 
+			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
+		{
+			savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+			saveSwitchPoint(allSwitchPoint);
+			for (unsigned int i = 0; i < LC_copy.size(); i++)
+			{
+				std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
+				std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+				s_string = s_string + std::to_string(i) + ".txt";
+				sdot_string = sdot_string + std::to_string(i) + ".txt";
+				saveLC(LC_copy[i], s_string, sdot_string);
+			}
+			savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
+			savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
+				"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
+		}
 
 		void saveRealVector2txt(std::vector<Real> in, std::string filename)
 		{
@@ -199,6 +257,18 @@ namespace rovin
 
 			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/s.txt");
 			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt");
+		}
+
+		void savevectorOfVector2(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_first, std::string filename_second)
+		{
+			std::vector<Real> s, sdot;
+			for (unsigned int i = 0; i < in.size(); i++)
+			{
+				s.push_back(in[i](0));
+				sdot.push_back(in[i](1));
+			}
+			saveRealVector2txt(s, filename_first);
+			saveRealVector2txt(sdot, filename_second);
 		}
 
 		void saveRealList2txt(std::list<Real> in, std::string filename)
@@ -228,6 +298,18 @@ namespace rovin
 			saveRealVector2txt(sdot, filename_sdot);
 		}
 
+		void saveSwitchPoint(std::vector<SwitchPoint>& allSwitchPoint)
+		{
+			std::vector<Real> s_sw;
+			std::vector<Real> sdot_sw;
+			for (unsigned int i = 0; i < allSwitchPoint.size(); i++)
+			{
+				s_sw.push_back(allSwitchPoint[i]._s);
+				sdot_sw.push_back(allSwitchPoint[i]._sdot);
+			}
+			saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
+			saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+		}
 
 	};
 

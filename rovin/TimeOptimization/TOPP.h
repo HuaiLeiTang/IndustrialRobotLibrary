@@ -80,6 +80,7 @@ namespace rovin {
 	public:
 		CONSTRAINT_TYPE _constraintType;
 		SerialOpenChainPtr _soc;
+		StatePtr _state;
 		unsigned int _dof;
 
 		MatrixX _q_data;
@@ -107,6 +108,9 @@ namespace rovin {
 
 		unsigned int _nconstraints;
 		unsigned int _nconstraintsWithoutVel;
+
+	public:
+
 
 	public:
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW

@@ -12,6 +12,7 @@ namespace rovin {
 		_q_data = q_data;
 		_soc = soc;
 		_dof = _soc->getNumOfJoint();
+		_state = _soc->makeState();
 		_ds = ds;
 		_vi = vi;
 		_vf = vf;
@@ -30,6 +31,7 @@ namespace rovin {
 	{
 		_soc = soc;
 		_dof = _soc->getNumOfJoint();
+		_state = _soc->makeState();
 		_ds = ds; _vi = vi; _vf = vf; _si = si; _sf = sf;
 		_constraintType = constraintType;
 
@@ -164,17 +166,17 @@ namespace rovin {
 	{
 		VectorX q = _q(s), qs = _dqds(s);
 		VectorX qdot = VectorX::Zero(q.size());
-		StatePtr state = _soc->makeState();
-		state->setJointStatePos(q);	state->setJointStateVel(qdot); state->setJointStateAcc(qs);
-		_soc->solveInverseDynamics(*state);
+		//StatePtr state = _soc->makeState();
+		_state->setJointStatePos(q); _state->setJointStateVel(qdot); _state->setJointStateAcc(qs);
+		_soc->solveInverseDynamics(*_state);
 
-		VectorX tau = state->getJointStateTorque();
+		VectorX tau = _state->getJointStateTorque();
 
 		qs.setZero();
-		state->setJointStatePos(q);	state->setJointStateVel(qdot); state->setJointStateAcc(qs);
-		_soc->solveInverseDynamics(*state);
+		_state->setJointStatePos(q); _state->setJointStateVel(qdot); _state->setJointStateAcc(qs);
+		_soc->solveInverseDynamics(*_state);
 
-		VectorX tmp_a = tau - state->getJointStateTorque();
+		VectorX tmp_a = tau - _state->getJointStateTorque();
 
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
 		{
@@ -204,16 +206,16 @@ namespace rovin {
 	std::vector<VectorX> TOPP::calculateBandC(Real s)
 	{
 		VectorX q = _q(s), qdot = _dqds(s), qddot = _ddqdds(s);
-		StatePtr state = _soc->makeState();
-		state->setJointStatePos(q); state->setJointStateVel(qdot); state->setJointStateAcc(qddot);
-		_soc->solveInverseDynamics(*state);
+		//StatePtr state = _soc->makeState();
+		_state->setJointStatePos(q); _state->setJointStateVel(qdot); _state->setJointStateAcc(qddot);
+		_soc->solveInverseDynamics(*_state);
 
-		VectorX tau = state->getJointStateTorque();
+		VectorX tau = _state->getJointStateTorque();
 
-		state->setJointStatePos(q);	state->setJointStateVel(qdot.setZero()); state->setJointStateAcc(qddot.setZero());
-		_soc->solveInverseDynamics(*state);
+		_state->setJointStatePos(q);	_state->setJointStateVel(qdot.setZero()); _state->setJointStateAcc(qddot.setZero());
+		_soc->solveInverseDynamics(*_state);
 
-		VectorX tmp_c = state->getJointStateTorque();
+		VectorX tmp_c = _state->getJointStateTorque();
 		VectorX tmp_b = tau - tmp_c;
 
 		std::vector<VectorX> result;
@@ -262,19 +264,21 @@ namespace rovin {
 		return result;
 	}
 
-
-
 	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
 	{
+		//if (s == _si)
+		//	s += 1e-6;
+		if (s == _sf)
+			s -= 1e-6;
 
 		VectorX a;
 		calculateA(s, a);
 
 		VectorX q = _q(s), qdot = _dqds(s)*sdot, qddot = _ddqdds(s)*sdot*sdot;
-		StatePtr state = _soc->makeState();
-		state->setJointStatePos(q); state->setJointStateVel(qdot); state->setJointStateAcc(qddot);
-		_soc->solveInverseDynamics(*state);
-		VectorX tau = state->getJointStateTorque();
+		//StatePtr state = _soc->makeState();
+		_state->setJointStatePos(q); _state->setJointStateVel(qdot); _state->setJointStateAcc(qddot);
+		_soc->solveInverseDynamics(*_state);
+		VectorX tau = _state->getJointStateTorque();
 
 		VectorX left_vec;
 		if (_constraintType == TORQUE || _constraintType == TORQUE_VEL)
@@ -666,7 +670,7 @@ namespace rovin {
 	{
 		initialization();
 
-		Real s_cur = 0, sdot_cur = _vi / _dqds(0.0001).norm(), sdot_MVC;
+		Real s_cur = 0, sdot_cur = _vi / _dqds(1e-4).norm(), sdot_MVC;
 		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
@@ -683,7 +687,7 @@ namespace rovin {
 		bool swiPoint_swi;
 		unsigned int numOfSPInt = 3; ///< singular point integration number
 
-									 // Step 1 & 2 : Forward & backward integration
+		// Step 1 & 2 : Forward & backward integration
 		while (I_SW)
 		{
 			while (FI_SW) ///< Forward integration
@@ -937,7 +941,7 @@ namespace rovin {
 
 		// Step 3 : there exist two cases.
 		s_cur = _sf - 0.0001;
-		sdot_cur = _vf / _dqds(_sf - 0.0001).norm();
+		sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
 
 		_s_tmp.push_front(s_cur);
 		_sdot_tmp.push_front(sdot_cur);
