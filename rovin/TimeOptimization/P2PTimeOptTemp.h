@@ -96,7 +96,7 @@ namespace rovin
 		enum AVPFLAG { FORWARD, BACKWARD };
 
 	public:
-		AVP_RRT() { srand(time(NULL)); }
+		AVP_RRT() { srand((int)time(NULL)); }
 		~AVP_RRT() {}
 		AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType);
 
@@ -116,11 +116,15 @@ namespace rovin
 
 	public:
 		void makeRandomConfig(VectorX& qrand);
-		Vertex * extendTree(Tree* tree, const VectorX qrand, bool atStartTree);
-		void interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew);
+		bool extendTree(Tree* tree, const VectorX qrand, bool atStartTree,/* OUTPUT */ Vertex ** candiVertex);
+		bool interpolate(Vertex * nVertex, const VectorX qrand, const double dist, bool forward, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew);
+
 		bool testConnection(Vertex * vertex, Tree * tree, bool forward, /* OUTPUT */ Vertex ** cVertex, Vertex ** oVertex);
 		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
 		void extractPath(Vertex * sVertex, Vertex * gVertex, int idx);
+
+		bool testRootVertex(std::list<VectorX>& Pnew, VectorX& qs);
+		bool testRootVertexbackward(std::list<VectorX>& Pnew, VectorX& qs);
 
 		// calculate for AVP
 	public:

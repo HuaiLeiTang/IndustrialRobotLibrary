@@ -16,7 +16,7 @@ namespace rovin
 		_stepsize = 0.1;
 		_curSegment = 0;
 
-		srand(time(NULL));
+		srand((int)time(NULL));
 	}
 
 	void AVP_RRT::generateTrajectory()
@@ -28,7 +28,7 @@ namespace rovin
 
 
 		_curSegment = 0;
-		bool retFlag;
+		RETURNFLAG retFlag;
 		do
 		{
 			retFlag = generateTrajectorySegment(_curSegment++);
@@ -82,7 +82,7 @@ namespace rovin
 
 			// extend from start tree to random configuration
 			candiVertex = NULL;
-			candiVertex = extendTree(&_startTree, qrand, true);
+			extendTree(&_startTree, qrand, true, &candiVertex);
 			if (candiVertex != NULL)
 			{
 				// add vertex
@@ -105,7 +105,7 @@ namespace rovin
 
 			// extend from goal tree to random configuration
 			candiVertex = NULL;
-			candiVertex = extendTree(&_goalTree, qrand, false);
+			extendTree(&_goalTree, qrand, false, &candiVertex);
 			if (candiVertex != NULL)
 			{
 				// add vertex
@@ -127,10 +127,10 @@ namespace rovin
 
 
 
-		if (flag == SUCCESS)
-		{
-			_wayPointInterval = _goalTree._nodes[0]->_interval;
-		}
+		//if (flag == SUCCESS)
+		//{
+		//	_wayPointInterval = _goalTree._nodes[0]->_interval;
+		//}
 
 
 		_startTree.clearTree();
@@ -164,7 +164,7 @@ namespace rovin
 		}
 	}
 
-	Vertex * AVP_RRT::extendTree(Tree * tree, const VectorX qrand, bool atStartTree) // 반환 Vertex* 로??
+	bool AVP_RRT::extendTree(Tree * tree, const VectorX qrand, bool forward, Vertex ** candiVertex) // 반환 Vertex* 로??
 	{
 		// find nearest vertex
 		double tmpDist;
@@ -176,21 +176,22 @@ namespace rovin
 		// interpolate between nVertex.config and qnew(configuration far away from nVertex.config about stepsize)
 		std::list<VectorX> Pnew;
 		VectorX qnew;
-		interpolate(nVertex, qrand, tmpDist, Pnew, qnew);
+		if (!interpolate(nVertex, qrand, tmpDist, forward, Pnew, qnew))
+		{
+			//FAILURE!!
+		}
+
+
+
 
 		// run AVP algorithm
 		Vector2 endInterval;
 		bool isSucceeded;
-		if (atStartTree)
+		if (forward)
 			isSucceeded = runAVP(Pnew, nVertex->_interval, endInterval);
 		else
 			isSucceeded = runAVPbackward(Pnew, nVertex->_interval, endInterval);
 
-		// if nearest vertex is a root vertex
-		if (nVertex->_parentVertex == NULL)
-		{
-
-		}
 
 		// feasibility check! (if fails -> delete nVertex)
 		// collision check
@@ -211,7 +212,7 @@ namespace rovin
 
 	}
 
-	void AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, std::list<VectorX> & Pnew, VectorX & qnew)
+	bool AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew)
 	{
 		VectorX qnear = nVertex->_config;
 		VectorX qnearvel = nVertex->_configVel;
@@ -248,9 +249,7 @@ namespace rovin
 		for (unsigned int i = 2; i < CP.cols() - 1; i++)
 			CP.col(i) = CP.col(i - 1) + delta_cp;
 
-	
-		//Pnew.push_front(nVertex->_config);
-		//Pnew.push_back(qnew);
+
 
 
 		BSpline<-1, -1, -1> q(knot, CP);
@@ -269,6 +268,28 @@ namespace rovin
 			Pnew.push_back(q(s_cur));
 		}
 		Pnew.push_back(q(_sf - 1e-5));
+
+
+		bool testCollision = true; // true: succeded (no collision), false: collision detected
+								   // collision test routine for Pnew is needed...
+
+
+								   // if nearest vertex is the root vertex
+		VectorX qs; // calc qs is needed
+		bool testRoot;
+		if (nVertex->_parentVertex == NULL)
+		{
+			if (forward)
+				testRoot = testRootVertex(Pnew, qs);
+			else
+				testRoot = testRootVertexbackward(Pnew, qs);
+		}
+
+		if (testCollision && testRoot)
+			return true;
+
+		return false;
+
 	}
 
 	bool AVP_RRT::testConnection(Vertex * vertex, Tree * tree, bool forward, /* OUTPUT */ Vertex ** cVertex, Vertex ** oVertex)
@@ -285,7 +306,8 @@ namespace rovin
 		{
 			std::list<VectorX> Ptmp;
 			VectorX qtmp;
-			interpolate(vertex, (*oVertex)->_config, tmpDist, Ptmp, qtmp);
+			if (!interpolate(vertex, (*oVertex)->_config, tmpDist, forward, Ptmp, qtmp))
+				return false;
 
 			Vector2 endInterval;
 			if(forward) // vertex belongs to start tree, and try to connect to goal tree
@@ -358,6 +380,99 @@ namespace rovin
 		}
 		
 		_segmentPath[idx] = segPath;
+	}
+
+
+
+	bool AVP_RRT::testRootVertex(std::list<VectorX>& Pnew, VectorX& qs)
+	{
+		settingtopp(Pnew);
+
+		/* Step A. Computing the limiting curves */
+		// variables
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> CLC;
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
+		std::vector<unsigned int> allMVCPointsFlag;
+		std::vector<SwitchPoint> allSwitchPoint;
+		bool A1switch;
+
+		_topp->calculateAllMVCPoint();
+		_topp->calculateAllSwitchPoint();
+		allMVCPoints = _topp->getAllMVCPoint();
+		allMVCPointsFlag = _topp->getAllMVCPointFlag();
+		allSwitchPoint = _topp->getAllSwitchPoint();
+		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
+
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
+		LC_copy = LC; ///< for save LC
+
+		if (A1switch == false)
+		{
+			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
+			return false;
+		}
+
+		calculateCLC(LC, CLC);
+		unsigned int Acase;
+		Real sdot_beg_star;
+		Acase = determineAresult(allMVCPoints, CLC, sdot_beg_star, FORWARD);
+
+		
+		// feasibility test of sdot_beg_star
+		VectorX tmpVec(_dof);
+		tmpVec = _waypoints[_curSegment].getJointqdot();
+		tmpVec.cwiseProduct(qs.cwiseInverse());
+
+		if (sdot_beg_star < tmpVec.maxCoeff())
+			return false; // failure case
+		
+		return true;
+
+	}
+	bool AVP_RRT::testRootVertexbackward(std::list<VectorX>& Pnew, VectorX& qs)
+	{
+		settingtopp(Pnew);
+
+		/* Step A. Computing the limiting curves */
+		// variables
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+		std::vector<Vector2, Eigen::aligned_allocator<Vector2>> CLC;
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
+		std::vector<unsigned int> allMVCPointsFlag;
+		std::vector<SwitchPoint> allSwitchPoint;
+		bool A1switch;
+
+		_topp->calculateAllMVCPoint();
+		_topp->calculateAllSwitchPoint();
+		allMVCPoints = _topp->getAllMVCPoint();
+		allMVCPointsFlag = _topp->getAllMVCPointFlag();
+		allSwitchPoint = _topp->getAllSwitchPoint();
+		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
+
+		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
+		LC_copy = LC; ///< for save LC
+
+		if (A1switch == false)
+		{
+			LOG("A1 case, Limiting curve reaches sdot = 0. AVP failure.");
+			return false;
+		}
+
+		calculateCLC(LC, CLC);
+		unsigned int Acase;
+		Real sdot_end_star;
+		Acase = determineAresult(allMVCPoints, CLC, sdot_end_star, BACKWARD);
+
+		// feasibility test of sdot_beg_star
+		VectorX tmpVec(_dof);
+		tmpVec = _waypoints[_curSegment+1].getJointqdot();
+		tmpVec.cwiseProduct(qs.cwiseInverse());
+
+		if (sdot_end_star < tmpVec.maxCoeff())
+			return false; // failure case
+
+		return true;
 	}
 
 	bool AVP_RRT::runAVP(std::list<VectorX>& Pnew, Vector2& nearInterval, Vector2 & endInterval)
