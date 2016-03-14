@@ -206,9 +206,15 @@ namespace rovin
 		}
 
 		if (isSucceeded)
-			return new Vertex(qnew, endInterval, Pnew, nVertex);
+		{
+			(*candiVertex) = new Vertex(qnew, endInterval, Pnew, nVertex);
+			return true;
+		}
 		else
-			return NULL;
+		{
+			(*candiVertex) = NULL;
+			return false;
+		}
 
 	}
 
@@ -246,7 +252,7 @@ namespace rovin
 
 		// make control point
 		VectorX delta_cp = (CP.col(CP.cols() - 1) - CP.col(1)) / double((numOfCP - 2));
-		for (unsigned int i = 2; i < CP.cols() - 1; i++)
+		for (int i = 2; i < CP.cols() - 1; i++)
 			CP.col(i) = CP.col(i - 1) + delta_cp;
 
 
@@ -275,14 +281,15 @@ namespace rovin
 
 
 								   // if nearest vertex is the root vertex
-		VectorX qs; // calc qs is needed
+		//VectorX qs; // calc qs is needed
+		VectorX qs_zero = qs(_si);
 		bool testRoot;
 		if (nVertex->_parentVertex == NULL)
 		{
 			if (forward)
-				testRoot = testRootVertex(Pnew, qs);
+				testRoot = testRootVertex(Pnew, qs_zero);
 			else
-				testRoot = testRootVertexbackward(Pnew, qs);
+				testRoot = testRootVertexbackward(Pnew, qs_zero);
 		}
 
 		if (testCollision && testRoot)
@@ -688,7 +695,6 @@ namespace rovin
 		unsigned int swi;
 
 		Vector2 alphabeta;
-		Real alpha_cur, beta_cur;
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> backward_list;
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> forward_list;
 
@@ -795,7 +801,7 @@ namespace rovin
 			else if (swi_forwardVel == 3)
 			{
 				swi_forwardback = forwardbackInt(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
-				swi_forward == 2;
+				swi_forward = 2;
 			}
 		}
 		return swi_forwardback;
@@ -815,7 +821,7 @@ namespace rovin
 			if (sdot_cur < 1e-4)
 				return 0;
 
-			idx = round(s_cur / _ds);
+			idx = (unsigned int)round(s_cur / _ds);
 			sdot_MVC = allMVCPoints[idx](1);
 			flag = allMVCPointsFlag[idx];
 
@@ -847,12 +853,12 @@ namespace rovin
 			s_next = s_cur + _ds;
 			if (s_next > _sf)
 			{
-				s_cur = _sf; sdot_cur = allMVCPoints[round(_sf / _ds)](1);
+				s_cur = _sf; sdot_cur = allMVCPoints[(unsigned int)round(_sf / _ds)](1);
 				LC.push_back(Vector2(s_cur, sdot_cur));
 				return 1;
 			}
 
-			idx = round(s_next / _ds);
+			idx = (unsigned int)round(s_next / _ds);
 			sdot_next = allMVCPoints[idx](1);
 			flag = allMVCPointsFlag[idx];
 			if (flag == 2)
@@ -890,10 +896,10 @@ namespace rovin
 			s_next = s_cur + _ds;
 			if (s_next > _sf)
 			{
-				s_cur = _sf; sdot_cur = allMVCPoints[round(_sf / _ds)](1);
+				s_cur = _sf; sdot_cur = allMVCPoints[(unsigned int)round(_sf / _ds)](1);
 				break;
 			}
-			idx = round(s_next / _ds);
+			idx = (unsigned int)round(s_next / _ds);
 			sdot_next = allMVCPoints[idx](1);
 			flag = allMVCPointsFlag[idx];
 			if (flag == 2)
@@ -981,7 +987,7 @@ namespace rovin
 			else if (swi_backwardVel == 3)
 			{
 				swi_backwardfor = backwardforInt(s_cur, sdot_cur, LC, allMVCPoints, allMVCPointsFlag);
-				swi_backward == 2;
+				swi_backward = 2;
 			}
 		}
 		return swi_backwardfor;
@@ -1001,7 +1007,7 @@ namespace rovin
 			if (sdot_cur < 1e-4)
 				return 0;
 
-			idx = round(s_cur / _ds);
+			idx = (unsigned int)round(s_cur / _ds);
 			sdot_MVC = allMVCPoints[idx](1);
 			flag = allMVCPointsFlag[idx];
 
@@ -1033,12 +1039,12 @@ namespace rovin
 			s_next = s_cur - _ds;
 			if (s_next < _si)
 			{
-				s_cur = _si; sdot_cur = allMVCPoints[round(_si / _ds)](1);
+				s_cur = _si; sdot_cur = allMVCPoints[(unsigned int)round(_si / _ds)](1);
 				LC.push_front(Vector2(s_cur, sdot_cur));
 				return 1;
 			}
 
-			idx = round(s_next / _ds);
+			idx = (unsigned int)round(s_next / _ds);
 			sdot_next = allMVCPoints[idx](1);
 			flag = allMVCPointsFlag[idx];
 			if (flag == 2)
@@ -1076,10 +1082,10 @@ namespace rovin
 			s_next = s_cur - _ds;
 			if (s_next < _si)
 			{
-				s_cur = _si; sdot_cur = allMVCPoints[round(_si / _ds)](1);
+				s_cur = _si; sdot_cur = allMVCPoints[(unsigned int)round(_si / _ds)](1);
 				break;
 			}
-			idx = round(s_next / _ds);
+			idx = (unsigned int)round(s_next / _ds);
 			sdot_next = allMVCPoints[idx](1);
 			flag = allMVCPointsFlag[idx];
 			if (flag == 2)
@@ -1303,7 +1309,7 @@ namespace rovin
 		{
 			if (avpflag == FORWARD)
 				sdot_beg_star = allMVCPoints.front()(1);
-			else if (avpflag == BACKWARD)
+			else // BACKWARD
 				sdot_beg_star = allMVCPoints.back()(1);
 			return 2;
 		}
@@ -1314,7 +1320,7 @@ namespace rovin
 				sdot_beg_star = CLC.front()(1);
 				return 3;
 			}
-			else if (avpflag == BACKWARD)
+			else // BACKWARD
 			{
 				sdot_beg_star = allMVCPoints.back()(1);
 				return 4;
@@ -1327,17 +1333,17 @@ namespace rovin
 				sdot_beg_star = allMVCPoints.front()(1);
 				return 4;
 			}
-			else if (avpflag == BACKWARD)
+			else // BACKWARD
 			{
 				sdot_beg_star = CLC.back()(1);
 				return 3;
 			}
 		}
-		else if (si_col == true && sf_col == true)
+		else// both si_col and sf_col are true
 		{
 			if (avpflag == FORWARD)
 				sdot_beg_star = CLC.front()(1);
-			else if (avpflag == BACKWARD)
+			else // BACKWARD
 				sdot_beg_star = CLC.back()(1);
 			return 5;
 		}
@@ -1348,7 +1354,7 @@ namespace rovin
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
 	{
 		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_MVC, sdot_CLC;
-		int idx, flag;
+		int idx;
 		sf = _topp->getFinalParam();
 		ds = _topp->getStepSize();
 		s_cur = _topp->getInitialParam();
@@ -1359,7 +1365,7 @@ namespace rovin
 		{
 			beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
 			_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
-			idx = round(s_cur / ds);
+			idx = (unsigned int)round(s_cur / ds);
 			sdot_MVC = allMVCPoints[idx](1);
 			sdot_CLC = CLC[idx](1);
 
@@ -1382,7 +1388,7 @@ namespace rovin
 	{
 		std::list<Vector2, Eigen::aligned_allocator<Vector2>> phi_tmp;
 		Real s_cur, sdot_cur, alpha_cur, si, ds, sdot_MVC, sdot_CLC;
-		int idx, flag;
+		int idx;
 		si = _topp->getInitialParam();
 		ds = _topp->getStepSize();
 		s_cur = _topp->getFinalParam() - 1e-6;
@@ -1395,7 +1401,7 @@ namespace rovin
 		{
 			alpha_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(0);
 			_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-			idx = round(s_cur / ds);
+			idx = (unsigned int)round(s_cur / ds);
 			sdot_MVC = allMVCPoints[idx](1);
 			sdot_CLC = CLC[idx](1);
 
@@ -1434,7 +1440,7 @@ namespace rovin
 		const Vector2& nearInterval, const Real sdot_test)
 	{
 		Real s_cur, sdot_cur, alpha_cur, si, ds, sdot_phi, sdot_CLC;
-		int idx, flag;
+		int idx;
 		si = _topp->getInitialParam();
 		ds = _topp->getStepSize();
 		s_cur = _topp->getFinalParam();
@@ -1446,7 +1452,7 @@ namespace rovin
 		{
 			alpha_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(0);
 			_topp->backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-			idx = round(s_cur / ds);
+			idx = (unsigned int)round(s_cur / ds);
 			sdot_CLC = CLC[idx](1);
 			if (idx > phiSize)
 				sdot_phi = std::numeric_limits<Real>::max();
@@ -1475,7 +1481,7 @@ namespace rovin
 		const Vector2& nearInterval, const Real sdot_test)
 	{
 		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_phi, sdot_CLC;
-		int idx, flag;
+		int idx;
 		sf = _topp->getFinalParam();
 		ds = _topp->getStepSize();
 		s_cur = _topp->getInitialParam();
@@ -1488,7 +1494,7 @@ namespace rovin
 		{
 			beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
 			_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
-			idx = round(s_cur / ds);
+			idx = (unsigned int)round(s_cur / ds);
 			sdot_CLC = CLC[idx](1);
 			if (s_cur < s_phi_init)
 				sdot_phi = std::numeric_limits<Real>::max();
