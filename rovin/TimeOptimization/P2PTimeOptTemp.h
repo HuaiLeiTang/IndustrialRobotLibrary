@@ -32,12 +32,14 @@ namespace rovin
 			: _config(config), _interval(interval), _inpath(inpath), _parentVertex(parentVertex) {}
 
 		void setconfig(const VectorX& config) { _config = config; }
+		void setconfigVel(const VectorX& configVel) { _configVel = configVel; }
 		void setinterval(const Vector2& interval) { _interval = interval; }
 		void setinpath(const std::list<VectorX>& inpath) { _inpath = inpath; }
 		void setparentVertex(Vertex * parentVertex) { _parentVertex = parentVertex; }
 
 	private:
 		VectorX _config;
+		VectorX _configVel;
 		Vector2 _interval;
 		//MatrixX _inpath;
 		std::list<VectorX> _inpath;
@@ -112,10 +114,11 @@ namespace rovin
 
 		void treeInitialization(int idx);
 
-	private:
+	public:
 		void makeRandomConfig(VectorX& qrand);
 		bool extendTree(Tree* tree, const VectorX qrand, bool atStartTree,/* OUTPUT */ Vertex ** candiVertex);
 		bool interpolate(Vertex * nVertex, const VectorX qrand, const double dist, bool forward, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew);
+
 		bool testConnection(Vertex * vertex, Tree * tree, bool forward, /* OUTPUT */ Vertex ** cVertex, Vertex ** oVertex);
 		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
 		void extractPath(Vertex * sVertex, Vertex * gVertex, int idx);

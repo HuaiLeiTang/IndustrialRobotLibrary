@@ -4,6 +4,7 @@ namespace rovin
 {
 	AVP_RRT::AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType) : _robot(robot), _constraintType(constraintType)
 	{
+		_dof = robot->getNumOfJoint();
 		Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 		_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
 
@@ -213,17 +214,67 @@ namespace rovin
 
 	bool AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew)
 	{
-		// what is dist???
+		VectorX qnear = nVertex->_config;
+		VectorX qnearvel = nVertex->_configVel;
 		if (dist < _stepsize)
 			qnew = qrand;
 		else
-			qnew = nVertex->_config + (qrand - nVertex->_config)*_stepsize / dist;
+			qnew = qnear + (qrand - qnear)*_stepsize / dist;
+
+		unsigned int numOfCP = 6;
+		unsigned int degree = 3;
+		unsigned int order = degree + 1;
+		unsigned int numOfknot = numOfCP + degree + 1;
+
+		VectorX knot(numOfknot);
+		MatrixX CP(_dof, numOfCP);
+
+		// make knot
+		for (unsigned int i = 0; i < order; i++)
+		{
+			knot[i] = _si;
+			knot[numOfknot - i - 1] = _sf;
+		}
+		Real delta = (_sf - _si) / (numOfCP - degree);
+		for (unsigned int i = 0; i < (numOfCP - degree); i++)
+			knot[order + i] = delta * (i + 1);
+
+		// make boundary condition
+		CP.col(0) = qnear;
+		CP.col(1) = delta / degree * qnearvel + CP.col(0);
+		CP.col(CP.cols() - 1) = qnew;
+
+		// make control point
+		VectorX delta_cp = (CP.col(CP.cols() - 1) - CP.col(1)) / double((numOfCP - 2));
+		for (unsigned int i = 2; i < CP.cols() - 1; i++)
+			CP.col(i) = CP.col(i - 1) + delta_cp;
+
+
+
+
+		BSpline<-1, -1, -1> q(knot, CP);
+		BSpline<-1, -1, -1> qs = q.derivative();
+
+		unsigned int numOfdata = 10;
+		Real delta_s = (_sf - _si) / double(numOfdata - 1);
+		Real s_cur = _si;
+
+		std::vector<Real> ss;
+
+		Pnew.push_back(q(_si));
+		for (unsigned int i = 1; i < numOfdata - 1; i++)
+		{
+			s_cur += delta_s;
+			Pnew.push_back(q(s_cur));
+		}
+		Pnew.push_back(q(_sf - 1e-5));
+
 
 		bool testCollision = true; // true: succeded (no collision), false: collision detected
-		// collision test routine for Pnew is needed...
+								   // collision test routine for Pnew is needed...
 
 
-		// if nearest vertex is the root vertex
+								   // if nearest vertex is the root vertex
 		VectorX qs; // calc qs is needed
 		bool testRoot;
 		if (nVertex->_parentVertex == NULL)
@@ -238,14 +289,6 @@ namespace rovin
 			return true;
 
 		return false;
-
-
-
-		Pnew.push_front(nVertex->_config);
-		Pnew.push_back(qnew);
-
-		// TO DO: INTERPOLATE
-		// from nVertex->_config to qnew!!!
 
 	}
 
