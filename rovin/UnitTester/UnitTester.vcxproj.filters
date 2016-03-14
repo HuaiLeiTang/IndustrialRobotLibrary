@@ -36,6 +36,9 @@
     <ClCompile Include="TOPPTest.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="TOPPtest_ys.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NdofOpenChain.h">
