@@ -177,15 +177,6 @@ int main()
 	//	}
 	//	renderer.updateFrame();
 	//}
-
-	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
-	avp_rrt.interpolate(nVertex, qrand, dist, true, Pnew, qnew);
-
-	cout << "[qnew]" << endl;
-	cout << qnew << endl << endl;
-
-	delete nVertex;
-	
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
