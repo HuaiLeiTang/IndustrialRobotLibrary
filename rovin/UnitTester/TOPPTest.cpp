@@ -18,6 +18,8 @@ unsigned int dof;
 
 int main()
 {	
+	////////////////////////////////////////////////////////////////////////
+	// TOPP test
 	//state = robot->makeState();
 	//dof = robot->getNumOfJoint();
 
@@ -40,23 +42,51 @@ int main()
 	//cout << "Final time : " << topp2.getFinalTime() << endl << endl;
 
 	////////////////////////////////////////////////////////////////////////
-	state = robot->makeState();
-	dof = robot->getNumOfJoint();
+	// AVP test
+	//AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
 
-	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	//MatrixX q_data;
+	//loadData(q_data);
+	//std::list<VectorX> Pnew;
+	//for (int i = 0; i < q_data.cols(); i++)
+	//	Pnew.push_back(q_data.col(i));
+	//Vector2 nearInterval(0, 0.5);
+	//Vector2 endInterval;
+	//avp_rrt.runAVP(Pnew, nearInterval, endInterval);
+	////avp_rrt.runAVPbackward(Pnew, nearInterval, endInterval);
 
+	////////////////////////////////////////////////////////////////////////
+	// Interpolation test
 	MatrixX q_data;
 	loadData(q_data);
-	std::list<VectorX> Pnew;
-	for (int i = 0; i < q_data.cols(); i++)
-		Pnew.push_back(q_data.col(i));
-	Vector2 nearInterval(0, 0.5);
-	Vector2 endInterval;
-	
-	// AVP test
-	avp_rrt.runAVP(Pnew, nearInterval, endInterval);
-	//avp_rrt.runAVPbackward(Pnew, nearInterval, endInterval);
+	VectorX qnear = q_data.col(0);
+	VectorX qnearVel = VectorX::Ones(6) * 0.1;
+	VectorX qrand = q_data.col(30);
+	Real dist = 1.0;
 
+	cout << "[qnear]" << endl;
+	cout << qnear << endl << endl;
+	cout << "[qrand]" << endl;
+	cout << qrand << endl << endl;
+	cout << "[qnearVel]" << endl;
+	cout << qnearVel << endl << endl;
+
+
+	std::list<VectorX> Pnew;
+	VectorX qnew;
+
+	Vertex* nVertex = new Vertex();
+	nVertex->setconfig(qnear);
+	nVertex->setconfigVel(qnearVel);
+
+	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	avp_rrt.interpolate(nVertex, qrand, dist, Pnew, qnew);
+
+	cout << "[qnew]" << endl;
+	cout << qnew << endl << endl;
+
+	delete nVertex;
+	
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
