@@ -7,11 +7,14 @@
 
 #include "efortRobot.h"
 #include <string>
+#include <time.h>
 
 using namespace std;
 using namespace rovin;
 
 void loadData(MatrixX& data);
+
+std::shared_ptr<Points> startpoint, endpoint;
 
 SerialOpenChainPtr robot(new efortRobot());
 StatePtr state;
@@ -76,6 +79,51 @@ int main()
 	//cout << qnew << endl << endl;
 
 	//delete nVertex;
+
+	////////////////////////////////////////////////////////////////////////
+	// rendering
+	//state = robot->makeState();
+	//MatrixX q_data;
+	//loadData(q_data);
+	//int data_num = q_data.cols();
+
+	//state->setJointStatePos(0, q_data(0, 0));state->setJointStatePos(1, q_data(1, 0));
+	//state->setJointStatePos(2, q_data(2, 0));state->setJointStatePos(3, q_data(3, 0));
+	//state->setJointStatePos(4, q_data(4, 0));state->setJointStatePos(5, q_data(5, 0));
+	//robot->solveForwardKinematics(*state);
+
+	//OSG_simpleRender renderer(*robot, *state, 600, 600);
+	//renderer.getViewer().realize();
+
+	//Real spsize = 100.0;
+	//startpoint = shared_ptr<Points>(new Points);
+	//Vector3 startpos = robot->calculateEndeffectorFrame(state).getPosition();
+	////startpoint->push_back(osg::Vec3(startpos(0), startpos(1), startpos(2)));
+	//startpoint->push_back(osg::Vec3(0.0, 0.0, 0.0));
+	//startpoint->setSize(spsize);
+	//startpoint->setColor(1.0f, 1.0f, 01.0f);
+	//renderer.addGeometry(*startpoint);
+
+	//double frameRate = 30;
+
+	//int cnt = 0;
+	//double c = clock();
+	//while (1)
+	//{
+	//   if (clock() - c >= 1000 / frameRate)
+	//   {
+	//      if (cnt == data_num) cnt = 0;
+	//      state->setJointStatePos(0, q_data(0, cnt));
+	//      state->setJointStatePos(1, q_data(1, cnt));
+	//      state->setJointStatePos(2, q_data(2, cnt));
+	//      state->setJointStatePos(3, q_data(3, cnt));
+	//      state->setJointStatePos(4, q_data(4, cnt));
+	//      state->setJointStatePos(5, q_data(5, cnt));
+	//      cnt++;
+	//      robot->solveForwardKinematics(*state);
+	//   }
+	//   renderer.updateFrame();
+	//}
 
 	cout << "Program complete" << endl;
 	_getch();

@@ -249,9 +249,6 @@ namespace rovin
 		for (unsigned int i = 2; i < CP.cols() - 1; i++)
 			CP.col(i) = CP.col(i - 1) + delta_cp;
 
-
-
-
 		BSpline<-1, -1, -1> q(knot, CP);
 		BSpline<-1, -1, -1> qs = q.derivative();
 
@@ -275,14 +272,14 @@ namespace rovin
 
 
 								   // if nearest vertex is the root vertex
-		VectorX qs; // calc qs is needed
+		VectorX qs_zero = qs(_si); // calc qs is needed
 		bool testRoot;
 		if (nVertex->_parentVertex == NULL)
 		{
 			if (forward)
-				testRoot = testRootVertex(Pnew, qs);
+				testRoot = testRootVertex(Pnew, qs_zero);
 			else
-				testRoot = testRootVertexbackward(Pnew, qs);
+				testRoot = testRootVertexbackward(Pnew, qs_zero);
 		}
 
 		if (testCollision && testRoot)
