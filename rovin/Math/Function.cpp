@@ -142,7 +142,7 @@ namespace rovin
 	std::vector<MatrixX> MultiplyConstFunction::Hessian(const VectorX & x) const
 	{
 		std::vector<MatrixX>& Hess = _baseFunction->Hessian(x);
-		for (int i = 0; i < Hess.size(); i++)
+		for (unsigned int i = 0; i < Hess.size(); i++)
 			Hess[i] *= _w;
 		return Hess;
 	}
