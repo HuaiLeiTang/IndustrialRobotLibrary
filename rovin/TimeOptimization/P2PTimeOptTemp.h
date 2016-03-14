@@ -26,10 +26,10 @@ namespace rovin
 		friend class Tree;
 		friend class AVP_RRT;
 	public:
-		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(std::list<VectorX>()), _parentVertex(NULL) {}
+		Vertex() : _config(VectorX()), _configVel(VectorX()), _interval(Vector2()), _inpath(std::list<VectorX>()), _parentVertex(NULL) {}
 		~Vertex() { }
-		Vertex(const VectorX& config, const Vector2& interval, const std::list<VectorX>& inpath, Vertex * parentVertex)
-			: _config(config), _interval(interval), _inpath(inpath), _parentVertex(parentVertex) {}
+		Vertex(const VectorX& config, const VectorX& configVel, const Vector2& interval, const std::list<VectorX>& inpath, Vertex * parentVertex)
+			: _config(config), _configVel(configVel), _interval(interval), _inpath(inpath), _parentVertex(parentVertex) {}
 
 		void setconfig(const VectorX& config) { _config = config; }
 		void setconfigVel(const VectorX& configVel) { _configVel = configVel; }
@@ -41,7 +41,6 @@ namespace rovin
 		VectorX _config;
 		VectorX _configVel;
 		Vector2 _interval;
-		//MatrixX _inpath;
 		std::list<VectorX> _inpath;
 		Vertex * _parentVertex;
 	public:
@@ -117,7 +116,7 @@ namespace rovin
 	public:
 		void makeRandomConfig(VectorX& qrand);
 		bool extendTree(Tree* tree, const VectorX qrand, bool atStartTree,/* OUTPUT */ Vertex ** candiVertex);
-		bool interpolate(Vertex * nVertex, const VectorX qrand, const double dist, bool forward, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew);
+		bool interpolate(Vertex * nVertex, const VectorX qrand, const double dist, bool forward, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew, VectorX& qvel);
 
 		bool testConnection(Vertex * vertex, Tree * tree, bool forward, /* OUTPUT */ Vertex ** cVertex, Vertex ** oVertex);
 		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
