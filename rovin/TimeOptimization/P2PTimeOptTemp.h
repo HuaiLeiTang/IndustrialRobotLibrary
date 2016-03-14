@@ -11,8 +11,8 @@
 // RRT step size 같은건 어디서 가지고 있어야하나용?????
 // TOPP 는 누가 가지고 있는게 좋을까 ----> 가장 큰 클래스!!
 
-#define MPNN_TREE_MAXIMUM_NODES	10000
-#define AVP_RRT_MAX_ITER		10000
+#define MPNN_TREE_MAXIMUM_NODES	100000
+#define AVP_RRT_MAX_ITER		100000
 
 namespace rovin
 {
@@ -26,9 +26,8 @@ namespace rovin
 		friend class Tree;
 		friend class AVP_RRT;
 	public:
-		// 여기 inpath 어떻게 하징?
-		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(), _parentVertex(NULL) {}
-		~Vertex() { delete _parentVertex; }
+		Vertex() : _config(VectorX()), _interval(Vector2()), _inpath(std::list<VectorX>()), _parentVertex(NULL) {}
+		~Vertex() { }
 		Vertex(const VectorX& config, const Vector2& interval, const std::list<VectorX>& inpath, Vertex * parentVertex)
 			: _config(config), _interval(interval), _inpath(inpath), _parentVertex(parentVertex) {}
 
@@ -91,7 +90,7 @@ namespace rovin
 	{
 		
 	public:
-		enum RETURNFLAG {SUCCESS, EXCEED_MAX_ITER}; // more flags are needed
+		enum RETURNFLAG {SUCCESS = 1, EXCEED_MAX_ITER = -1, EXCEED_MAX_NODE = -2}; // more flags are needed
 
 	public:
 		AVP_RRT() {
@@ -105,6 +104,10 @@ namespace rovin
 			Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 			_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
 
+			_dof = robot->getNumOfJoint();
+			_stepsize = 0.1;
+			_curSegment = 0;
+
 			srand(time(NULL));
 		}
 
@@ -113,6 +116,7 @@ namespace rovin
 		void clearWayPoints() { _waypoints.clear(); }
 
 		const std::vector<WayPoint>& getWayPoints() const {	return _waypoints; }
+		const MatrixX& getFinalPath() const { return _finalPath; }
 
 		// int 받아서 i-th segment에 대해서 도는 generate Trajectory 만들고, 최종 경로를 저장하는 컨테이너 하나 만들기.. vector로?
 		// idx는 waypoint 개수 -1
@@ -126,7 +130,7 @@ namespace rovin
 		void makeRandomConfig(VectorX& qrand);
 		Vertex * extendTree(Tree* tree, const VectorX qrand, bool atStartTree);
 		void interpolate(Vertex * nVertex, const VectorX qrand, const double dist, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew);
-		bool testConnection(Vertex * vertex, Tree * tree, /* OUTPUT */ Vertex ** oVertex, Vertex ** cVertex);
+		bool testConnection(Vertex * vertex, Tree * tree, bool forward, /* OUTPUT */ Vertex ** cVertex, Vertex ** oVertex);
 		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
 		void extractPath(Vertex * sVertex, Vertex * gVertex, int idx);
 
@@ -148,14 +152,15 @@ namespace rovin
 		
 		Tree _startTree;
 		Tree _goalTree; ///> start and goal trees are made for every segment
-		std::vector<MatrixX> _segmentPath;
-
+		std::vector<std::list<VectorX>> _segmentPath;
 		MatrixX _finalPath; ///> concatenation of _segmentPath
+
 		TOPPPtr _topp;
 		unsigned int _dof;
 		unsigned int _numSegment;
+		unsigned int _curSegment;
 		double _stepsize;
-		Vector2 _wayPointInterval;
+		Vector2 _wayPointInterval; // useless...?
 
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////
