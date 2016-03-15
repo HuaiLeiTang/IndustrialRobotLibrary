@@ -4,6 +4,7 @@
 #include <rovin\Math\Interpolation.h>
 #include <rovin\Math\GaussianQuadrature.h>
 #include <list>
+#include <fstream>
 
 namespace rovin {
 
@@ -11,6 +12,24 @@ namespace rovin {
 	class SwitchPoint;
 
 	typedef std::shared_ptr<TOPP> TOPPPtr;
+
+	class SwitchPoint
+	{
+	public:
+		enum SPID
+		{
+			SINGULAR = 0, TANGENT, DISCONTIUOUS
+		};
+	public:
+		SwitchPoint() {}
+		SwitchPoint(Real s, Real sdot, SPID id, Real lambda) : _s(s), _sdot(sdot),
+			_id(id), _lambda(lambda) {}
+	public:
+		Real _s;
+		Real _sdot;
+		SPID _id;
+		Real _lambda;
+	};
 
 	const enum CONSTRAINT_TYPE
 	{
@@ -110,28 +129,98 @@ namespace rovin {
 		unsigned int _nconstraintsWithoutVel;
 
 	public:
+		std::vector<Real> s_FI;
+		std::vector<Real> sdot_FI;
 
+		void saveRealVector2txt(std::vector<Real> in, std::string filename)
+		{
+			std::ofstream fout;
+			fout.open(filename);
+
+			for (unsigned int i = 0; i < in.size(); i++)
+				fout << in[i] << std::endl;
+
+			fout.close();
+		}
+
+		void saveIntVector2txt(std::vector<unsigned int> in, std::string filename)
+		{
+			std::ofstream fout;
+			fout.open(filename);
+
+			for (unsigned int i = 0; i < in.size(); i++)
+				fout << in[i] << std::endl;
+
+			fout.close();
+		}
+
+		void saveMVC(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints)
+		{
+			std::string name = "C:/Users/crazy/Desktop/Time optimization";
+			std::vector<Real> s, sdot;
+			for (unsigned int i = 0; i < allMVCPoints.size(); i++)
+			{
+				s.push_back(allMVCPoints[i](0));
+				sdot.push_back(allMVCPoints[i](1));
+			}
+			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/avp test/s.txt");
+			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_MVC.txt");
+		}
+
+		void savevectorOfVector2(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_first, std::string filename_second)
+		{
+			std::vector<Real> s, sdot;
+			for (unsigned int i = 0; i < in.size(); i++)
+			{
+				s.push_back(in[i](0));
+				sdot.push_back(in[i](1));
+			}
+			saveRealVector2txt(s, filename_first);
+			saveRealVector2txt(sdot, filename_second);
+		}
+
+		void saveRealList2txt(std::list<Real> in, std::string filename)
+		{
+			std::vector<Real> vec;
+			for (std::list<Real>::iterator it = in.begin(); it != in.end(); ++it)
+			{
+				vec.push_back(*(it));
+			}
+			saveRealVector2txt(vec, filename);
+		}
+
+		void saveLC(std::list<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_s, std::string filename_sdot)
+		{
+			std::vector<Real> s;
+			std::vector<Real> sdot;
+
+			Vector2 tmp;
+
+			for (std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator it = in.begin(); it != in.end(); ++it)
+			{
+				tmp = *(it);
+				s.push_back(tmp[0]);
+				sdot.push_back(tmp[1]);
+			}
+			saveRealVector2txt(s, filename_s);
+			saveRealVector2txt(sdot, filename_sdot);
+		}
+
+		void saveSwitchPoint(std::vector<SwitchPoint>& allSwitchPoint)
+		{
+			std::vector<Real> s_sw;
+			std::vector<Real> sdot_sw;
+			for (unsigned int i = 0; i < allSwitchPoint.size(); i++)
+			{
+				s_sw.push_back(allSwitchPoint[i]._s);
+				sdot_sw.push_back(allSwitchPoint[i]._sdot);
+			}
+			saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/avp test/s_sw.txt");
+			saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_sw.txt");
+		}
 
 	public:
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-	};
-
-	class SwitchPoint
-	{
-	public:
-		enum SPID
-		{
-			SINGULAR = 0, TANGENT, DISCONTIUOUS
-		};
-	public:
-		SwitchPoint() {}
-		SwitchPoint(Real s, Real sdot, SPID id, Real lambda) : _s(s), _sdot(sdot),
-			_id(id), _lambda(lambda) {}
-	public:
-		Real _s;
-		Real _sdot;
-		SPID _id;
-		Real _lambda;
 	};
 
 }

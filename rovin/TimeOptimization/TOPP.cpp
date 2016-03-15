@@ -688,6 +688,8 @@ namespace rovin {
 		bool swiPoint_swi;
 		unsigned int numOfSPInt = 3; ///< singular point integration number
 
+		//s_FI.push_back(s_cur); sdot_FI.push_back(sdot_cur);
+
 		// Step 1 & 2 : Forward & backward integration
 		while (I_SW)
 		{
@@ -696,6 +698,8 @@ namespace rovin {
 				forwardIntegrate(s_cur, sdot_cur, beta_cur);
 				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 
+				//s_FI.push_back(s_cur); sdot_FI.push_back(sdot_cur);
+
 				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1); ///< 3/7 modicifation
 				_sddot.push_back(beta_cur); ///< 3/7 modicifation
 
@@ -703,6 +707,13 @@ namespace rovin {
 
 				if (sdot_cur >= sdot_MVC)
 				{
+					//cout << "s_cur : " << s_cur << endl;
+					//cout << "sdot_cur : " << sdot_cur << endl;
+					//cout << "flag : " << flag << endl;
+
+					//saveRealVector2txt(s_FI, "C:/Users/crazy/Desktop/Time optimization/avp test/s_FI.txt");
+					//saveRealVector2txt(sdot_FI, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_FI.txt");
+
 					sdot_cur = sdot_MVC;
 					_sdot.pop_back();
 					_sdot.push_back(sdot_cur);

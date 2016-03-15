@@ -11,7 +11,7 @@ namespace rovin {
 	SE3 SerialOpenChain::calculateEndeffectorFrame(const StatePtr& state)
 	{
 		solveForwardKinematics(*state);
-		return _socLink[_socLink.size() - 1].getM();
+		return state->getLinkStateSE3(state->getDof());
 	}
 
 	LinkPtr SerialOpenChain::getLinkPtr(const unsigned int linkIdx)
