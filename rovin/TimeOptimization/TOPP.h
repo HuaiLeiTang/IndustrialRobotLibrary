@@ -52,7 +52,7 @@ namespace rovin {
 			const Real ds = 1e-3, const Real si = 0, const Real sf = 1, CONSTRAINT_TYPE constraintType = TORQUE);
 		~TOPP() {}
 
-		void generateTrajectory();
+		bool generateTrajectory();
 		void initialization();
 		void calculateAllMVCPoint();
 		void calculateAllSwitchPoint();
@@ -97,6 +97,12 @@ namespace rovin {
 		void calculateTorqueTrajectory();
 
 	public:
+		unsigned int forward(Real& s_cur, Real& sdot_cur);
+		unsigned int forwardVel(Real& s_cur, Real& sdot_cur);
+		void backward(Real& s_cur, Real& sdot_cur);
+		void switchpointfunction(Real& s_cur, Real& sdot_cur, bool& singularPoint_swi);
+
+	public:
 		CONSTRAINT_TYPE _constraintType;
 		SerialOpenChainPtr _soc;
 		StatePtr _state;
@@ -129,8 +135,13 @@ namespace rovin {
 		unsigned int _nconstraintsWithoutVel;
 
 	public:
+		std::string ssibal;
+
 		std::vector<Real> s_FI;
 		std::vector<Real> sdot_FI;
+
+		std::vector<Real> s_BI;
+		std::vector<Real> sdot_BI;
 
 		void saveRealVector2txt(std::vector<Real> in, std::string filename)
 		{
@@ -163,7 +174,7 @@ namespace rovin {
 				s.push_back(allMVCPoints[i](0));
 				sdot.push_back(allMVCPoints[i](1));
 			}
-			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/avp test/s.txt");
+			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/avp test/s_MVC.txt");
 			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_MVC.txt");
 		}
 

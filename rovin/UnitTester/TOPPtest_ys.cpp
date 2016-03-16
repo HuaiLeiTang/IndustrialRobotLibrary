@@ -18,6 +18,8 @@ SerialOpenChainPtr robot(new efortRobot());
 StatePtr state;
 unsigned int dof;
 
+void testfcn();
+
 int main()
 {
 	////////////////////////////////////////////////////////////////////////
@@ -27,9 +29,38 @@ int main()
 
 	//Real ds = 1e-3, vi = 0, vf = 0, si = 0, sf = 1;
 
-	//TOPP topp(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	//CONSTRAINT_TYPE constraint = CONSTRAINT_TYPE::TORQUE_VEL_ACC;
+	//TOPP topp(q_data, robot, vi, vf, ds, si, sf, constraint);
+	//if (constraint == CONSTRAINT_TYPE::TORQUE)
+	//	cout << " consider torque constraint" << endl;
+	//else  if (constraint == CONSTRAINT_TYPE::TORQUE_ACC)
+	//	cout << "consider torque, acceleration constraints" << endl;
+	//else  if (constraint == CONSTRAINT_TYPE::TORQUE_VEL_ACC)
+	//	cout << "consider torque, velocity, acceleration constraints" << endl;
+
 	//topp.generateTrajectory();
-	//cout << "[ consider only torque constraint ]" << endl;
+	//
+	//topp.saveRealList2txt(topp._s, "C:/Users/crazy/Desktop/Time optimization/avp test/s_result.txt");
+	//topp.saveRealList2txt(topp._sdot, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_result.txt");
+	//
+	//std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+	//std::vector<SwitchPoint> allSwitchPoints;
+
+	//topp.initialization();
+	//topp.calculateAllMVCPoint();
+	//topp.calculateAllSwitchPoint();
+	//allMVCPoints = topp.getAllMVCPoint();
+	//allSwitchPoints = topp.getAllSwitchPoint();
+
+	//topp.saveMVC(allMVCPoints);
+	//topp.saveSwitchPoint(allSwitchPoints);
+
+	//cout << "number of switch points : " << allSwitchPoints.size() << endl;
+	//cout << "switch points id : ";
+	//for (unsigned int i = 0; i < allSwitchPoints.size(); i++)
+	//	cout << allSwitchPoints[i]._id << " ";
+	//cout << endl;
+
 	//cout << "Final time : " << topp.getFinalTime() << endl << endl;
 
 	////////////////////////////////////////////////////////////////////////
@@ -80,6 +111,8 @@ int main()
 
 	//delete nVertex;
 
+	
+
 	////////////////////////////////////////////////////////////////////////
 	// AVP test
 	state = robot->makeState();
@@ -114,8 +147,8 @@ int main()
 
 	Vertex * nVertex = avp_rrt._startTree._nodes[0];
 	//VectorX qrand = q1;
-	VectorX qrand = qg;
-	//VectorX qrand = qex2;
+	//VectorX qrand = qg;
+	VectorX qrand = qex2;
 	Real dist = 1.0;;
 	bool forward = true;
 	std::list<VectorX> Pnew; 
@@ -133,6 +166,42 @@ int main()
 		q_data.col(cnt++) = *it;
 	int data_num = Pnew.size();
 
+	std::cout << "[ TOPP 수행 ]" << std::endl;
+	Real ds = 0.5e-2, vi = 0, vf = 0, si = 0, sf = 1;
+	CONSTRAINT_TYPE constraint = CONSTRAINT_TYPE::TORQUE;
+	TOPP topp(q_data, robot, vi, vf, ds, si, sf, constraint);
+	if (constraint == CONSTRAINT_TYPE::TORQUE)
+		cout << " consider torque constraint" << endl;
+	else  if (constraint == CONSTRAINT_TYPE::TORQUE_ACC)
+		cout << "consider torque, acceleration constraints" << endl;
+	else  if (constraint == CONSTRAINT_TYPE::TORQUE_VEL_ACC)
+		cout << "consider torque, velocity, acceleration constraints" << endl;
+
+	std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
+	std::vector<SwitchPoint> allSwitchPoints;
+	topp.calculateAllMVCPoint();
+	topp.calculateAllSwitchPoint();
+	allMVCPoints = topp.getAllMVCPoint();
+	allSwitchPoints = topp.getAllSwitchPoint();
+
+	cout << "number of switch points : " << allSwitchPoints.size() << endl;
+	cout << "switch points id : ";
+	for (unsigned int i = 0; i < allSwitchPoints.size(); i++)
+		cout << allSwitchPoints[i]._id << " ";
+	cout << endl;
+
+	topp.saveMVC(allMVCPoints);
+	topp.saveSwitchPoint(allSwitchPoints);
+
+	bool success;
+	success = topp.generateTrajectory();
+	topp.saveRealList2txt(topp._s, "C:/Users/crazy/Desktop/Time optimization/avp test/s_result.txt");
+	topp.saveRealList2txt(topp._sdot, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_result.txt");
+
+	
+
+	////////////////////////////////////////////////////////////////////////
+	// Rendering
 	//OSG_simpleRender renderer(*robot, *state, 600, 600);
 	//Real spsize = 50.0;
 
@@ -146,7 +215,7 @@ int main()
 	//state->setJointStatePos(qrand);
 	//robot->solveForwardKinematics(*state);
 	//Vector3 endpos = robot->calculateEndeffectorFrame(state).getPosition();
-	//
+
 	//startpoint = shared_ptr<Points>(new Points);
 	//endpoint = shared_ptr<Points>(new Points);
 	//startpoint->push_back(osg::Vec3(startpos(0), startpos(1), startpos(2)));
@@ -176,40 +245,25 @@ int main()
 	//double c = clock();
 	//while (1)
 	//{
-	//   if (clock() - c >= 100 / frameRate)
-	//   {
-	//      if (cnt == data_num) cnt = 0;
-	//	  state->setJointStatePos(q_data.col(cnt));
-	//      robot->solveForwardKinematics(*state);
-	//	  cnt++;
-	//   }
-	//   renderer.updateFrame();
+	//	if (clock() - c >= 100 / frameRate)
+	//	{
+	//		if (cnt == data_num) cnt = 0;
+	//		state->setJointStatePos(q_data.col(cnt));
+	//		robot->solveForwardKinematics(*state);
+	//		cnt++;
+	//	}
+	//	renderer.updateFrame();
 	//}
-
-	std::cout << "[ TOPP 수행 ]" << std::endl;
-	Real ds = 0.5e-2, vi = 0, vf = 0, si = 0, sf = 1;
-	TOPP topp(q_data, robot, vi, vf, ds, si, sf, CONSTRAINT_TYPE::TORQUE);
-
-	std::vector<Vector2, Eigen::aligned_allocator<Vector2>> allMVCPoints;
-	std::vector<SwitchPoint> allSwitchPoints;
-	topp.calculateAllMVCPoint();
-	topp.calculateAllSwitchPoint();
-	allMVCPoints = topp.getAllMVCPoint();
-	allSwitchPoints = topp.getAllSwitchPoint();
-
-	cout << "number of switch points : " << allSwitchPoints.size() << endl;
-
-	topp.saveMVC(allMVCPoints);
-	topp.saveSwitchPoint(allSwitchPoints);
-
-	topp.generateTrajectory();
-	topp.saveRealList2txt(topp._s, "C:/Users/crazy/Desktop/Time optimization/avp test/s_result.txt");
-	topp.saveRealList2txt(topp._sdot, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_result.txt");
-
 
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
+}
+
+void testfcn()
+{
+	return;
+	cout << "fuck" << endl;
 }
 
 void loadData(MatrixX& data)

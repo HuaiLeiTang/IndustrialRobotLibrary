@@ -605,9 +605,12 @@ namespace rovin
 		allMVCPoints = _topp->getAllMVCPoint();
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		allSwitchPoint = _topp->getAllSwitchPoint();
-		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
+		
+		if(allSwitchPoint.size()!=0)
+			A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
 
-		std::cout << "LC size : " << LC.size() << std::endl;
+
+		//std::cout << "LC size : " << LC.size() << std::endl;
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
@@ -620,7 +623,10 @@ namespace rovin
 
 		calculateCLC(LC, CLC);
 
-		std::cout << "CLC size : " << CLC.size() << std::endl;
+		// switching point 가 없으면 CLC null..
+
+
+		//std::cout << "CLC size : " << CLC.size() << std::endl;
 
 		unsigned int Acase;
 		Real sdot_beg_star;
@@ -1342,9 +1348,9 @@ namespace rovin
 					idx.push_back(i);
 			}
 
-			tmp_min = std::numeric_limits<Real>::max();
 			if (idx.size() != 0)
 			{
+				tmp_min = std::numeric_limits<Real>::max();
 				for (unsigned int i = 0; i < idx.size(); i++)
 				{
 					if ((*(it_begin[idx[i]]))(1) < tmp_min)

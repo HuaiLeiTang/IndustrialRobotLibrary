@@ -116,12 +116,12 @@ namespace rovin {
 		unsigned int numData = _q_data.cols();
 		if (numData > MaxNumOfCP)
 		{
-			cout << "Make b-spline using fitting" << endl;
+			//cout << "Make b-spline using fitting" << endl;
 			_q = BSplineFitting(_q_data, orderOfBSpline, MaxNumOfCP, _si, _sf);
 		}
 		else
 		{
-			cout << "Make b-spline using interpolation" << endl;
+			//cout << "Make b-spline using interpolation" << endl;
 			_q = BSplineInterpolation(_q_data, orderOfBSpline, _si, _sf);
 		}
 		_dqds = _q.derivative();
@@ -152,11 +152,14 @@ namespace rovin {
 
 	void TOPP::calculateAllSwitchPoint()
 	{
-
 		Real s = _si;
+
 		while (findNearestSwitchPoint(s))
 		{
 			s = _switchPoint[_switchPoint.size() - 1]._s;
+
+
+
 			s += _ds;
 			if (s > _sf)
 				break;
@@ -511,16 +514,17 @@ namespace rovin {
 
 	bool TOPP::findNearestSwitchPoint(Real s)
 	{
-		int flag;
+		int flag, flag_cur, flag_next;
+
 
 		//Real ds = 0.0005;
 		Real ds = _ds;
 		Real s_bef = s;
 		Real sdot_bef = calculateMVCPoint(s_bef, flag);
 		Real s_cur = s_bef + ds;
-		Real sdot_cur = calculateMVCPoint(s_cur, flag);
+		Real sdot_cur = calculateMVCPoint(s_cur, flag_cur);
 		Real s_next = s_bef + 2 * ds;
-		Real sdot_next = calculateMVCPoint(s_next, flag);
+		Real sdot_next = calculateMVCPoint(s_next, flag_next);
 
 		// end criterion
 		if (s_next >= _sf)
@@ -548,110 +552,116 @@ namespace rovin {
 
 		while (true)
 		{
-			// step 1: singular point check
-			// include calculating \lambda
-			for (unsigned int i = 0; i < _nconstraintsWithoutVel; i++) // number of inequality
+
+			if (flag_cur == 2 && flag_next == 2)
 			{
-				if (a_bef[i] * a_cur[i] <= 0)
+
+				// step 1: singular point check
+				// include calculating \lambda
+				for (unsigned int i = 0; i < _nconstraintsWithoutVel; i++) // number of inequality
 				{
-					// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
-					// 여기 말고 위아래 step 2, 3에도 비슷한 알고리즘 필요할듯
-					Real adiff = a_cur[i] - a_bef[i];
-					if (std::abs(adiff) > 1E-10)
+					if (a_bef[i] * a_cur[i] <= 0)
 					{
-						// calculate '_sing' variables as internal dividing points
-						// abc도 선형보간으로?? 새로 구한 s_sing 에서 구하는게 아니고??
-						Real tmpalpha = -a_bef[i] / adiff;
-						s_sing = tmpalpha*s_cur + (1 - tmpalpha)*s_bef;
-						VectorX tmp_sing;
-						calculateA(s_sing, tmp_sing);
-						a_sing = tmp_sing[i];
-						std::vector<VectorX> bcTmp = calculateBandC(s_sing);
-						b_sing = bcTmp[0](i);
-						c_sing = bcTmp[1](i);
-					}
-					else
-					{
-						s_sing = s_cur;
-						a_sing = a_cur[i];
-						b_sing = bc_cur[0][i];
-						c_sing = bc_cur[1][i];
-					}
-
-					if (b_sing > 0 && c_sing < 0)
-					{
-						sdot_star = sqrt(-c_sing / b_sing);
-						sdot_plus = calculateMVCPointExclude(s_sing, i, flag);
-
-						if (sdot_star < sdot_plus && sdot_star < sdot_min)
+						// 딱 0이 아니면 원래 코드처럼 선형보간 해서 더 좋은 s를 찾는 과정이 필요할듯..
+						// 여기 말고 위아래 step 2, 3에도 비슷한 알고리즘 필요할듯
+						Real adiff = a_cur[i] - a_bef[i];
+						if (std::abs(adiff) > 1E-10)
 						{
-							singularFound = true;
-							s_save = s_sing;
-							sdot_min = sdot_star;
-							idx_save = i;
+							// calculate '_sing' variables as internal dividing points
+							// abc도 선형보간으로?? 새로 구한 s_sing 에서 구하는게 아니고??
+							Real tmpalpha = -a_bef[i] / adiff;
+							s_sing = tmpalpha*s_cur + (1 - tmpalpha)*s_bef;
+							VectorX tmp_sing;
+							calculateA(s_sing, tmp_sing);
+							a_sing = tmp_sing[i];
+							std::vector<VectorX> bcTmp = calculateBandC(s_sing);
+							b_sing = bcTmp[0](i);
+							c_sing = bcTmp[1](i);
+						}
+						else
+						{
+							s_sing = s_cur;
+							a_sing = a_cur[i];
+							b_sing = bc_cur[0][i];
+							c_sing = bc_cur[1][i];
+						}
+
+						if (b_sing > 0 && c_sing < 0)
+						{
+							sdot_star = sqrt(-c_sing / b_sing);
+							sdot_plus = calculateMVCPointExclude(s_sing, i, flag);
+
+							if (sdot_star < sdot_plus && sdot_star < sdot_min)
+							{
+								singularFound = true;
+								s_save = s_sing;
+								sdot_min = sdot_star;
+								idx_save = i;
+							}
 						}
 					}
 				}
-			}
-			if (singularFound)
-			{
-				Real diffeps = 1E-5;
-				Real ap, bp, cp; ///> p for prime, differentiated to s
-				VectorX tmp1, tmp2;
-				calculateA(s_save + diffeps, tmp1); calculateA(s_save, tmp2);
-				ap = (tmp1(idx_save) - tmp2(idx_save)) / diffeps;
-				std::vector<VectorX> bcTmp = calculateBandC(s_save);
-				std::vector<VectorX> bcTmpEps = calculateBandC(s_save + diffeps);
-				bp = (bcTmpEps[0](idx_save) - bcTmp[0](idx_save)) / diffeps;
-				cp = (bcTmpEps[1](idx_save) - bcTmp[1](idx_save)) / diffeps;
-
-				Real lambda;
-
-				if ((2 * bcTmp[0](idx_save) + ap)*sdot_min > 1E-10)
-					lambda = (-bp * sdot_min*sdot_min - cp) / ((2 * bcTmp[0](idx_save) + ap)*sdot_min);
-				else
-					lambda = 0.0; // copy of original code....
-
-				SwitchPoint sw(s_save, sdot_min, SwitchPoint::SINGULAR, lambda);
-				_switchPoint.push_back(sw);
-				return true;
-			}
-			// step 1 -END-
-
-			// step 2: tanget point check
-			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
-			{
-				SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);
-				_switchPoint.push_back(sw);
-				return true;
-			}
-			// step 2 -END-
-
-			// step 3: discontinuous point check
-			if (std::abs(sdot_next - sdot_cur) > 1000 * std::abs(sdot_cur - sdot_bef))
-			{
-				if (sdot_next > sdot_cur)
+				if (singularFound)
 				{
-					SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::DISCONTIUOUS, 0.0);
+					Real diffeps = 1E-5;
+					Real ap, bp, cp; ///> p for prime, differentiated to s
+					VectorX tmp1, tmp2;
+					calculateA(s_save + diffeps, tmp1); calculateA(s_save, tmp2);
+					ap = (tmp1(idx_save) - tmp2(idx_save)) / diffeps;
+					std::vector<VectorX> bcTmp = calculateBandC(s_save);
+					std::vector<VectorX> bcTmpEps = calculateBandC(s_save + diffeps);
+					bp = (bcTmpEps[0](idx_save) - bcTmp[0](idx_save)) / diffeps;
+					cp = (bcTmpEps[1](idx_save) - bcTmp[1](idx_save)) / diffeps;
+
+					Real lambda;
+
+					if ((2 * bcTmp[0](idx_save) + ap)*sdot_min > 1E-10)
+						lambda = (-bp * sdot_min*sdot_min - cp) / ((2 * bcTmp[0](idx_save) + ap)*sdot_min);
+					else
+						lambda = 0.0; // copy of original code....
+
+					SwitchPoint sw(s_save, sdot_min, SwitchPoint::SINGULAR, lambda);
 					_switchPoint.push_back(sw);
 					return true;
 				}
-				else
+				// step 1 -END-
+
+				// step 2: tanget point check
+				if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
 				{
-					SwitchPoint sw(s_next, sdot_next, SwitchPoint::DISCONTIUOUS, 0.0);
+					SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);
 					_switchPoint.push_back(sw);
 					return true;
 				}
+				// step 2 -END-
+
+				// step 3: discontinuous point check
+				if (std::abs(sdot_next - sdot_cur) > 1000 * std::abs(sdot_cur - sdot_bef))
+				{
+					if (sdot_next > sdot_cur)
+					{
+						SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::DISCONTIUOUS, 0.0);
+						_switchPoint.push_back(sw);
+						return true;
+					}
+					else
+					{
+						SwitchPoint sw(s_next, sdot_next, SwitchPoint::DISCONTIUOUS, 0.0);
+						_switchPoint.push_back(sw);
+						return true;
+					}
+				}
+				// step 3 -END-
 			}
-			// step 3 -END-
 
 			// if any kinds of switch point is not detected, proceed to next s
 			s_bef = s_cur;
 			sdot_bef = sdot_cur;
 			s_cur = s_next;
 			sdot_cur = sdot_next;
+			flag_cur = flag_next;
 			s_next += ds;
-			sdot_next = calculateMVCPoint(s_next, flag);
+			sdot_next = calculateMVCPoint(s_next, flag_next);
 
 			diff_bef = diff_cur;
 			diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
@@ -661,374 +671,270 @@ namespace rovin {
 			calculateA(s_cur, a_cur);
 			bc_cur = calculateBandC(s_cur);
 
+
 			// end criterion
 			if (s_next >= _sf)
 				return false;
 		}
 	}
 
-	void TOPP::generateTrajectory()
+	unsigned int TOPP::forward(Real& s_cur, Real& sdot_cur)
+	{
+		// return 0 면 sdot = 0 에 도달했다. 이건 topp 불가능!
+		// return 1 면 MVC velocity 에 도달
+		// return 2 면 MVC torque-acc 에 도달  --> switching point 찾아라
+		
+		Real beta_cur, sdot_cur_MVC;
+		unsigned int idx;
+		int flag;
+
+		while (s_cur < _sf)
+		{
+			beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
+			forwardIntegrate(s_cur, sdot_cur, beta_cur);
+			if (sdot_cur < 1e-5)
+				return 0;
+			idx = (unsigned int)round(s_cur / _ds);
+			sdot_cur_MVC = _allMVCPoints[idx](1);
+			flag = _allMVCPointsFlag[idx];
+
+			if (sdot_cur > sdot_cur_MVC)
+			{
+				sdot_cur = sdot_cur_MVC;
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+
+				if (flag == 2)
+					return 1;
+				if (flag == 1)
+					return 2;
+
+			}
+			_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+		}
+		return 1;
+	}
+
+	unsigned int TOPP::forwardVel(Real& s_cur, Real& sdot_cur)
+	{
+		// return 0 면 끝점에 도달했다 -> 끝에서 backward 해라
+		// return 1 면 forward 해라
+		// return 2 면 torque-acc 에 도달했다 -> switching point 찾아라
+		// vel 따라 가다가 case 1. 끝점에 도달하면 끝에서 backward : return 0
+		//				   case 2. torque-acc에 도달하면 그냥 나가서 switching point 찾는 알고리즘 발동 : return 2
+		//                 case 3. vel 따라갈 수 있는 조건 만족하면 거기서 backward : return 0
+
+		Vector2 alphabeta;
+		Real s_next, sdot_next, alpha_cur, beta_cur, slope;
+		unsigned int idx;
+		int flag;
+
+		while (true)
+		{
+			s_next = s_cur + _ds;
+			if (s_next > _sf)
+			{
+				s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+				return 0;
+			}
+
+			idx = (unsigned int)round(s_next / _ds);
+			sdot_next = _allMVCPoints[idx](1);
+			flag = _allMVCPointsFlag[idx];
+			
+			if (flag == 2) // go to finding switch point function
+				return 2;
+
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0); beta_cur = alphabeta(1);
+
+			slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+			if (beta_cur >= slope && slope >= alpha_cur)
+			{
+				s_cur = s_next; sdot_cur = sdot_next;
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+			}
+			else if (beta_cur < slope)
+				return 1;
+			else
+				break;
+		}
+
+		while (true)
+		{
+			s_next = s_cur + _ds;
+			if (s_next > _sf)
+			{
+				s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+				return 0;
+			}
+			idx = (unsigned int)round(s_next / _ds);
+			sdot_next = _allMVCPoints[idx](1);
+			flag = _allMVCPointsFlag[idx];
+			
+			if (flag == 2) // go to finding switch point function
+			{
+				s_cur = s_next; sdot_cur = sdot_next;
+				return 2;
+			}
+				
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0);
+			beta_cur = alphabeta(1);
+			slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+			if (beta_cur >= slope && slope >= alpha_cur)
+			{
+				s_cur = s_next; sdot_cur = sdot_next;
+				//_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+				return 0;
+			}
+			s_cur = s_next; sdot_cur = sdot_next;
+		}
+	}
+
+
+
+	void TOPP::backward(Real& s_cur, Real& sdot_cur)
+	{
+		Real alpha_cur;
+		Real s_back = _s.back();
+		std::list<Real> _s_tmp;
+		std::list<Real> _sdot_tmp;
+
+		while (true)
+		{
+			if (std::abs(s_cur - s_back) <= _ds*0.1)
+			{
+				//LOGIF(sdot_cur < _sdot.back(), "backward error : sdot_cur must be smaller than _sdot.back().");
+				_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
+				_s.pop_back(); _sdot.pop_back();
+
+				while (true)
+				{
+					alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
+					backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+					if (sdot_cur > _sdot.back())
+						break;
+
+					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
+					_s.pop_back(); _sdot.pop_back();
+				}
+				break;
+			}
+			_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
+
+			alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
+			backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+		}
+
+		s_cur = _s_tmp.back(); sdot_cur = _sdot_tmp.back();
+		_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
+		_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
+	}
+
+	void TOPP::switchpointfunction(Real& s_cur, Real& sdot_cur, bool& singularPoint_swi)
+	{
+		bool swiPoint_swi;
+		swiPoint_swi = findNearestSwitchPoint(s_cur);
+		if (!swiPoint_swi)
+		{
+			s_cur = _sf; 
+			sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
+		}
+		else
+		{
+			s_cur = _switchPoint[_switchPoint.size() - 1]._s;
+			sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
+			s_cur = round(s_cur / _ds) * _ds;										
+			if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
+				singularPoint_swi = true;
+		}
+	}
+
+	bool TOPP::generateTrajectory()
 	{
 		initialization();
+		calculateAllMVCPoint();
+		saveMVC(_allMVCPoints);
 
-		Real s_cur = 0, sdot_cur = _vi / _dqds(1e-4).norm(), sdot_MVC;
+		Real s_cur = 0;
+		Real sdot_cur = _vi / _dqds(1e-5).norm();
+		Real sdot_cur_MVC;
 		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
-		_sddot.push_back(beta_cur); ///< 3/7 modicifation
 
-		std::list<Real> _s_tmp;
-		std::list<Real> _sdot_tmp;
-		std::list<Real> _sddot_tmp; ///< 3/7 modicifation
+		int flag;
+		unsigned int numOfSPInt = 3;
+		bool singularPoint_swi = false;
+		
+		unsigned int swi_forward;
+		unsigned int swi_forwardVel = 1;
 
-		int flag; ///< 1 : velocity contraint, 2 : acc-torque contraint
-		bool FI_SW = true, BI_SW = false, I_SW = true;
-		bool swiPoint_swi;
-		unsigned int numOfSPInt = 3; ///< singular point integration number
-
-		//s_FI.push_back(s_cur); sdot_FI.push_back(sdot_cur);
-
-		// Step 1 & 2 : Forward & backward integration
-		while (I_SW)
+		while (true)
 		{
-			while (FI_SW) ///< Forward integration
+			if (swi_forwardVel == 1)
 			{
-				forwardIntegrate(s_cur, sdot_cur, beta_cur);
-				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-
-				//s_FI.push_back(s_cur); sdot_FI.push_back(sdot_cur);
-
-				beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1); ///< 3/7 modicifation
-				_sddot.push_back(beta_cur); ///< 3/7 modicifation
-
-				sdot_MVC = calculateMVCPoint(s_cur, flag);
-
-				if (sdot_cur >= sdot_MVC)
+				if (singularPoint_swi)
 				{
-					//cout << "s_cur : " << s_cur << endl;
-					//cout << "sdot_cur : " << sdot_cur << endl;
-					//cout << "flag : " << flag << endl;
-
-					//saveRealVector2txt(s_FI, "C:/Users/crazy/Desktop/Time optimization/avp test/s_FI.txt");
-					//saveRealVector2txt(sdot_FI, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_FI.txt");
-
-					sdot_cur = sdot_MVC;
-					_sdot.pop_back();
-					_sdot.push_back(sdot_cur);
-
-					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1); ///< 3/7 modicifation
-					_sddot.pop_back(); ///< 3/7 modicifation
-					_sddot.push_back(beta_cur); ///< 3/7 modicifation
-
-					if (flag == 1) ///< velocity contraint case
+					Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+					for (unsigned int i = 0; i < numOfSPInt*2; i++)
 					{
-						//Real s_tmp_beta, sdot_tmp_beta; ///< no need
-						//Real s_tmp_alpha, sdot_tmp_alpha; ///< no need
-
-						Real slope;
-						Real s_next, sdot_next;
-						while (true)
-						{
-							//s_tmp_beta = s_cur; sdot_tmp_beta = sdot_cur;
-							//s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;
-
-							s_next = s_cur + _ds;
-							sdot_next = calculateMVCPoint(s_next, flag);
-
-							if (flag == 2)
-							{
-								swiPoint_swi = findNearestSwitchPoint(s_cur);
-								if (!swiPoint_swi)
-								{
-									FI_SW = false; BI_SW = false; I_SW = false;
-								}
-								else
-								{
-									s_cur = _switchPoint[_switchPoint.size() - 1]._s;
-									sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
-									_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
-									if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
-									{
-										Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-										for (unsigned int i = 0; i < numOfSPInt; i++)
-										{
-											_sddot_tmp.push_front(lambda); ///< 3/7 modicifation
-											s_cur -= _ds;
-											sdot_cur -= lambda * _ds;
-											_s_tmp.push_front(s_cur);
-											_sdot_tmp.push_front(sdot_cur);
-										}
-									}
-									FI_SW = false; BI_SW = true;
-								}
-								break;
-							}
-
-							alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-							alpha_cur = alphabeta(0);
-							beta_cur = alphabeta(1);
-
-							slope = (sdot_next - sdot_cur) / (s_next - s_cur);
-
-							//forwardIntegrate(s_tmp_beta, sdot_tmp_beta, beta_cur); ///< no need
-							//forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur); ///< no need
-
-							if (beta_cur >= slope && slope >= alpha_cur)
-								//if (sdot_tmp_beta >= sdot_next && sdot_next >= sdot_tmp_alpha)
-							{
-								s_cur = s_next; sdot_cur = sdot_next;
-								_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-								_sddot.push_back(slope); ///< 3/7 modicifation
-							}
-							else if (beta_cur < slope)
-								//else if (sdot_tmp_beta < sdot_next)
-							{
-								FI_SW = true; BI_SW = false;
-								break;
-							}
-							else if (alpha_cur > slope)
-								//else if (sdot_tmp_alpha > sdot_next)
-							{
-								//while (sdot_tmp_alpha > sdot_next)
-								while (alpha_cur > slope)
-								{
-									//s_tmp_alpha = s_cur; sdot_tmp_alpha = sdot_cur;	
-									s_next = s_cur + _ds;
-									sdot_next = calculateMVCPoint(s_next, flag);
-
-									if (flag == 2)
-									{
-										swiPoint_swi = findNearestSwitchPoint(s_cur);
-										if (!swiPoint_swi)
-										{
-											FI_SW = false; BI_SW = false; I_SW = false;
-										}
-										else
-										{
-											s_cur = _switchPoint[_switchPoint.size() - 1]._s;
-											sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
-											_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
-											if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
-											{
-												Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-												for (unsigned int i = 0; i < numOfSPInt; i++)
-												{
-													_sddot_tmp.push_front(lambda); ///< 3/7 modicifation
-													s_cur -= _ds;
-													sdot_cur -= lambda * _ds;
-													_s_tmp.push_front(s_cur);
-													_sdot_tmp.push_front(sdot_cur);
-												}
-											}
-											FI_SW = false; BI_SW = true;
-										}
-										break;
-									}
-									alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
-									slope = (sdot_next - sdot_cur) / (s_next - s_cur);
-									//forwardIntegrate(s_tmp_alpha, sdot_tmp_alpha, alpha_cur);
-									s_cur = s_next; sdot_cur = sdot_next;
-								}
-								s_cur -= _ds;
-								sdot_cur = calculateMVCPoint(s_cur, flag);
-
-								FI_SW = false; BI_SW = true;
-								break;
-							}
-							else if (s_cur > _sf)
-							{
-								FI_SW = true; BI_SW = false; I_SW = false;
-								break;
-							}
-						}
+						s_cur += _ds;
+						sdot_cur += lambda * _ds;
+						_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 					}
-					else if (flag == 2) /// acceleration-torque constraint case
-					{
-						swiPoint_swi = findNearestSwitchPoint(s_cur);
-						if (!swiPoint_swi) /// if swtich point doesn't exist until s_end --> go to step 3
-						{
-							FI_SW = false; BI_SW = false; I_SW = false;
-						}
-						else /// if switch point exist --> go to backward integration
-						{
-							s_cur = _switchPoint[_switchPoint.size() - 1]._s;
-							sdot_cur = _switchPoint[_switchPoint.size() - 1]._sdot;
-							_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
-							if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
-							{
-								Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-								for (unsigned int i = 0; i < numOfSPInt; i++)
-								{
-									_sddot_tmp.push_front(lambda); ///< 3/7 modicifation
-									s_cur -= _ds;
-									sdot_cur -= lambda * _ds;
-									_s_tmp.push_front(s_cur);
-									_sdot_tmp.push_front(sdot_cur);
-								}
-							}
-							FI_SW = false; BI_SW = true;
-						}
-					}
+					singularPoint_swi = false;
 				}
-				else if (s_cur > _sf) ///< go to step 3, case (a), s_cur 가 무조건 s_end 넘어갔을 때!!
-				{
-					FI_SW = false; BI_SW = false; I_SW = false;
-				}
-				else if (sdot_cur < 1e-10) ///< Debugging 요소, case (a)
-				{
-					FI_SW = false; BI_SW = false; I_SW = false;
-				}
+				swi_forward = forward(s_cur, sdot_cur);
 			}
 
-			while (BI_SW) ///< Backward integration
+			if (swi_forward == 0)
 			{
-				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-				alpha_cur = alphabeta(0);
-				beta_cur = alphabeta(1);
-				_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
+				LOG("forward fail, TOPP fail.");
+				return false;
+			}
+			else if (swi_forward == 1)
+			{
+				swi_forwardVel = 0; 
+				switchpointfunction(s_cur, sdot_cur, singularPoint_swi);
+			}
+			else if (swi_forward == 2)
+				swi_forwardVel = forwardVel(s_cur, sdot_cur);
 
-				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				_s_tmp.push_front(s_cur);
-				_sdot_tmp.push_front(sdot_cur);
+			if (swi_forwardVel == 2)
+			{
+				swi_forwardVel = 0;
+				switchpointfunction(s_cur, sdot_cur, singularPoint_swi);
+			}
 
-				if (s_cur <= _s.back())
+			if (swi_forwardVel == 0)
+			{
+				if (singularPoint_swi)
 				{
-					_s_tmp.pop_front();	_sdot_tmp.pop_front();
-					sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
-					s_cur = _s.back();
-
-					LOGIF((_sdot.back() > sdot_cur), "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
-					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
-
-					while (_sdot.back() > sdot_cur)
+					Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
+					for (unsigned int i = 0; i < numOfSPInt; i++)
 					{
-						_s.pop_back();
-						_sdot.pop_back();
-						_sddot.pop_back();  ///< 3/7 modicifation
-						alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-						alpha_cur = alphabeta(0);
-						_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
-
-						backwardIntegrate(s_cur, sdot_cur, alpha_cur); ///< update s_cur, sdot_cur
-						_s_tmp.push_front(s_cur);
-						_sdot_tmp.push_front(sdot_cur);
+						s_cur -= _ds;
+						sdot_cur -= lambda * _ds;
 					}
-
-					_s_tmp.pop_front();
-					_sdot_tmp.pop_front();
-
-					_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
-					_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
-					_sddot.insert(_sddot.end(), _sddot_tmp.begin(), _sddot_tmp.end()); ///< 3/7 modicifation
-
-					_s_tmp.clear();
-					_sdot_tmp.clear();
-					_sddot_tmp.clear();
-
-					s_cur = _s.back();
-					sdot_cur = _sdot.back();
-					if (_switchPoint[_switchPoint.size() - 1]._id == SwitchPoint::SINGULAR)
-					{
-						// proceed following beta profile
-						Real lambda = _switchPoint[_switchPoint.size() - 1]._lambda;
-						for (unsigned int i = 0; i < numOfSPInt; i++)
-						{
-							s_cur += _ds;
-							sdot_cur += lambda * _ds;
-							_s.push_back(s_cur);
-							_sdot.push_back(sdot_cur);
-							_sddot.push_back(lambda); ///< 3/7 modicifation
-						}
-						_sddot.pop_back(); ///< 3/7 modicifation
-					}
-					beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
-
-					FI_SW = true;
-					BI_SW = false;
 				}
-			}
-		}
-
-		// Step 3 : there exist two cases.
-		s_cur = _sf - 0.0001;
-		sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
-
-		_s_tmp.push_front(s_cur);
-		_sdot_tmp.push_front(sdot_cur);
-
-		if (!swiPoint_swi) // case 1. when can't find switching point until final s
-		{
-			LOGIF((_sdot.back() > sdot_cur), "step 3 error(!swiPoint_swi) : s_end has to be smaller than _sdot.back().");
-
-			while ((s_cur >= _s.back()))
-			{
-				alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-				alpha_cur = alphabeta(0);
-				_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
-
-				backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-				_s_tmp.push_front(s_cur);
-				_sdot_tmp.push_front(sdot_cur);
+				backward(s_cur, sdot_cur);
+				swi_forwardVel = 1;
 			}
 
-			_s_tmp.pop_front();
-			_sdot_tmp.pop_front();
-
-			sdot_cur = (sdot_cur - _sdot_tmp.front()) / (s_cur - _s_tmp.front()) * (_s.back() - s_cur) + sdot_cur;
-			s_cur = _s.back();
-
-			LOGIF((_sdot.back() > sdot_cur), "Backward intergration error:_sdot.back() has to be larger than sdot_cur.");
+			if (std::abs(_s.back() - _sf) < _ds*0.1)
+				break;
 		}
-		else // case 2. when forward integration reach final s
-		{
-			LOGIF((_sdot.back() > sdot_cur), "step 3 error(swiPoint_swi) : s_end has to be smaller than _sdot.back().");
-
-			_s.pop_back();
-			_sdot.pop_back();
-
-			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-			alpha_cur = alphabeta(0);
-			_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
-
-			Real delta = std::abs((s_cur - _s.back()));
-			Real tmp = -2 * alpha_cur*delta + sdot_cur*sdot_cur;
-			LOGIF((tmp > 0), "TOPP::backwardIntegrate error : the value has to be positive.");
-
-			s_cur -= delta;
-			sdot_cur = sqrt(tmp);
-		}
-		_s_tmp.push_front(s_cur);
-		_sdot_tmp.push_front(sdot_cur);
-
-		while (_sdot.back() > sdot_cur)
-		{
-			_s.pop_back();
-			_sdot.pop_back();
-			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-			alpha_cur = alphabeta(0);
-			_sddot_tmp.push_front(alpha_cur); ///< 3/7 modicifation
-
-			backwardIntegrate(s_cur, sdot_cur, alpha_cur);
-			_s_tmp.push_front(s_cur);
-			_sdot_tmp.push_front(sdot_cur);
-		}
-
-		_s_tmp.pop_front();
-		_sdot_tmp.pop_front();
-
-		_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
-		_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
-		_sddot.insert(_sddot.end(), _sddot_tmp.begin(), _sddot_tmp.end()); ///< 3/7 modicifation
-		_s_tmp.clear();
-		_sdot_tmp.clear();
-		_sddot_tmp.clear(); ///< 3/7 modicifation
 
 		calculateFinalTime();
 		//calculateTorqueTrajectory();
 
-		cout << "trajectory generation finished." << endl;
+		std::cout << "trajectory generation finished." << std::endl;
+		return true;
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////
