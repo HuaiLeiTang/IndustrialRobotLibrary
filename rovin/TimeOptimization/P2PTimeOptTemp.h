@@ -40,7 +40,7 @@ namespace rovin
 		void setinpath(const std::list<VectorX>& inpath) { _inpath = inpath; }
 		void setparentVertex(Vertex * parentVertex) { _parentVertex = parentVertex; }
 
-	private:
+	public:
 		VectorX _config;
 		VectorX _configVel;
 		Vector2 _interval;
@@ -82,7 +82,7 @@ namespace rovin
 		// addVertex 부르기 전에 vertex 멤버변수 다 값 저장한다음에 넣기
 		void addVertex(Vertex* vertex);
 
-	private:
+	public:
 		MultiANN * _mpnnTree;
 		//Vertex * _rootVertex;
 		std::vector<Vertex*> _nodes; ///> [0] component has root vertex;
@@ -119,7 +119,7 @@ namespace rovin
 	public:
 		void makeRandomConfig(VectorX& qrand);
 		bool extendTree(Tree* tree, const VectorX qrand, bool atStartTree,/* OUTPUT */ Vertex ** candiVertex);
-		bool interpolate(Vertex * nVertex, const VectorX qrand, const double dist, bool forward, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew, VectorX& qvel);
+		bool interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, /* OUTPUT */ std::list<VectorX>& Pnew, VectorX& qnew, VectorX& qvel);
 
 		bool testConnection(Vertex * vertex, Tree * tree, bool forward, /* OUTPUT */ Vertex ** cVertex, Vertex ** oVertex);
 		bool checkIntersectionOfTwoIntervals(const Vector2& vec1, const Vector2& vec2);
@@ -185,8 +185,13 @@ namespace rovin
 			const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 			const std::vector<unsigned int>& allMVCPointsFlag);
 
+	public:
+		bool AVP_RRT::interpolate_tmp(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew, VectorX & qvel);
 
-	private:
+	public:
+
+
+
 		SerialOpenChainPtr _robot;
 		TOPPPtr _topp;
 		CONSTRAINT_TYPE _constraintType;
@@ -206,7 +211,6 @@ namespace rovin
 		Real _si;
 		Real _sf;
 		
-
 		//////////////////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -249,6 +253,17 @@ namespace rovin
 		}
 
 		void saveRealVector2txt(std::vector<Real> in, std::string filename)
+		{
+			std::ofstream fout;
+			fout.open(filename);
+
+			for (unsigned int i = 0; i < in.size(); i++)
+				fout << in[i] << std::endl;
+
+			fout.close();
+		}
+
+		void saveIntVector2txt(std::vector<unsigned int> in, std::string filename)
 		{
 			std::ofstream fout;
 			fout.open(filename);

@@ -8,6 +8,12 @@ namespace rovin {
 
 	SerialOpenChain::~SerialOpenChain(){}
 
+	SE3 SerialOpenChain::calculateEndeffectorFrame(const StatePtr& state)
+	{
+		solveForwardKinematics(*state);
+		return state->getLinkStateSE3(state->getDof());
+	}
+
 	LinkPtr SerialOpenChain::getLinkPtr(const unsigned int linkIdx)
 	{
 		LOGIF((linkIdx < _linkPtr.size()), "SerialOpenChain::getLinkPtr error : Link index is larger than number of Links");

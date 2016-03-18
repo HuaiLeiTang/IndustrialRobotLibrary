@@ -1,11 +1,13 @@
 #include "P2PTimeOptTemp.h"
 
+using namespace std;
+
 namespace rovin
 {
 	AVP_RRT::AVP_RRT(const SerialOpenChainPtr& robot, CONSTRAINT_TYPE constraintType) : _robot(robot), _constraintType(constraintType)
 	{
 		_dof = robot->getNumOfJoint();
-		Real ds = 1.0/20.0, vi = 0, vf = 0, si = 0, sf = 1;
+		Real ds = 0.5e-2, vi = 0, vf = 0, si = 0, sf = 1;
 		_topp = TOPPPtr(new TOPP(_robot, vi, vf, ds, si, sf, constraintType));
 
 		_ds = _topp->getStepSize();
@@ -13,7 +15,8 @@ namespace rovin
 		_sf = _topp->getFinalParam();
 
 		_dof = robot->getNumOfJoint();
-		_stepsize = 0.1;
+		//_stepsize = 0.1;
+		_stepsize = 0.5;
 		_curSegment = 0;
 
 		srand((int)time(NULL));
@@ -22,15 +25,12 @@ namespace rovin
 	AVP_RRT::RETURNFLAG AVP_RRT::generateTrajectory()
 	{
 		// initialization! -> way point setting
-
 		_numSegment = _waypoints.size() - 1;
 		_segmentPath.resize(_numSegment);
 
-
 		_curSegment = 0;
 		RETURNFLAG retFlag;
-		do
-		{
+		do {
 			retFlag = generateTrajectorySegment(_curSegment++);
 		} while (retFlag == SUCCESS && _curSegment<_numSegment);
 
@@ -51,11 +51,7 @@ namespace rovin
 					_finalPath.col(iterCol++) = (*it);
 		}
 
-
 		return retFlag;
-
-
-
 	}
 
 	AVP_RRT::RETURNFLAG AVP_RRT::generateTrajectorySegment(int idx)
@@ -80,13 +76,16 @@ namespace rovin
 			std::cout << iter << std::endl;
 			makeRandomConfig(qrand);
 
+			//if collisionchekc(qrand)
+			//	continue;
+
 			// fod debug purpose //
-			qrand(0) = 2.14904;
-			qrand(1) = 0.87381;
-			qrand(2) = 0.707996;
-			qrand(3) = 1.31418;
-			qrand(4) = -0.993403;
-			qrand(5) = 3.09931;
+			//qrand(0) = 2.14904;
+			//qrand(1) = 0.87381;
+			//qrand(2) = 0.707996;
+			//qrand(3) = 1.31418;
+			//qrand(4) = -0.993403;
+			//qrand(5) = 3.09931;
 
 			// extend from start tree to random configuration
 			candiVertex = new Vertex();
@@ -175,6 +174,8 @@ namespace rovin
 		double tmpDist;
 		Vertex * nVertex = tree->findNearestNeighbor(qrand, &tmpDist);
 
+		std::cout << "nVertex config : " << nVertex->_config << std::endl;
+
 
 		// interpolate between nVertex.config and qnew(configuration far away from nVertex.config about stepsize)
 		std::list<VectorX> Pnew;
@@ -210,14 +211,18 @@ namespace rovin
 
 	}
 
-	bool AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew, VectorX & qvel)
+	bool AVP_RRT::interpolate_tmp(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew, VectorX & qvel)
 	{
 		VectorX qnear = nVertex->_config;
 		VectorX qnearvel = nVertex->_configVel;
-		if (dist < _stepsize)
-			qnew = qrand;
-		else
-			qnew = qnear + (qrand - qnear)*_stepsize / dist;
+
+		qnew = qrand;
+		//if (dist < _stepsize)
+		//	qnew = qrand;
+		//else
+		//	qnew = qnear + (qrand - qnear)*_stepsize / dist;
+
+		cout << "qnew : " << qnew << endl;
 
 		unsigned int numOfCP = 6;
 		unsigned int degree = 3;
@@ -247,13 +252,10 @@ namespace rovin
 		for (int i = 2; i < CP.cols() - 1; i++)
 			CP.col(i) = CP.col(i - 1) + delta_cp;
 
-
-
-
 		BSpline<-1, -1, -1> q(knot, CP);
 		BSpline<-1, -1, -1> qs = q.derivative();
 
-		unsigned int numOfdata = 10;
+		unsigned int numOfdata = 500;
 		Real delta_s = (_sf - _si) / double(numOfdata - 1);
 		Real s_cur = _si;
 
@@ -269,6 +271,79 @@ namespace rovin
 
 
 		qvel = qs(_sf - 1e-5);
+
+		std::cout << "qvel : " << qvel << std::endl;
+
+
+		return false;
+
+	}
+
+
+	bool AVP_RRT::interpolate(Vertex * nVertex, const VectorX qrand, const Real dist, bool forward, std::list<VectorX> & Pnew, VectorX & qnew, VectorX & qvel)
+	{
+		VectorX qnear = nVertex->_config;
+		VectorX qnearvel = nVertex->_configVel;
+
+		//qnew = qrand;
+		if (dist < _stepsize)
+			qnew = qrand;
+		else
+			qnew = qnear + (qrand - qnear)*_stepsize / dist;
+
+		cout << "qnew : " << qnew << endl;
+
+		unsigned int numOfCP = 6;
+		unsigned int degree = 3;
+		unsigned int order = degree + 1;
+		unsigned int numOfknot = numOfCP + degree + 1;
+
+		VectorX knot(numOfknot);
+		MatrixX CP(_dof, numOfCP);
+
+		// make knot
+		for (unsigned int i = 0; i < order; i++)
+		{
+			knot[i] = _si;
+			knot[numOfknot - i - 1] = _sf;
+		}
+		Real delta = (_sf - _si) / (numOfCP - degree);
+		for (unsigned int i = 0; i < (numOfCP - degree); i++)
+			knot[order + i] = delta * (i + 1);
+
+		// make boundary condition
+		CP.col(0) = qnear;
+		CP.col(1) = delta / degree * qnearvel + CP.col(0);
+		CP.col(CP.cols() - 1) = qnew;
+
+		// make control point
+		VectorX delta_cp = (CP.col(CP.cols() - 1) - CP.col(1)) / double((numOfCP - 2));
+		for (int i = 2; i < CP.cols() - 1; i++)
+			CP.col(i) = CP.col(i - 1) + delta_cp;
+
+		BSpline<-1, -1, -1> q(knot, CP);
+		BSpline<-1, -1, -1> qs = q.derivative();
+
+		unsigned int numOfdata = 500;
+		Real delta_s = (_sf - _si) / double(numOfdata - 1);
+		Real s_cur = _si;
+
+		std::vector<Real> ss;
+
+		Pnew.push_back(q(_si));
+		for (unsigned int i = 1; i < numOfdata - 1; i++)
+		{
+			s_cur += delta_s;
+			Pnew.push_back(q(s_cur));
+		}
+		Pnew.push_back(q(_sf - 1e-5));
+
+		//for (std::list<VectorX>::iterator it = Pnew.begin(); it != Pnew.end(); it++)
+		//	std::cout << "Pnew" << *it << std::endl;
+
+		qvel = qs(_sf - 1e-5);
+
+		std::cout << "qvel : " << qvel << std::endl;
 
 
 
@@ -409,7 +484,13 @@ namespace rovin
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		allSwitchPoint = _topp->getAllSwitchPoint();
 
-		saveData(allMVCPoints, allSwitchPoint);
+		saveMVC(allMVCPoints);
+		saveSwitchPoint(allSwitchPoint);
+		saveIntVector2txt(allMVCPointsFlag, "C:/Users/crazy/Desktop/Time optimization/avp test/MVC_flag.txt");
+		
+		//std::cout << allMVCPoints.size() << std::endl;
+		//std::cout << allMVCPointsFlag.size() << std::endl;
+		//std::cout << allSwitchPoint.size() << std::endl;
 
 		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
 
@@ -423,6 +504,9 @@ namespace rovin
 		}
 
 		calculateCLC(LC, CLC);
+
+		std::cout << "CLC size : " << CLC.size() << std::endl;
+
 		unsigned int Acase;
 		Real sdot_beg_star;
 		Acase = determineAresult(allMVCPoints, CLC, sdot_beg_star, FORWARD);
@@ -498,7 +582,7 @@ namespace rovin
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
 		std::vector<unsigned int> allMVCPointsFlag;
 		std::vector<SwitchPoint> allSwitchPoint;
-		bool A1switch;
+		bool A1switch = true;
 
 		_topp->calculateAllMVCPoint();
 		_topp->calculateAllSwitchPoint();
@@ -506,8 +590,8 @@ namespace rovin
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		allSwitchPoint = _topp->getAllSwitchPoint();
 
-
-		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
+		if (allSwitchPoint.size() != 0)
+			A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
@@ -518,7 +602,8 @@ namespace rovin
 			return false;
 		}
 
-		calculateCLC(LC, CLC);
+		if (allSwitchPoint.size() != 0)
+			calculateCLC(LC, CLC);
 
 		unsigned int Acase;
 		Real sdot_beg_star;
@@ -714,6 +799,8 @@ namespace rovin
 			s_cur = s_swi;
 			sdot_cur = sdot_swi;
 			backward_list.push_front(Vector2(s_cur, sdot_cur));
+
+			std::cout << "switch point id : " << allSwitchPoint[i]._id << std::endl;
 
 			if (allSwitchPoint[i]._id == SwitchPoint::SINGULAR)
 			{
@@ -1157,9 +1244,10 @@ namespace rovin
 	void AVP_RRT::calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC)
 	{
-		// 0.199 에서 이상해..
-
+		// 0.199 에서 이상해.....
 		unsigned int LCsize = LC.size();
+
+		std::cout << "LCsize : " << LCsize << std::endl;
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator> it_begin;
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>::iterator> it_end;
@@ -1180,7 +1268,6 @@ namespace rovin
 			it_begin.push_back(it_tmp);
 		}
 
-		// find s_end
 		Real tmp = -std::numeric_limits<Real>::max();
 		for (unsigned int i = 0; i < LCsize; i++)
 		{
@@ -1189,7 +1276,6 @@ namespace rovin
 		}
 		s_end = tmp;
 
-		// find s_begin
 		tmp = std::numeric_limits<Real>::max();
 		for (unsigned int i = 0; i < LCsize; i++)
 		{
@@ -1236,23 +1322,20 @@ namespace rovin
 					idx.push_back(i);
 			}
 
+			LOGIF(((idx.size()) != 0), "CLC function error : idx size must be larger than zero.");
+
 			tmp_min = std::numeric_limits<Real>::max();
-			if (idx.size() == 0)
-				CLC.push_back(Vector2(s_cur, tmp_min));
-			else
+			for (unsigned int i = 0; i < idx.size(); i++)
 			{
-				for (unsigned int i = 0; i < idx.size(); i++)
-				{
-					if ((*(it_begin[idx[i]]))(1) < tmp_min)
-						tmp_min = (*(it_begin[idx[i]]))(1);
-					it_begin[idx[i]]++;
-				}
-				CLC.push_back(Vector2(s_cur, tmp_min));
+				if ((*(it_begin[idx[i]]))(1) < tmp_min)
+					tmp_min = (*(it_begin[idx[i]]))(1);
+				it_begin[idx[i]]++;
 			}
+			CLC.push_back(Vector2(s_cur, tmp_min));
+
 			s_cur += ds;
 		}
 
-		// for last value
 		idx.clear();
 		s_cur = s_end;
 		
@@ -1283,23 +1366,27 @@ namespace rovin
 		}
 
 		tmp_min = std::numeric_limits<Real>::max();
-		if (idx.size() == 0)
-			CLC.push_back(Vector2(s_cur, tmp_min));
-		else
+		for (unsigned int i = 0; i < idx.size(); i++)
 		{
-			for (unsigned int i = 0; i < idx.size(); i++)
-			{
-				if ((*(it_begin[idx[i]]))(1) < tmp_min)
-					tmp_min = (*(it_begin[idx[i]]))(1);
-				it_begin[idx[i]]++;
-			}
-			CLC.push_back(Vector2(s_cur, tmp_min));
+			if ((*(it_begin[idx[i]]))(1) < tmp_min)
+				tmp_min = (*(it_begin[idx[i]]))(1);
+			it_begin[idx[i]]++;
 		}
+		CLC.push_back(Vector2(s_cur, tmp_min));
 	}
 
 	unsigned int AVP_RRT::determineAresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, Real& sdot_beg_star, AVPFLAG avpflag)
 	{
+		if (CLC.size() == 0)
+		{
+			if (avpflag == FORWARD)
+				sdot_beg_star = allMVCPoints.front()(1);
+			else
+				sdot_beg_star = allMVCPoints.back()(1);
+			return 2;
+		}
+
 		bool si_col = false, sf_col = false;
 
 		Real eps_init = std::pow((CLC.front()(0) - _topp->getInitialParam()), 2);
@@ -1358,25 +1445,41 @@ namespace rovin
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
 	{
-		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_MVC, sdot_CLC;
+		Real s_cur = _si, sdot_cur = sdot_init, beta_cur, sdot_MVC, sdot_CLC;
+		bool CLC_Swi = true, CLC_active_swi = false;
+		unsigned int cnt = 0;
 		int idx;
-		sf = _topp->getFinalParam();
-		ds = _topp->getStepSize();
-		s_cur = _topp->getInitialParam();
-		sdot_cur = sdot_init;
+		
 		phi.push_back(Vector2(s_cur, sdot_cur));
 
+		if (CLC.size() == 0)
+		{
+			CLC_Swi = false;
+			sdot_CLC = std::numeric_limits<Real>::max();
+		}
+			
 		while (true)
 		{
 			beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
 			_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
-			idx = (unsigned int)round(s_cur / ds);
+			idx = (unsigned int)round(s_cur / _ds);
 			sdot_MVC = allMVCPoints[idx](1);
-			sdot_CLC = CLC[idx](1);
+			
+			if (CLC_Swi)
+				if ((CLC.front()(0) - s_cur) < _ds*0.1)
+					CLC_active_swi = true;
 
+			if (CLC_active_swi)
+			{
+				if (cnt < CLC.size())
+					sdot_CLC = CLC[cnt++](1);
+				else
+					sdot_CLC = std::numeric_limits<Real>::max();
+			}
+				
 			if (sdot_cur < 0)
 				return 1;
-			else if (s_cur > sf)
+			else if (s_cur > _sf)
 				return 2;
 			else if (sdot_cur > sdot_CLC)
 				return 3;
@@ -1538,7 +1641,7 @@ namespace rovin
 		Real epsilon = sdot_max * 1e-3;
 		unsigned int max_iter = 100;
 		unsigned int cnt = 0;
-		bool isValid;
+		bool isValid = true;
 
 		if (avpflag == FORWARD)
 			isValid = IS_VALID(allMVCPoints, CLC, phi, nearInterval, sdot_cur);

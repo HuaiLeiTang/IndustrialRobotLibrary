@@ -44,7 +44,6 @@ public:
 			, 1.0000, -4.4974, -0.1622, -0.1995, -0.0834, 0.0317;
 
 		rovin::VectorX m = parameter.row(0);
-		//std::cout << m << std::endl;
 		rovin::MatrixX mx = parameter.block(1, 0, 3, 6);
 		rovin::MatrixX inr_info = parameter.block(4, 0, 6, 6).transpose();
 		rovin::Matrix3 I;

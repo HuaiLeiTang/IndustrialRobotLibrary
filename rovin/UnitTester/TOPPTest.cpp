@@ -24,7 +24,7 @@ int main()
 
 	//////////////////////////////////////////////////////////////////////
 	// AVP test
-	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE_VEL_ACC);
+	AVP_RRT avp_rrt(robot, CONSTRAINT_TYPE::TORQUE);
 
 	// start and goal
 	VectorX qs(dof), qg(dof), qsdot(dof), qgdot(dof);
@@ -45,16 +45,12 @@ int main()
 	wayPt[wayPt.size() - 1].setJointq(qg);
 	wayPt[wayPt.size() - 1].setJointqdot(qgdot);
 
-
 	avp_rrt.setWayPoints(wayPt);
 	avp_rrt.generateTrajectory();
 
 	MatrixX finalTraj = avp_rrt.getFinalPath();
 
-//	 rendering
-	std::cout << "---";
-
-
+	//rendering
 	//int num1 = 100;
 	//finalTraj.resize(6, 3* num1);
 	//for (int i = 0; i < num1; i++)
@@ -96,6 +92,7 @@ int main()
 		}
 		renderer.updateFrame();
 	}
+
 	cout << "Program complete" << endl;
 	_getch();
 	return 0;
