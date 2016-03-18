@@ -35,9 +35,9 @@ namespace rovin {
 	LinkPtr Link::copy() const
 	{
 		LinkPtr Link_clone(new Link(_inertia));
-		for (int i = 0; i < _drawingGeometryInfo.size(); i++)
+		for (unsigned int i = 0; i < _drawingGeometryInfo.size(); i++)
 			Link_clone->addDrawingGeomtryInfo(_drawingGeometryInfo[i]->copy());
-		for (int i = 0; i < _collisionGeometryInfo.size(); i++)
+		for (unsigned int i = 0; i < _collisionGeometryInfo.size(); i++)
 			Link_clone->addCollisionGeometryInfo(_collisionGeometryInfo[i]->copy());
 		return Link_clone;
 	}

@@ -37,7 +37,7 @@ namespace rovin
 			//JOINT_JACOBIANDOT = 1 << 2 ///< option for differenctial forward kinematics, Link acceleration
 		};
 
-	private:
+	public:
 		/*!
 		* \brief SerialOpenChain class member variable
 		*/
@@ -60,9 +60,9 @@ namespace rovin
 		~SerialOpenChain();
 		
 		// get-function
+		SE3 calculateEndeffectorFrame(const StatePtr& state);
 		LinkPtr getLinkPtr(const unsigned int linkIdx);
 		MotorJointPtr getMotorJointPtr(const unsigned int motorJointIdx);
-		SE3 calculateEndeffectorFrame(const StatePtr& state);
 		const LinkPtr& getLinkPtr(const unsigned int linkIdx) const;
 		const MotorJointPtr& getMotorJointPtr(const unsigned int motorJointIdx) const;
 		bool isComplete() const;
@@ -173,7 +173,7 @@ namespace rovin
 
 	class SerialOpenChainLink
 	{
-	private:
+	public:
 		SE3 _M; ///< initial link SE3 w.r.t base(fixed) frame
 		Inertia _G; ///< initial link inertia w.r.t base(fixed) frame 
 	public:
@@ -198,7 +198,7 @@ namespace rovin
 
 	class SerialOpenChainJoint
 	{
-	private:
+	public:
 		se3 _screw; ///< initial joint screw w.r.t base(fixed) frame
 	public:
 		/*!

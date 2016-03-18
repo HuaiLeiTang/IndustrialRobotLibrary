@@ -598,7 +598,7 @@ namespace rovin
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC;
 		std::vector<unsigned int> allMVCPointsFlag;
 		std::vector<SwitchPoint> allSwitchPoint;
-		bool A1switch;
+		bool A1switch = true;
 
 		_topp->calculateAllMVCPoint();
 		_topp->calculateAllSwitchPoint();
@@ -606,11 +606,8 @@ namespace rovin
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		allSwitchPoint = _topp->getAllSwitchPoint();
 		
-		if(allSwitchPoint.size()!=0)
+		if (allSwitchPoint.size() != 0)
 			A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
-
-
-		//std::cout << "LC size : " << LC.size() << std::endl;
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
 		LC_copy = LC; ///< for save LC
@@ -621,12 +618,8 @@ namespace rovin
 			return false;
 		}
 
-		calculateCLC(LC, CLC);
-
-		// switching point 가 없으면 CLC null..
-
-
-		//std::cout << "CLC size : " << CLC.size() << std::endl;
+		if (allSwitchPoint.size() != 0)
+			calculateCLC(LC, CLC);
 
 		unsigned int Acase;
 		Real sdot_beg_star;
@@ -1267,8 +1260,7 @@ namespace rovin
 	void AVP_RRT::calculateCLC(std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC,
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC)
 	{
-		// 0.199 에서 이상해..
-
+		// 0.199 에서 이상해.....
 		unsigned int LCsize = LC.size();
 
 		std::cout << "LCsize : " << LCsize << std::endl;
@@ -1292,7 +1284,6 @@ namespace rovin
 			it_begin.push_back(it_tmp);
 		}
 
-		// find s_end
 		Real tmp = -std::numeric_limits<Real>::max();
 		for (unsigned int i = 0; i < LCsize; i++)
 		{
@@ -1301,7 +1292,6 @@ namespace rovin
 		}
 		s_end = tmp;
 
-		// find s_begin
 		tmp = std::numeric_limits<Real>::max();
 		for (unsigned int i = 0; i < LCsize; i++)
 		{
@@ -1348,35 +1338,20 @@ namespace rovin
 					idx.push_back(i);
 			}
 
-			if (idx.size() != 0)
-			{
-				tmp_min = std::numeric_limits<Real>::max();
-				for (unsigned int i = 0; i < idx.size(); i++)
-				{
-					if ((*(it_begin[idx[i]]))(1) < tmp_min)
-						tmp_min = (*(it_begin[idx[i]]))(1);
-					it_begin[idx[i]]++;
-				}
-				CLC.push_back(Vector2(s_cur, tmp_min));
-			}
+			LOGIF(((idx.size()) != 0), "CLC function error : idx size must be larger than zero.");
 
-			
-			//if (idx.size() == 0)
-			//	CLC.push_back(Vector2(s_cur, tmp_min));
-			//else
-			//{
-			//	for (unsigned int i = 0; i < idx.size(); i++)
-			//	{
-			//		if ((*(it_begin[idx[i]]))(1) < tmp_min)
-			//			tmp_min = (*(it_begin[idx[i]]))(1);
-			//		it_begin[idx[i]]++;
-			//	}
-			//	CLC.push_back(Vector2(s_cur, tmp_min));
-			//}
-			//s_cur += ds;
+			tmp_min = std::numeric_limits<Real>::max();
+			for (unsigned int i = 0; i < idx.size(); i++)
+			{
+				if ((*(it_begin[idx[i]]))(1) < tmp_min)
+					tmp_min = (*(it_begin[idx[i]]))(1);
+				it_begin[idx[i]]++;
+			}
+			CLC.push_back(Vector2(s_cur, tmp_min));
+
+			s_cur += ds;
 		}
 
-		// for last value
 		idx.clear();
 		s_cur = s_end;
 		
@@ -1407,31 +1382,13 @@ namespace rovin
 		}
 
 		tmp_min = std::numeric_limits<Real>::max();
-		if (idx.size() != 0) 
+		for (unsigned int i = 0; i < idx.size(); i++)
 		{
-			for (unsigned int i = 0; i < idx.size(); i++)
-			{
-				if ((*(it_begin[idx[i]]))(1) < tmp_min)
-					tmp_min = (*(it_begin[idx[i]]))(1);
-				it_begin[idx[i]]++;
-			}
-			CLC.push_back(Vector2(s_cur, tmp_min));
+			if ((*(it_begin[idx[i]]))(1) < tmp_min)
+				tmp_min = (*(it_begin[idx[i]]))(1);
+			it_begin[idx[i]]++;
 		}
-		
-
-		//tmp_min = std::numeric_limits<Real>::max();
-		//if (idx.size() == 0)
-		//	CLC.push_back(Vector2(s_cur, tmp_min));
-		//else
-		//{
-		//	for (unsigned int i = 0; i < idx.size(); i++)
-		//	{
-		//		if ((*(it_begin[idx[i]]))(1) < tmp_min)
-		//			tmp_min = (*(it_begin[idx[i]]))(1);
-		//		it_begin[idx[i]]++;
-		//	}
-		//	CLC.push_back(Vector2(s_cur, tmp_min));
-		//}
+		CLC.push_back(Vector2(s_cur, tmp_min));
 	}
 
 	unsigned int AVP_RRT::determineAresult(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
@@ -1441,11 +1398,10 @@ namespace rovin
 		{
 			if (avpflag == FORWARD)
 				sdot_beg_star = allMVCPoints.front()(1);
-			else // BACKWARD
+			else
 				sdot_beg_star = allMVCPoints.back()(1);
 			return 2;
 		}
-			
 
 		bool si_col = false, sf_col = false;
 
@@ -1505,16 +1461,13 @@ namespace rovin
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const Real sdot_init,
 		std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
 	{
-		Real s_cur, sdot_cur, beta_cur, sf, ds, sdot_MVC, sdot_CLC;
-		int idx;
-		sf = _topp->getFinalParam();
-		ds = _topp->getStepSize();
-		s_cur = _topp->getInitialParam();
-		sdot_cur = sdot_init;
-		phi.push_back(Vector2(s_cur, sdot_cur));
+		Real s_cur = _si, sdot_cur = sdot_init, beta_cur, sdot_MVC, sdot_CLC;
+		bool CLC_Swi = true, CLC_active_swi = false;
 		unsigned int cnt = 0;
-		bool CLC_Swi = true;
-		bool CLC_active_swi = false;
+		int idx;
+		
+		phi.push_back(Vector2(s_cur, sdot_cur));
+
 		if (CLC.size() == 0)
 		{
 			CLC_Swi = false;
@@ -1525,7 +1478,7 @@ namespace rovin
 		{
 			beta_cur = _topp->determineAlphaBeta(s_cur, sdot_cur)(1);
 			_topp->forwardIntegrate(s_cur, sdot_cur, beta_cur);
-			idx = (unsigned int)round(s_cur / ds);
+			idx = (unsigned int)round(s_cur / _ds);
 			sdot_MVC = allMVCPoints[idx](1);
 			
 			if (CLC_Swi)
@@ -1542,7 +1495,7 @@ namespace rovin
 				
 			if (sdot_cur < 0)
 				return 1;
-			else if (s_cur > sf)
+			else if (s_cur > _sf)
 				return 2;
 			else if (sdot_cur > sdot_CLC)
 				return 3;
@@ -1704,7 +1657,7 @@ namespace rovin
 		Real epsilon = sdot_max * 1e-3;
 		unsigned int max_iter = 100;
 		unsigned int cnt = 0;
-		bool isValid;
+		bool isValid = true;
 
 		if (avpflag == FORWARD)
 			isValid = IS_VALID(allMVCPoints, CLC, phi, nearInterval, sdot_cur);

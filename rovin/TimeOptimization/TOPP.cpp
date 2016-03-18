@@ -1,7 +1,9 @@
 #include "TOPP.h"
 #include <string>
+#include <time.h>
 
 using namespace std;
+// a, b, c 미리 저장해서 쓰는거 생각하기 --> 계산 속도 향상 
 
 namespace rovin {
 
@@ -157,9 +159,6 @@ namespace rovin {
 		while (findNearestSwitchPoint(s))
 		{
 			s = _switchPoint[_switchPoint.size() - 1]._s;
-
-
-
 			s += _ds;
 			if (s > _sf)
 				break;
@@ -268,18 +267,17 @@ namespace rovin {
 		return result;
 	}
 
-	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot)
+	Vector2 TOPP::determineAlphaBeta(Real s, Real sdot, VectorX& a)
 	{
 		//if (s == _si)
 		//	s += 1e-6;
 		if (s == _sf)
 			s -= 1e-6;
 
-		VectorX a;
+		//VectorX a;
 		calculateA(s, a);
 
 		VectorX q = _q(s), qdot = _dqds(s)*sdot, qddot = _ddqdds(s)*sdot*sdot;
-		//StatePtr state = _soc->makeState();
 		_state->setJointStatePos(q); _state->setJointStateVel(qdot); _state->setJointStateAcc(qddot);
 		_soc->solveInverseDynamics(*_state);
 		VectorX tau = _state->getJointStateTorque();
@@ -365,12 +363,13 @@ namespace rovin {
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
-		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		VectorX a;
+		Vector2 alphabeta = determineAlphaBeta(s, 0, a);
 		if (alphabeta[0] > alphabeta[1])
 			return 0;
 
-		VectorX a;
-		calculateA(s, a);
+		//calculateA(s, a);
+
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0], c = BandC[1];
 
@@ -426,12 +425,12 @@ namespace rovin {
 	{
 		Real sdot_MVC = std::numeric_limits<Real>::max();
 
-		Vector2 alphabeta = determineAlphaBeta(s, 0);
+		VectorX a;
+		Vector2 alphabeta = determineAlphaBeta(s, 0, a);
 		if (alphabeta[0] > alphabeta[1])
 			return 0;
 
-		VectorX a;
-		calculateA(s, a);
+		//calculateA(s, a);
 		std::vector<VectorX> BandC = calculateBandC(s);
 		VectorX b = BandC[0], c = BandC[1];
 
@@ -482,19 +481,55 @@ namespace rovin {
 
 	void TOPP::calculateFinalTime()
 	{
+		_t = VectorX(_s.size());
 		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
 		Real s_k = _s.front(), sdot_k = _sdot.front();
 		Real s_k1, sdot_k1;
 		Real sum = 0;
+		unsigned int cnt = 0;
+		_t(cnt) = sum; cnt++;
 		for (std::list<Real>::iterator it_s = ++(_s.begin()); it_s != (_s.end()); ++it_s)
 		{
 			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
 			sum += 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
+			_t(cnt) = sum;
 			s_k = s_k1; sdot_k = sdot_k1;
-			it_sdot++;
+			it_sdot++; cnt++;
 		}
 		_tf_result = sum;
+
+		//std::cout << _t << std::endl;
 	}
+
+	void TOPP::calculateTorqueTrajectory()
+	{
+		LOGIF((_t.size() != 0), "calculateTorqueTrajectory error : you should calculate final time.");
+
+		_torque_result.resize(_dof, _s.size() - 1);
+		std::list<Real>::iterator it_sdot = _sdot.begin();
+		std::list<Real>::iterator it_sddot = _sddot.begin();
+		unsigned int cnt = 0;
+		VectorX q, qdot, qddot;
+		VectorX qs;
+
+		for (std::list<Real>::iterator it_s = _s.begin(); it_s != --(_s.end()); it_s++)
+		{
+			q = _q(*it_s); qs = _dqds(*it_s);
+			qdot = (*it_sdot) * qs;
+			qddot = (*it_sddot) * qs + (*it_sdot) * (*it_sdot) * _ddqdds(*it_s);
+
+			_state->setJointStatePos(q);
+			_state->setJointStateVel(qdot);
+			_state->setJointStateAcc(qddot);
+			_soc->solveInverseDynamics(*_state);
+
+			_torque_result.col(cnt) = _state->getJointStateTorque();
+
+			it_sdot++; it_sddot++;
+			cnt++;
+		}
+	}
+
 
 	void TOPP::forwardIntegrate(Real & s, Real & sdot, Real sddot)
 	{
@@ -534,14 +569,14 @@ namespace rovin {
 		// 안넣어도 될것같은데 그럴거면 tan_bef/tan_cur 따로 구할 필요 없음
 		//Real tan_bef = (sdot_cur - sdot_bef) / ds;
 		//Real tan_cur = (sdot_next - sdot_cur) / ds;
-		Real diff_bef = determineAlphaBeta(s_bef, sdot_bef)[0] / sdot_bef - (sdot_cur - sdot_bef) / ds;
-		Real diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
-
 		VectorX a_bef;
-		calculateA(s_bef, a_bef);
-		std::vector<VectorX> bc_bef = calculateBandC(s_bef);
 		VectorX a_cur;
-		calculateA(s_cur, a_cur);
+		Real diff_bef = determineAlphaBeta(s_bef, sdot_bef, a_bef)[0] / sdot_bef - (sdot_cur - sdot_bef) / ds;
+		Real diff_cur = determineAlphaBeta(s_cur, sdot_cur, a_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
+
+		//calculateA(s_bef, a_bef);
+		std::vector<VectorX> bc_bef = calculateBandC(s_bef);
+		//calculateA(s_cur, a_cur);
 		std::vector<VectorX> bc_cur = calculateBandC(s_cur);
 
 
@@ -663,12 +698,13 @@ namespace rovin {
 			s_next += ds;
 			sdot_next = calculateMVCPoint(s_next, flag_next);
 
-			diff_bef = diff_cur;
-			diff_cur = determineAlphaBeta(s_cur, sdot_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
-
 			a_bef = a_cur;
+
+			diff_bef = diff_cur;
+			diff_cur = determineAlphaBeta(s_cur, sdot_cur, a_cur)[0] / sdot_cur - (sdot_next - sdot_cur) / ds;
+
 			bc_bef = bc_cur;
-			calculateA(s_cur, a_cur);
+			//calculateA(s_cur, a_cur);
 			bc_cur = calculateBandC(s_cur);
 
 
@@ -680,15 +716,11 @@ namespace rovin {
 
 	unsigned int TOPP::forward(Real& s_cur, Real& sdot_cur)
 	{
-		// return 0 면 sdot = 0 에 도달했다. 이건 topp 불가능!
-		// return 1 면 MVC velocity 에 도달
-		// return 2 면 MVC torque-acc 에 도달  --> switching point 찾아라
-		
 		Real beta_cur, sdot_cur_MVC;
 		unsigned int idx;
 		int flag;
 
-		while (s_cur < _sf)
+		while (std::abs(s_cur - _sf) > _ds*0.1)
 		{
 			beta_cur = determineAlphaBeta(s_cur, sdot_cur)(1);
 			forwardIntegrate(s_cur, sdot_cur, beta_cur);
@@ -702,27 +734,26 @@ namespace rovin {
 			{
 				sdot_cur = sdot_cur_MVC;
 				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+				_sddot.push_back(beta_cur);
 
 				if (flag == 2)
 					return 1;
 				if (flag == 1)
 					return 2;
-
 			}
 			_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+			_sddot.push_back(beta_cur);
 		}
-		return 1;
+
+		_s.pop_back(); _sdot.pop_back();
+		s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
+		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+
+		return 3;
 	}
 
 	unsigned int TOPP::forwardVel(Real& s_cur, Real& sdot_cur)
 	{
-		// return 0 면 끝점에 도달했다 -> 끝에서 backward 해라
-		// return 1 면 forward 해라
-		// return 2 면 torque-acc 에 도달했다 -> switching point 찾아라
-		// vel 따라 가다가 case 1. 끝점에 도달하면 끝에서 backward : return 0
-		//				   case 2. torque-acc에 도달하면 그냥 나가서 switching point 찾는 알고리즘 발동 : return 2
-		//                 case 3. vel 따라갈 수 있는 조건 만족하면 거기서 backward : return 0
-
 		Vector2 alphabeta;
 		Real s_next, sdot_next, alpha_cur, beta_cur, slope;
 		unsigned int idx;
@@ -731,28 +762,35 @@ namespace rovin {
 		while (true)
 		{
 			s_next = s_cur + _ds;
-			if (s_next > _sf)
-			{
-				s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
-				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-				return 0;
-			}
 
 			idx = (unsigned int)round(s_next / _ds);
 			sdot_next = _allMVCPoints[idx](1);
 			flag = _allMVCPointsFlag[idx];
-			
-			if (flag == 2) // go to finding switch point function
-				return 2;
 
 			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 			alpha_cur = alphabeta(0); beta_cur = alphabeta(1);
-
 			slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+			if (flag == 2)
+			{
+				//_sddot.pop_back();
+				s_cur = s_next; sdot_cur = sdot_next;
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur); _sddot.push_back(slope*sdot_cur);
+				return 2;
+			}
+
+			if (std::abs(s_next - _sf) < _ds*0.1)
+			{
+				s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
+				_s.push_back(s_cur); _sdot.push_back(sdot_cur); _sddot.push_back(slope*sdot_cur);
+				return 0;
+			}
+					
 			if (beta_cur >= slope && slope >= alpha_cur)
 			{
 				s_cur = s_next; sdot_cur = sdot_next;
 				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+				_sddot.push_back(slope*sdot_cur);
 			}
 			else if (beta_cur < slope)
 				return 1;
@@ -761,39 +799,37 @@ namespace rovin {
 		}
 
 		while (true)
-		{
+		{	
 			s_next = s_cur + _ds;
-			if (s_next > _sf)
-			{
-				s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
-				_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-				return 0;
-			}
+
 			idx = (unsigned int)round(s_next / _ds);
 			sdot_next = _allMVCPoints[idx](1);
 			flag = _allMVCPointsFlag[idx];
-			
-			if (flag == 2) // go to finding switch point function
+
+			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
+			alpha_cur = alphabeta(0); beta_cur = alphabeta(1);
+			slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+			if (flag == 2)
 			{
 				s_cur = s_next; sdot_cur = sdot_next;
 				return 2;
 			}
-				
-			alphabeta = determineAlphaBeta(s_cur, sdot_cur);
-			alpha_cur = alphabeta(0);
-			beta_cur = alphabeta(1);
-			slope = (sdot_next - sdot_cur) / (s_next - s_cur);
+
+			if (std::abs(s_next - _sf) < _ds*0.1)
+			{
+				s_cur = _sf; sdot_cur = _vf / _dqds(_sf - 1e-4).norm();
+				return 0;
+			}
+			
 			if (beta_cur >= slope && slope >= alpha_cur)
 			{
 				s_cur = s_next; sdot_cur = sdot_next;
-				//_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-				return 0;
+				return 3;
 			}
 			s_cur = s_next; sdot_cur = sdot_next;
 		}
 	}
-
-
 
 	void TOPP::backward(Real& s_cur, Real& sdot_cur)
 	{
@@ -801,36 +837,41 @@ namespace rovin {
 		Real s_back = _s.back();
 		std::list<Real> _s_tmp;
 		std::list<Real> _sdot_tmp;
+		std::list<Real> _sddot_tmp;
 
 		while (true)
 		{
 			if (std::abs(s_cur - s_back) <= _ds*0.1)
 			{
 				//LOGIF(sdot_cur < _sdot.back(), "backward error : sdot_cur must be smaller than _sdot.back().");
-				_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
-				_s.pop_back(); _sdot.pop_back();
+				alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
+				_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur); _sddot_tmp.push_front(alpha_cur);
+				_s.pop_back(); _sdot.pop_back(); 
+				//_sddot.pop_back();
 
 				while (true)
-				{
-					alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
+				{					
 					backwardIntegrate(s_cur, sdot_cur, alpha_cur);
+					alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
 					if (sdot_cur > _sdot.back())
 						break;
 
-					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
-					_s.pop_back(); _sdot.pop_back();
+					_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur); _sddot_tmp.push_front(alpha_cur);
+					_s.pop_back(); _sdot.pop_back(); _sddot.pop_back();
 				}
 				break;
 			}
 			_s_tmp.push_front(s_cur); _sdot_tmp.push_front(sdot_cur);
 
 			alpha_cur = determineAlphaBeta(s_cur, sdot_cur)(0);
+			_sddot_tmp.push_front(alpha_cur);
 			backwardIntegrate(s_cur, sdot_cur, alpha_cur);
 		}
-
+		_sddot_tmp.pop_back();
 		s_cur = _s_tmp.back(); sdot_cur = _sdot_tmp.back();
 		_s.insert(_s.end(), _s_tmp.begin(), _s_tmp.end());
 		_sdot.insert(_sdot.end(), _sdot_tmp.begin(), _sdot_tmp.end());
+		_sddot.insert(_sddot.end(), _sddot_tmp.begin(), _sddot_tmp.end());
 	}
 
 	void TOPP::switchpointfunction(Real& s_cur, Real& sdot_cur, bool& singularPoint_swi)
@@ -856,23 +897,18 @@ namespace rovin {
 	{
 		initialization();
 		calculateAllMVCPoint();
-		saveMVC(_allMVCPoints);
 
 		Real s_cur = 0;
 		Real sdot_cur = _vi / _dqds(1e-5).norm();
-		Real sdot_cur_MVC;
-		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
-
 		Vector2 alphabeta = determineAlphaBeta(s_cur, sdot_cur);
 		Real alpha_cur = alphabeta(0);
 		Real beta_cur = alphabeta(1);
-
-		int flag;
 		unsigned int numOfSPInt = 3;
-		bool singularPoint_swi = false;
-		
 		unsigned int swi_forward;
 		unsigned int swi_forwardVel = 1;
+		bool singularPoint_swi = false;
+
+		_s.push_back(s_cur); _sdot.push_back(sdot_cur);
 
 		while (true)
 		{
@@ -886,6 +922,7 @@ namespace rovin {
 						s_cur += _ds;
 						sdot_cur += lambda * _ds;
 						_s.push_back(s_cur); _sdot.push_back(sdot_cur);
+						_sddot.push_back(lambda*sdot_cur);
 					}
 					singularPoint_swi = false;
 				}
@@ -905,13 +942,13 @@ namespace rovin {
 			else if (swi_forward == 2)
 				swi_forwardVel = forwardVel(s_cur, sdot_cur);
 
+
 			if (swi_forwardVel == 2)
 			{
 				swi_forwardVel = 0;
 				switchpointfunction(s_cur, sdot_cur, singularPoint_swi);
 			}
-
-			if (swi_forwardVel == 0)
+			if (swi_forwardVel == 0 || swi_forwardVel == 3 || swi_forward == 3)
 			{
 				if (singularPoint_swi)
 				{
@@ -923,106 +960,20 @@ namespace rovin {
 					}
 				}
 				backward(s_cur, sdot_cur);
-				swi_forwardVel = 1;
-			}
 
+				if (swi_forwardVel == 0)
+					swi_forwardVel = 1;
+				else
+				{
+					swi_forwardVel = 3;
+					swi_forward = 2;
+				}
+			}
 			if (std::abs(_s.back() - _sf) < _ds*0.1)
 				break;
 		}
 
-		calculateFinalTime();
-		//calculateTorqueTrajectory();
-
 		std::cout << "trajectory generation finished." << std::endl;
 		return true;
-	}
-
-	/////////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////// HAVE TO DO //////////////////////////////////////////
-
-	void TOPP::calculateTorqueTrajectory()
-	{
-		// TODO 수정중
-
-		// calculate time and joint angle
-		VectorX t(_s.size());
-		t(0) = 0;
-
-		std::list<Real>::iterator it_s = ++(_s.begin());
-		std::list<Real>::iterator it_sdot = ++(_sdot.begin());
-		Real s_k = _s.front(), sdot_k = _sdot.front();
-		Real s_k1, sdot_k1, dt;
-
-		for (unsigned int i = 1; i < _s.size(); i++)
-		{
-			s_k1 = *(it_s); sdot_k1 = *(it_sdot);
-			dt = 2 * (s_k1 - s_k) / (sdot_k1 + sdot_k);
-			t(i) = t(i - 1) + dt;
-			s_k = s_k1; sdot_k = sdot_k1;
-			it_s++; it_sdot++;
-		}
-
-		MatrixX q_data(_dof, t.size());
-		it_s = _s.begin();
-		for (int i = 0; i < t.size(); i++)
-		{
-			q_data.col(i) = _q((*it_s));
-			it_s++;
-		}
-
-		//std::vector<vector<Real>> torque_vec(_dof);
-		//
-		//for (int i = 0; i < _dof; i++)
-		//{
-		//	string torque_st = "C:/Users/crazy/Desktop/Time optimization/q";
-		//	for (int j = 0; j < q_data.row(0).size(); j++)
-		//		torque_vec[i].push_back(q_data(i, j));
-
-		//	torque_st += to_string(i + 1);
-		//	torque_st += ".txt";
-		//	saveRealVector2txt(torque_vec[i], torque_st);
-		//}
-		//std::vector<Real> t_vec;
-		//for (int i = 0; i < t.size(); i++)
-		//	t_vec.push_back(t(i));
-		//saveRealVector2txt(t_vec, "C:/Users/crazy/Desktop/Time optimization/t.txt");
-
-		//cout << t << endl;
-		//cout << "q_data.row(0) : " << q_data.row(0) << endl;
-		//cout << "q_data.row(1) : " << q_data.row(1) << endl;
-		//cout << "q_data column size : " << q_data.row(0).size() << endl;
-		//cout << "t size : " << t.size() << endl;
-		// make b-spline
-
-		unsigned int degreeOfBSpline = 3;
-		unsigned int orderOfBSpline = degreeOfBSpline + 1;
-		unsigned int MaxNumOfCP = 15;
-		unsigned int numData = _q_data.cols();
-		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, 0, t(t.size()-1));
-		//BSpline<-1, -1, -1> q = BSplineInterpolation(q_data, orderOfBSpline, t);
-		BSpline<-1, -1, -1> q = BSplineFitting(q_data, orderOfBSpline, MaxNumOfCP, t(0), t(t.size() - 1));
-		BSpline<-1, -1, -1> qdot = q.derivative();
-		BSpline<-1, -1, -1> qddot = qdot.derivative();
-
-		//cout << "q(0.05)" << endl;
-		//cout << q(0.05) << endl;
-		//cout << "q(0.10)" << endl;
-		//cout << q(0.10) << endl;
-		//cout << "q(0.15)" << endl;
-		//cout << q(0.15) << endl;
-		//cout << "q(0.20)" << endl;
-		//cout << q(0.20) << endl;
-
-		// solve inverse dynamics
-		_torque_result = MatrixX(_dof, t.size());
-		StatePtr state = _soc->makeState();
-		for (int i = 0; i < t.size(); i++)
-		{
-			state->setJointStatePos(q(t(i)));
-			state->setJointStateVel(qdot(t(i)));
-			state->setJointStateAcc(qddot(t(i)));
-			_soc->solveInverseDynamics(*state);
-			_torque_result.col(i) = state->getJointStateTorque();
-		}
 	}
 }
