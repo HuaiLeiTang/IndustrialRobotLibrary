@@ -19,7 +19,7 @@ namespace rovin
 		srand((int)time(NULL));
 	}
 
-	void AVP_RRT::generateTrajectory()
+	AVP_RRT::RETURNFLAG AVP_RRT::generateTrajectory()
 	{
 		// initialization! -> way point setting
 
@@ -35,21 +35,24 @@ namespace rovin
 		} while (retFlag == SUCCESS && _curSegment<_numSegment);
 
 
-		std::list<VectorX>::iterator it;
-		unsigned int numCol = 0;
-		for (unsigned int i = 0; i < _numSegment; i++)
-			numCol += _segmentPath[i].size();
-
-		_finalPath.resize(_dof, numCol);
-
-		int iterCol = 0;
+		// CONCATENATE PATH SEGMENT and SAVE AT _finalPath
 		if (retFlag == SUCCESS)
 		{
-			// CONCATENATE PATH SEGMENT and SAVE AT _finalPath
+			std::list<VectorX>::iterator it;
+			unsigned int numCol = 0;
+			for (unsigned int i = 0; i < _numSegment; i++)
+				numCol += _segmentPath[i].size();
+
+			_finalPath.resize(_dof, numCol);
+
+			int iterCol = 0;
 			for (unsigned int i = 0; i < _numSegment; i++)
 				for (it = _segmentPath[i].begin(); it != _segmentPath[i].end(); it++)
 					_finalPath.col(iterCol++) = (*it);
 		}
+
+
+		return retFlag;
 
 
 
@@ -57,7 +60,7 @@ namespace rovin
 
 	AVP_RRT::RETURNFLAG AVP_RRT::generateTrajectorySegment(int idx)
 	{
-		// start tree, goal tree -> waypont 로 initialize
+		// initialize start/goal tree with waypoints
 		treeInitialization(idx);
 
 		VectorX qrand(_dof);
@@ -76,9 +79,14 @@ namespace rovin
 		{
 			std::cout << iter << std::endl;
 			makeRandomConfig(qrand);
-			//if collisionchekc(qrand)
-			//	continue;
 
+			// fod debug purpose //
+			qrand(0) = 2.14904;
+			qrand(1) = 0.87381;
+			qrand(2) = 0.707996;
+			qrand(3) = 1.31418;
+			qrand(4) = -0.993403;
+			qrand(5) = 3.09931;
 
 			// extend from start tree to random configuration
 			candiVertex = new Vertex();
@@ -128,11 +136,6 @@ namespace rovin
 			flag = EXCEED_MAX_ITER;
 
 
-		//if (flag == SUCCESS)
-		//{
-		//	_wayPointInterval = _goalTree._nodes[0]->_interval;
-		//}
-
 
 		_startTree.clearTree();
 		_goalTree.clearTree();
@@ -145,6 +148,7 @@ namespace rovin
 	{
 		Vector2 tmp(0, std::numeric_limits<Real>::max());
 
+		// 여기 수정해야 함.. getJointqdot 대신 다른 걸로!
 		Vertex * startVertex = new Vertex(_waypoints[idx].getJointq(), _waypoints[idx].getJointqdot(), tmp, std::list<VectorX>(), NULL);
 		Vertex * goalVertex = new Vertex(_waypoints[idx + 1].getJointq(), _waypoints[idx + 1].getJointqdot(), tmp, std::list<VectorX>(), NULL);
 		
@@ -165,13 +169,11 @@ namespace rovin
 		}
 	}
 
-	bool AVP_RRT::extendTree(Tree * tree, const VectorX qrand, bool forward, Vertex ** candiVertex) // 반환 Vertex* 로??
+	bool AVP_RRT::extendTree(Tree * tree, const VectorX qrand, bool forward, Vertex ** candiVertex) 
 	{
 		// find nearest vertex
 		double tmpDist;
 		Vertex * nVertex = tree->findNearestNeighbor(qrand, &tmpDist);
-
-
 
 
 		// interpolate between nVertex.config and qnew(configuration far away from nVertex.config about stepsize)
@@ -179,7 +181,8 @@ namespace rovin
 		VectorX qnew, qvel;
 		if (!interpolate(nVertex, qrand, tmpDist, forward, Pnew, qnew, qvel))
 		{
-			//FAILURE!!
+			(*candiVertex) = NULL;
+			return false;
 		}
 
 
@@ -193,18 +196,6 @@ namespace rovin
 		else
 			isSucceeded = runAVPbackward(Pnew, nVertex->_interval, endInterval);
 
-
-		// feasibility check! (if fails -> delete nVertex)
-		// collision check
-		std::list<VectorX>::iterator Piter;
-		VectorX tmpVec;
-		for (Piter = Pnew.begin(); Piter != Pnew.end(); Piter++)
-		{
-			// TO DO:
-			// collision check! of Pnew.col(i)
-			tmpVec = (*Piter);
-			// if coliision detected, isSucceeded = false and break!
-		}
 
 		if (isSucceeded)
 		{
@@ -280,16 +271,16 @@ namespace rovin
 		qvel = qs(_sf - 1e-5);
 
 
-		// feasibility test
 
+		// feasibility test
 		bool testCollision = true; // true: succeded (no collision), false: collision detected
 								   // collision test routine for Pnew is needed...
 
 
-								   // if nearest vertex is the root vertex
+		// if nearest vertex is the root vertex
 		//VectorX qs; // calc qs is needed
 		VectorX qs_zero = qs(_si);
-		bool testRoot;
+		bool testRoot = true;
 		if (nVertex->_parentVertex == NULL)
 		{
 			if (forward)
@@ -417,6 +408,9 @@ namespace rovin
 		allMVCPoints = _topp->getAllMVCPoint();
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		allSwitchPoint = _topp->getAllSwitchPoint();
+
+		saveData(allMVCPoints, allSwitchPoint);
+
 		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
@@ -511,6 +505,8 @@ namespace rovin
 		allMVCPoints = _topp->getAllMVCPoint();
 		allMVCPointsFlag = _topp->getAllMVCPointFlag();
 		allSwitchPoint = _topp->getAllSwitchPoint();
+
+
 		A1switch = calculateLimitingCurves(allMVCPoints, allMVCPointsFlag, allSwitchPoint, LC);
 
 		std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>> LC_copy;
@@ -523,6 +519,7 @@ namespace rovin
 		}
 
 		calculateCLC(LC, CLC);
+
 		unsigned int Acase;
 		Real sdot_beg_star;
 		Acase = determineAresult(allMVCPoints, CLC, sdot_beg_star, FORWARD);
@@ -1526,7 +1523,7 @@ namespace rovin
 		}
 		return false;
 	}
-
+	// binary......... 
 	Real AVP_RRT::findsdotminBybinearSearch(const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints,
 		const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, const std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi,
 		const Vector2& nearInterval, const Real sdot_test, AVPFLAG avpflag)

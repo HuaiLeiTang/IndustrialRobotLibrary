@@ -619,6 +619,8 @@ namespace rovin {
 			// step 1 -END-
 
 			// step 2: tanget point check
+			std::cout << diff_bef << '\t' << diff_cur << std::endl;
+
 			if ((diff_bef*diff_cur < 0) && (std::abs(diff_cur) < 1))
 			{
 				SwitchPoint sw(s_cur, sdot_cur, SwitchPoint::TANGENT, 0.0);

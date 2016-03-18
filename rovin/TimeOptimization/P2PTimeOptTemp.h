@@ -14,6 +14,9 @@
 #define MPNN_TREE_MAXIMUM_NODES	100000
 #define AVP_RRT_MAX_ITER		100000
 
+//#define saveDataPath "C:/Users/crazy/Desktop/Time optimization/"
+#define saveDataPath std::string("D:/jkkim/Documents/matlabTest/p2ptime/")
+
 namespace rovin
 {
 	class Vertex;
@@ -108,7 +111,7 @@ namespace rovin
 
 		// int 받아서 i-th segment에 대해서 도는 generate Trajectory 만들고, 최종 경로를 저장하는 컨테이너 하나 만들기.. vector로?
 		// idx는 waypoint 개수 -1
-		void generateTrajectory();
+		RETURNFLAG generateTrajectory();
 		RETURNFLAG generateTrajectorySegment(int idx);
 
 		void treeInitialization(int idx);
@@ -198,7 +201,6 @@ namespace rovin
 		unsigned int _dof;
 		unsigned int _numSegment;
 		unsigned int _curSegment;
-		Vector2 _wayPointInterval; // useless...?
 		Real _stepsize;
 		Real _ds;
 		Real _si;
@@ -218,25 +220,32 @@ namespace rovin
 		std::vector<Real> sdot_LC;
 		std::vector<Real> sdot_CLC;
 
-		void saveData(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, std::vector<SwitchPoint>& allSwitchPoint, 
-			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC_copy, std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC, 
+		void saveData(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, std::vector<SwitchPoint>& allSwitchPoint)
+		{
+			savevectorOfVector2(allMVCPoints, saveDataPath + "s.txt",
+				saveDataPath + "sdot_MVC.txt"); ///< save MVC
+			saveSwitchPoint(allSwitchPoint);
+		}
+
+		void saveData(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints, std::vector<SwitchPoint>& allSwitchPoint,
+			std::vector<std::list<Vector2, Eigen::aligned_allocator<Vector2>>>& LC_copy, std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& CLC,
 			std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& phi)
 		{
-			savevectorOfVector2(allMVCPoints, "C:/Users/crazy/Desktop/Time optimization/s.txt",
-				"C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt"); ///< save MVC
+			savevectorOfVector2(allMVCPoints, saveDataPath + "s.txt",
+				saveDataPath + "sdot_MVC.txt"); ///< save MVC
 			saveSwitchPoint(allSwitchPoint);
 			for (unsigned int i = 0; i < LC_copy.size(); i++)
 			{
-				std::string s_string = "C:/Users/crazy/Desktop/Time optimization/LC/s_LC";
-				std::string sdot_string = "C:/Users/crazy/Desktop/Time optimization/LC/sdot_LC";
+				std::string s_string = saveDataPath + "LC/s_LC";
+				std::string sdot_string = saveDataPath + "LC/sdot_LC";
 				s_string = s_string + std::to_string(i) + ".txt";
 				sdot_string = sdot_string + std::to_string(i) + ".txt";
 				saveLC(LC_copy[i], s_string, sdot_string);
 			}
-			savevectorOfVector2(CLC, "C:/Users/crazy/Desktop/Time optimization/s_CLC.txt",
-				"C:/Users/crazy/Desktop/Time optimization/sdot_CLC.txt"); ///< save CLC
-			savevectorOfVector2(phi, "C:/Users/crazy/Desktop/Time optimization/s_phi.txt",
-				"C:/Users/crazy/Desktop/Time optimization/sdot_phi.txt");
+			savevectorOfVector2(CLC, saveDataPath + "s_CLC.txt",
+				saveDataPath + "sdot_CLC.txt"); ///< save CLC
+			savevectorOfVector2(phi, saveDataPath + "s_phi.txt",
+				saveDataPath + "sdot_phi.txt");
 		}
 
 		void saveRealVector2txt(std::vector<Real> in, std::string filename)
@@ -252,7 +261,6 @@ namespace rovin
 
 		void saveMVC(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints)
 		{
-			std::string name = "C:/Users/crazy/Desktop/Time optimization";
 			std::vector<Real> s, sdot;
 			for (unsigned int i = 0; i < allMVCPoints.size(); i++)
 			{
@@ -260,8 +268,8 @@ namespace rovin
 				sdot.push_back(allMVCPoints[i](1));
 			}
 
-			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/s.txt");
-			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/sdot_MVC.txt");
+			saveRealVector2txt(s, saveDataPath + "s.txt");
+			saveRealVector2txt(sdot, saveDataPath + "sdot_MVC.txt");
 		}
 
 		void savevectorOfVector2(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_first, std::string filename_second)
@@ -312,8 +320,8 @@ namespace rovin
 				s_sw.push_back(allSwitchPoint[i]._s);
 				sdot_sw.push_back(allSwitchPoint[i]._sdot);
 			}
-			saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/s_sw.txt");
-			saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/sdot_sw.txt");
+			saveRealVector2txt(s_sw, saveDataPath + "s_sw.txt");
+			saveRealVector2txt(sdot_sw, saveDataPath + "sdot_sw.txt");
 		}
 
 	};
