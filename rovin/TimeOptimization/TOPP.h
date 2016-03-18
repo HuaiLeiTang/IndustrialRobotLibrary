@@ -6,6 +6,10 @@
 #include <list>
 #include <fstream>
 
+
+//#define saveDataPath_TOPP std::string("C:/Users/crazy/......./")
+#define saveDataPath_TOPP std::string("D:/jkkim/Documents/matlabTest/p2ptime/")
+
 namespace rovin {
 
 	class TOPP;
@@ -194,15 +198,14 @@ namespace rovin {
 
 		void saveMVC(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& allMVCPoints)
 		{
-			std::string name = "C:/Users/crazy/Desktop/Time optimization";
 			std::vector<Real> s, sdot;
 			for (unsigned int i = 0; i < allMVCPoints.size(); i++)
 			{
 				s.push_back(allMVCPoints[i](0));
 				sdot.push_back(allMVCPoints[i](1));
 			}
-			saveRealVector2txt(s, "C:/Users/crazy/Desktop/Time optimization/avp test/s_MVC.txt");
-			saveRealVector2txt(sdot, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_MVC.txt");
+			saveRealVector2txt(s, saveDataPath_TOPP + "s_MVC.txt");
+			saveRealVector2txt(sdot, saveDataPath_TOPP + "sdot_MVC.txt");
 		}
 
 		void savevectorOfVector2(std::vector<Vector2, Eigen::aligned_allocator<Vector2>>& in, std::string filename_first, std::string filename_second)
@@ -253,8 +256,8 @@ namespace rovin {
 				s_sw.push_back(allSwitchPoint[i]._s);
 				sdot_sw.push_back(allSwitchPoint[i]._sdot);
 			}
-			saveRealVector2txt(s_sw, "C:/Users/crazy/Desktop/Time optimization/avp test/s_sw.txt");
-			saveRealVector2txt(sdot_sw, "C:/Users/crazy/Desktop/Time optimization/avp test/sdot_sw.txt");
+			saveRealVector2txt(s_sw, saveDataPath_TOPP + "s_sw.txt");
+			saveRealVector2txt(sdot_sw, saveDataPath_TOPP + "sdot_sw.txt");
 		}
 
 	public:
