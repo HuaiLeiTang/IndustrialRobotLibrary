@@ -157,7 +157,9 @@ public:
 		q.setZero();
 		efortState->setJointStatePos(q);
 		solveForwardKinematics(*efortState);
-		rovin::Vector4	orange(254 / 255.0, 193 / 255.0, 27 / 255.0, 1.0), black(55 / 255.0, 55 / 255.0, 55 / 255.0, 1.0);
+		rovin::Vector4	orange(254 / 255.0, 193 / 255.0, 27 / 255.0, 1.0),
+			black(55 / 255.0, 55 / 255.0, 55 / 255.0, 1.0),
+			white(200 / 255.0, 200 / 255.0, 200 / 255.0, 1.0);
 		//for (unsigned int i = 0; i < _links.size(); i++)
 		//{
 		//	shared_ptr<Box> boxShape(new Box(0.2, 0.2, 0.2));
@@ -231,5 +233,15 @@ public:
 				STL_file->setColor(orange);
 			getLinkPtr(6)->addDrawingGeomtryInfo(STL_file);
 		}
+
+		// wy edit
+		// end effector: welding gun
+		std::shared_ptr<rovin::Mesh> STL_file_WD(new rovin::Mesh(std::string("../Data/CAD/efort_robot/welding_gun_82W.STL")));
+		//STL_file_WD->setFrame(efortState->getLinkStateSE3(6).inverse());
+		rovin::SE3 TlastLinkToEndeffector = rovin::SE3(rovin::Vector3(0.0, 0.0, 0.125)) * rovin::SE3(rovin::SO3::RotZ(rovin::PI)*rovin::SO3::RotY(-rovin::PI_HALF), rovin::Vector3(0.1525, 0.0, 0.0490));
+		STL_file_WD->setFrame(TlastLinkToEndeffector.inverse() * efortState->getLinkStateSE3(6).inverse());
+		STL_file_WD->setDimension(0.001);
+		STL_file_WD->setColor(white);
+		getLinkPtr(6)->addDrawingGeomtryInfo(STL_file_WD);
 	}
 };
