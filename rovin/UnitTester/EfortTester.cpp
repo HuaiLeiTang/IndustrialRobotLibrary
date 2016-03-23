@@ -15,43 +15,121 @@ using namespace rovin;
 
 int main()
 {
-	// file input
+	/*
+	* FILE INPUT
+	*/
+	// Matrices to save file input
+	vector<VectorX> toolpath_vec;
 	vector<VectorX> q_result_vec;
-	VectorX q_temp(6);
+	vector<VectorX> q_ref_result_vec;
+	VectorX VecX_temp(6);
+
+
+	vector<Real> time_result_vec;
+	Real time_temp;
 
 	FILE *in;
+	// tool path
+	fopen_s(&in, "selectedPath.txt", "r");
+	while (!feof(in))
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			fscanf_s(in, "%lf", &VecX_temp(i));
+		}
+		toolpath_vec.push_back(VecX_temp * 0.001); // scaling
+	}
+
+	// optimal joint trajectory
 	fopen_s(&in, "q_result.txt", "r");
 	while (!feof(in))
 	{
 		for (int i = 0; i < 6; i++)
 		{
-			fscanf_s(in, "%lf", &q_temp(i));
+			fscanf_s(in, "%lf", &VecX_temp(i));
 		}
-		q_result_vec.push_back(q_temp);
+		q_result_vec.push_back(VecX_temp);
 	}
 
+	// reference joint trajectory
+	fopen_s(&in, "q_ref_result.txt", "r");
+	while (!feof(in))
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			fscanf_s(in, "%lf", &VecX_temp(i));
+		}
+		q_ref_result_vec.push_back(VecX_temp);
+	}
 
-	// robot animation
+	// time array
+	fopen_s(&in, "time_result.txt", "r");
+	while (!feof(in))
+	{
+		fscanf_s(in, "%lf", &time_temp);
+		time_result_vec.push_back(time_temp);
+	}
+	fcloseall();
+
+
+
+	/*
+	* RENDERING
+	*/
+	// Renderer setting
 	SerialOpenChainPtr robot = SerialOpenChainPtr(new efortRobot);
 	rovin::StatePtr state = robot->makeState();
+	rovin::StatePtr state2 = robot->makeState();
 
 	OSG_simpleRender renderer(*robot, *state, 600, 600);
 	renderer.getViewer().realize();
 
+	OSG_simpleRender renderer2(*robot, *state2, 600, 600);
+	renderer2.getViewer().realize();
+
+	// Render trajectory
+	Line	EE_pathLine;
+	renderer.addGeometry(EE_pathLine);
+	renderer2.addGeometry(EE_pathLine);
+	//EE_pathLine.setColor(0 / 255.0, 0 / 255.0, 255 / 255.0, 1.0);
+
+	Vector3 defaultPos;
+	defaultPos << -0.500, 0, 0;
+	for (int i = 0; i < toolpath_vec.size(); i++)
+	{
+		osg::Vec3 pos_temp;
+		for (int j = 0; j < 3; j++)
+			pos_temp[j] = (toolpath_vec[i])[j] + defaultPos[j];
+		EE_pathLine.push_back(pos_temp);
+		//for (int ii = 0; ii < 3; ii++)
+		//	cout << pos_temp[ii] << "   ";
+		//cout << endl;
+	}
+
+
+	// Render robot animation
 	int count = 0;
-	int t = clock();
+	int t0 = clock();
+	Real speed_render = 0.1;
 	while(1)
 	{
-		if (clock() - t >= 10)
+		if (speed_render * Real(clock() - t0) >= time_result_vec[count])
 		{
-			t = clock();
-			state->setJointStatePos(q_result_vec[0]);
+			state->setJointStatePos(q_result_vec[count]);
 			robot->solveForwardKinematics(*state);
+
+			state2->setJointStatePos(q_ref_result_vec[count]);
+			robot->solveForwardKinematics(*state2);
+
 			count++;
 			if (count >= q_result_vec.size())
+			{
 				count = 0;
+				t0 = clock();
+			}
 		}
 		renderer.updateFrame();
+		renderer2.updateFrame();
 	}
 
 	//const int ParameterN = 3;

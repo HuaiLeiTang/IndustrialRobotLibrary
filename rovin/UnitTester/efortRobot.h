@@ -234,14 +234,41 @@ public:
 			getLinkPtr(6)->addDrawingGeomtryInfo(STL_file);
 		}
 
+		//sh edit
+		std::shared_ptr<rovin::Box> Box_Assemble(new rovin::Box());
+		Box_Assemble->setFrame(rovin::SE3(rovin::Vector3(0, 0, linkLength(5) + 0.04)));
+		Box_Assemble->setDimension(0.06, 0.06, 0.08);
+		Box_Assemble->setColor(white);
+		getLinkPtr(6)->addDrawingGeomtryInfo(Box_Assemble);
+
+		std::shared_ptr<rovin::Cylinder> Cylinder_Assemble(new rovin::Cylinder());
+		Cylinder_Assemble->setFrame(rovin::SE3(rovin::Vector3(0.0, 0.0, linkLength(5))) * rovin::SE3(rovin::SO3::RotZ(rovin::PI)*rovin::SO3::RotY(-rovin::PI_HALF), rovin::Vector3(0.04, 0.0, 0.049)));
+		Cylinder_Assemble->setDimension(0.015, 0.12);
+		Cylinder_Assemble->setColor(white);
+		getLinkPtr(6)->addDrawingGeomtryInfo(Cylinder_Assemble);
+
+		std::shared_ptr<rovin::Cylinder> Cylinder_Assemble2(new rovin::Cylinder());
+		Cylinder_Assemble2->setFrame(rovin::SE3(rovin::Vector3(0.0, 0.0, linkLength(5))) * rovin::SE3(rovin::SO3::RotZ(rovin::PI)*rovin::SO3::RotY(-rovin::PI_HALF), rovin::Vector3(0.1, 0.0, 0.049)));
+		Cylinder_Assemble2->setDimension(0.002, 0.0525 * 2);
+		Cylinder_Assemble2->setColor(white);
+		getLinkPtr(6)->addDrawingGeomtryInfo(Cylinder_Assemble2);
+
 		// wy edit
 		// end effector: welding gun
-		std::shared_ptr<rovin::Mesh> STL_file_WD(new rovin::Mesh(std::string("../Data/CAD/efort_robot/welding_gun_82W.STL")));
-		//STL_file_WD->setFrame(efortState->getLinkStateSE3(6).inverse());
-		rovin::SE3 TlastLinkToEndeffector = rovin::SE3(rovin::Vector3(0.0, 0.0, 0.125)) * rovin::SE3(rovin::SO3::RotZ(rovin::PI)*rovin::SO3::RotY(-rovin::PI_HALF), rovin::Vector3(0.1525, 0.0, 0.0490));
-		STL_file_WD->setFrame(TlastLinkToEndeffector.inverse() * efortState->getLinkStateSE3(6).inverse());
-		STL_file_WD->setDimension(0.001);
-		STL_file_WD->setColor(white);
-		getLinkPtr(6)->addDrawingGeomtryInfo(STL_file_WD);
+		//std::shared_ptr<rovin::Mesh> STL_file_WD(new rovin::Mesh(std::string("../Data/CAD/efort_robot/welding_gun_82W.STL")));
+		//rovin::SE3 TlastLinkToEndeffector = rovin::SE3(rovin::Vector3(0.0, 0.0, 0.125)) * rovin::SE3(rovin::SO3::RotZ(rovin::PI)*rovin::SO3::RotY(-rovin::PI_HALF), rovin::Vector3(0.1525, 0.0, 0.0490));
+		//STL_file_WD->setFrame(TlastLinkToEndeffector.inverse() * efortState->getLinkStateSE3(6).inverse());
+		//STL_file_WD->setDimension(0.001);
+		//STL_file_WD->setColor(white);
+		//getLinkPtr(6)->addDrawingGeomtryInfo(STL_file_WD);
+
+		//for (unsigned int i = 0; i < 3; i++)
+		//{
+		//	std::shared_ptr<rovin::Mesh> STL_file(new rovin::Mesh(std::string("../Data/CAD/efort_robot/tooltip") + std::to_string(i + 1) + std::string(".STL")));
+		//	STL_file->setFrame(efortState->getLinkStateSE3(6).inverse() * rovin::SE3(rovin::Vector3(1.104, 0.0, 1.5765))*TlastLinkToEndeffector.inverse());
+		//	STL_file->setDimension(0.001);
+		//	STL_file->setColor(white);
+		//	getLinkPtr(6)->addDrawingGeomtryInfo(STL_file);
+		//}
 	}
 };
