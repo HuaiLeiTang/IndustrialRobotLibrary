@@ -110,10 +110,10 @@ int main()
 	// Render robot animation
 	int count = 0;
 	int t0 = clock();
-	Real speed_render = 0.1;
+	Real speed_render = 1.0;
 	while(1)
 	{
-		if (speed_render * Real(clock() - t0) >= time_result_vec[count])
+		if (speed_render * Real(clock() - t0) / CLOCKS_PER_SEC >= time_result_vec[count])
 		{
 			state->setJointStatePos(q_result_vec[count]);
 			robot->solveForwardKinematics(*state);
