@@ -9,10 +9,10 @@
 #pragma once
 
 #include <rovin/Optimizer/NonlinearOptimization.h>
-
 #include <rovin/Dynamics/SerialOpenChain.h>
 #include <rovin/Math/GaussianQuadrature.h>
 #include <rovin/Math/Interpolation.h>
+#include <rovin/Math/GCMMAOptimization.h>
 
 namespace rovin {
 
@@ -25,6 +25,9 @@ namespace rovin {
 
 	typedef std::shared_ptr<sharedResource> sharedResourcePtr;
 
+	enum ObjectiveFunctionType { effort, energyloss };
+	enum OptimizationType { nlopt, GCMMA };
+
 	// 제로 속도에서 제로 속도로 가는거..?!!!
 
 	class PTPOptimization
@@ -34,14 +37,15 @@ namespace rovin {
 		friend class NonlinearInequalityConstraint;
 
 	public:
-		enum ObjectiveFunctionType { effort, energyloss };
 		
 
-
-	private:
+	public:
 		NonlinearOptimization _optimizer;
-		sharedResourcePtr _shared;
+		GCMMAOptimization _GCMMAoptimizer;
 
+		OptimizationType _optType;
+
+		sharedResourcePtr _shared;
 		FunctionPtr _objectFunc;
 		//equalityConstraint _equlfunc;
 
@@ -76,7 +80,9 @@ namespace rovin {
 
 	public:
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
-			const unsigned int numOfCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState);
+			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState);
+		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
+			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType opttype);
 
 		void makeNonOptJointCP();
 
@@ -86,12 +92,9 @@ namespace rovin {
 
 		// Optimization function
 		void makeObjectiveFunction();
-		void makeIneqConstraintFunction();
-
-
+		void makeIneqConstraintFunction_nlopt();
+		void makeIneqConstraintFunction_MMA();
 		void generateTrajectory();
-
-
 	};
 
 	// calculate inverse 

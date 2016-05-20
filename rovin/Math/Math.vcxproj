@@ -125,6 +125,7 @@
     <ClInclude Include="Constant.h" />
     <ClInclude Include="Function.h" />
     <ClInclude Include="GaussianQuadrature.h" />
+    <ClInclude Include="GCMMAOptimization.h" />
     <ClInclude Include="Inertia.h" />
     <ClInclude Include="Interpolation.h" />
     <ClInclude Include="LieGroup.h" />
@@ -134,6 +135,7 @@
   <ItemGroup>
     <ClCompile Include="Function.cpp" />
     <ClCompile Include="GaussianQuadrature.cpp" />
+    <ClCompile Include="GCMMAOptimization.cpp" />
     <ClCompile Include="Inertia.cpp" />
     <ClCompile Include="Interpolation.cpp" />
     <ClCompile Include="SE3.cpp" />

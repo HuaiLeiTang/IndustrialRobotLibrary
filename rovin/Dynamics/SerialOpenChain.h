@@ -117,6 +117,8 @@ namespace rovin
 		 void solveJacobian(State& state);
 		 void solveJacobianDot(State & state);
 
+		 SE3 calculateEndeffectorFrame(const StatePtr& state);
+
 		 ///< calculate joint exponential(exp([S_i] * theta_i) if this value is not up to date
 		 void updateJointStateExponetial(State & state, const unsigned int jointIndex);
 		 void updateAccumulatedT(State & state);

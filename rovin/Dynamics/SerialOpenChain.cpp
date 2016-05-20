@@ -337,6 +337,13 @@ namespace rovin {
 		}
 	}
 
+	SE3 SerialOpenChain::calculateEndeffectorFrame(const StatePtr& state)
+	{
+		StatePtr tmp_state = state;
+		solveForwardKinematics(*tmp_state);
+		return tmp_state->getLinkStateSE3(tmp_state->getDof());
+	}
+
 
 	// Dynamics
 

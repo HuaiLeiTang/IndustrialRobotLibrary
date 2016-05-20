@@ -1,5 +1,6 @@
 #include "PTPOptimization.h"
 
+#include <time.h>
 #include <memory>
 
 using namespace std;
@@ -18,6 +19,35 @@ namespace rovin{
 		_tf = tf;
 		_initialState = initialState;
 		_finalState = finalState;
+		_optType = OptimizationType::nlopt;
+
+		_numOfOptJoint = 0;
+		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
+		{
+			if (_optJoint[i])
+			{
+				_optJointIdx.push_back(i);
+				_numOfOptJoint++;
+			}
+			else
+			{
+				_noptJointIdx.push_back(i);
+			}
+		}
+	}
+
+	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
+		const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType)
+	{
+		_soc = soc;
+		_optJoint = optJoint;
+		_orderOfBSpline = orderOfBSpline;
+		_numOfOptCP = numOfOptCP;
+		_numOfGQSample = numOfGQSample;
+		_tf = tf;
+		_initialState = initialState;
+		_finalState = finalState;
+		_optType = optType;
 
 		_numOfOptJoint = 0;
 		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
@@ -72,13 +102,13 @@ namespace rovin{
 		_objectFunc = FunctionPtr(new effortFunction(this));
 	}
 
-	void PTPOptimization::makeIneqConstraintFunction()
+	void PTPOptimization::makeIneqConstraintFunction_nlopt()
 	{
 		_nonlinearIneqFunc = FunctionPtr(new NonlinearInequalityConstraint(this));
 
-		unsigned int np = _shared->_dPdP.rows();
-		unsigned int nq = _shared->_dQdP.rows();
-		unsigned int nr = _shared->_dRdP.rows();
+		unsigned int np = _shared->_dPdP.rows(); // _qSpline.getControlPoints().cols() - 6,
+		unsigned int nq = _shared->_dQdP.rows(); // _qdotSpline.getControlPoints().cols() - 4
+		unsigned int nr = _shared->_dRdP.rows(); // _qddotSpline.getControlPoints().cols() - 2
 		MatrixX A((np + nq + nr) * 2 * _numOfOptJoint, _numOfOptCP * _numOfOptJoint);
 		VectorX b((np + nq + nr) * 2 * _numOfOptJoint);
 		A.setZero();
@@ -102,6 +132,38 @@ namespace rovin{
 
 			b.block((np + nq + nr) * 2 * i + (np + nq) * 2, 0, nr, 1) = _shared->_R[i] -VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccUpper();
 			b.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, 0, nr, 1) = -_shared->_R[i] + VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
+		}
+		_linearIneqFunc = FunctionPtr(new AffineFunction(A, b));
+
+		_IneqFunc = FunctionPtr(new AugmentedFunction());
+		static_pointer_cast<AugmentedFunction>(_IneqFunc)->addFunction(_nonlinearIneqFunc);
+		static_pointer_cast<AugmentedFunction>(_IneqFunc)->addFunction(_linearIneqFunc);
+	}
+
+	void PTPOptimization::makeIneqConstraintFunction_MMA()
+	{
+		_nonlinearIneqFunc = FunctionPtr(new NonlinearInequalityConstraint(this));
+
+		unsigned int nq = _shared->_dQdP.rows(); // _qdotSpline.getControlPoints().cols() - 4
+		unsigned int nr = _shared->_dRdP.rows(); // _qddotSpline.getControlPoints().cols() - 2
+
+		MatrixX A((nq + nr) * 2 * _numOfOptJoint, _numOfOptCP * _numOfOptJoint);
+		VectorX b((nq + nr) * 2 * _numOfOptJoint);
+		A.setZero();
+		b.setZero();
+		for (unsigned int i = 0; i < _numOfOptJoint; i++)
+		{
+			A.block((nq + nr) * 2 * i, _numOfOptCP * i, nq, _numOfOptCP) = _shared->_dQdP;
+			A.block((nq + nr) * 2 * i + nq, _numOfOptCP * i, nq, _numOfOptCP) = -_shared->_dQdP;
+
+			A.block((nq + nr) * 2 * i + (nq)* 2, _numOfOptCP * i, nr, _numOfOptCP) = _shared->_dRdP;
+			A.block((nq + nr) * 2 * i + (nq)* 2 + nr, _numOfOptCP * i, nr, _numOfOptCP) = -_shared->_dRdP;
+
+			b.block((nq + nr) * 2 * i, 0, nq, 1) = _shared->_Q[i] - VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelUpper();
+			b.block((nq + nr) * 2 * i + nq, 0, nq, 1) = -_shared->_Q[i] + VectorX::Ones(nq)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitVelLower();
+
+			b.block((nq + nr) * 2 * i + (nq)* 2, 0, nr, 1) = _shared->_R[i] - VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccUpper();
+			b.block((nq + nr) * 2 * i + (nq)* 2 + nr, 0, nr, 1) = -_shared->_R[i] + VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
 		}
 		_linearIneqFunc = FunctionPtr(new AffineFunction(A, b));
 
@@ -145,9 +207,16 @@ namespace rovin{
 		//cout << _shared->_dRdP << endl;
 
 		makeNonOptJointCP();
-
 		makeObjectiveFunction();
-		makeIneqConstraintFunction();
+		if (_optType == OptimizationType::nlopt)
+		{
+			makeIneqConstraintFunction_nlopt();
+		}
+		else if (_optType == OptimizationType::GCMMA)
+		{
+			makeIneqConstraintFunction_MMA();
+		}
+		
 		LOG("Optimization ready.");
 		//cout << "Nopt Joint CP: " << endl;
 		//cout << _noptJointCP << endl;
@@ -173,18 +242,51 @@ namespace rovin{
 		//cout << "Inequality(X): " << endl;
 		//cout << _IneqFunc->func(initX) << endl;
 
-		_optimizer.setObjectiveFunction(_objectFunc);
-		_optimizer.setInequalityConstraint(_IneqFunc);
-		LOG("Start optimization.");
-		_optimizer.solve(initX);
-		LOG("Finish optimization.");
-
-		cout << "X : " << _optimizer.resultX << endl;
-		_shared->makeBSpline(_optimizer.resultX);
-		cout << _knot << endl;
-		cout << _shared->_qSpline.getControlPoints() << endl;
-		cout << "Inequality : " << _IneqFunc->func(_optimizer.resultX) << endl;
-		cout << "f(X) : " << _optimizer.resultFunc << endl;
+		if (_optType == OptimizationType::nlopt)
+		{
+			_optimizer.setObjectiveFunction(_objectFunc);
+			_optimizer.setInequalityConstraint(_IneqFunc);
+			LOG("Start optimization.");
+			clock_t time = clock();
+			//for (int i = 0; i < 10; i++)
+				_optimizer.solve(initX);
+			LOG("Finish optimization.");
+			cout << "------------------------------------" << endl;
+			cout << "computation time : " << (clock() - time) << endl << endl;
+			cout << "X : " << endl << _optimizer.resultX << endl << endl;
+			//_shared->makeBSpline(_optimizer.resultX);
+			//cout << _knot << endl;
+			//cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
+			//cout << "Inequality : " << _IneqFunc->func(_optimizer.resultX) << endl;
+			cout << "Value of objective function : " << _optimizer.resultFunc << endl << endl;
+		}
+		else if (_optType == OptimizationType::GCMMA)
+		{
+			VectorX minX(initX.size()), maxX(initX.size());
+			for (int iii = 0; iii < _numOfOptCP; iii++)
+			{
+				for (int jjj = 0; jjj < _numOfOptJoint; jjj++)
+				{
+					minX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosLower();
+					maxX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosUpper();
+				}
+			}
+			_GCMMAoptimizer.initialize(initX.size(), _IneqFunc->func(initX).size());
+			_GCMMAoptimizer.setMinMax(minX, maxX);
+			_GCMMAoptimizer.setObjectiveFunction(_objectFunc);
+			_GCMMAoptimizer.setInequalityConstraint(_IneqFunc);
+			LOG("Start optimization.");
+			clock_t time = clock();
+			//for (int i = 0; i < 20; i ++)
+				_GCMMAoptimizer.solve(initX);
+			LOG("Finish optimization.");
+			cout << "------------------------------------" << endl;
+			cout << "computation time : " << (clock() - time) << endl << endl;
+			cout << "X : " << endl << _GCMMAoptimizer.resultX << endl << endl;
+			//cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
+			cout << "Value of objective function : " << _GCMMAoptimizer.resultFunc << endl << endl;
+			//cout << "_suby : " << endl << _GCMMAoptimizer._suby << endl << endl;
+		}
 	}
 	
 	// class sharedResource
@@ -238,9 +340,9 @@ namespace rovin{
 				}
 			}
 		}
-		cout << "_dPdP" << endl << _dPdP << endl;
-		cout << "_dQdP" << endl << _dQdP << endl;
-		cout << "_dRdP" << endl << _dRdP << endl;
+		//cout << "_dPdP" << endl << _dPdP << endl;
+		//cout << "_dQdP" << endl << _dQdP << endl;
+		//cout << "_dRdP" << endl << _dRdP << endl;
 
 		_P.resize(_PTPOptimizer->_numOfOptJoint);
 		_Q.resize(_PTPOptimizer->_numOfOptJoint);
@@ -254,7 +356,7 @@ namespace rovin{
 			cp(_PTPOptimizer->_numOfOptCP + 3) = _PTPOptimizer->_finalCP[2](_PTPOptimizer->_optJointIdx[i]);
 			cp(_PTPOptimizer->_numOfOptCP + 4) = _PTPOptimizer->_finalCP[1](_PTPOptimizer->_optJointIdx[i]);
 			cp(_PTPOptimizer->_numOfOptCP + 5) = _PTPOptimizer->_finalCP[0](_PTPOptimizer->_optJointIdx[i]);
-			cout << cp << endl;
+			//cout << cp << endl;
 			_qSpline = BSpline<-1, -1, -1>(_PTPOptimizer->_knot, cp);
 			_qdotSpline = _qSpline.derivative();
 			_qddotSpline = _qdotSpline.derivative();
@@ -262,9 +364,9 @@ namespace rovin{
 			_Q[i] = _qdotSpline.getControlPoints().block(0, 2, 1, _dQdP.rows()).transpose();
 			_R[i] = _qddotSpline.getControlPoints().block(0, 1, 1, _dRdP.rows()).transpose();
 
-			cout << "_P[" << i << "]" << endl << _P[i] << endl;
-			cout << "_Q[" << i << "]" << endl << _Q[i] << endl;
-			cout << "_R[" << i << "]" << endl << _R[i] << endl;
+			//cout << "_P[" << i << "]" << endl << _P[i] << endl;
+			//cout << "_Q[" << i << "]" << endl << _Q[i] << endl;
+			//cout << "_R[" << i << "]" << endl << _R[i] << endl;
 		}
 	}
 
@@ -337,8 +439,6 @@ namespace rovin{
 		update(params);
 		return _dtaudp;
 	}
-
-	///
 
 	VectorX effortFunction::func(const VectorX & params) const
 	{
