@@ -6,8 +6,10 @@
 #include "efortRobot.h"
 
 #include <iostream>
+#include <fstream>
 #include <conio.h>
 #include <time.h>
+#include <string.h>
 
 using namespace rovin;
 using namespace std;
@@ -16,9 +18,16 @@ class TestObjFunction;
 class TestEqFunction;
 class TestIneqFunction;
 
+void saveMatrixX2txt(MatrixX in, std::string filename);
+void saveVectorX2txt(VectorX in, std::string filename);
+void calculateTorqueTrajectory(const MatrixX& q, const MatrixX& qdot, const MatrixX& qddot, MatrixX& torque);
+
+std::string file = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/";
+
+SerialOpenChainPtr robot(new efortRobot());
+
 int main()
 {
-	SerialOpenChainPtr robot(new efortRobot());
 	unsigned int dof = robot->getNumOfJoint();
 
 	StatePtr initState, finalState;
@@ -40,32 +49,86 @@ int main()
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
 	Real tf = 2.0;
-	int numOfOptCP = 6;
+	int numOfOptCP = 4;
 	int orderOfBSpline = 4;
 
-	cout << "------- [NLOPT RESULT] -------" << endl;
+	std::cout << "------- [NLOPT RESULT] -------" << endl;
 	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt);
 	PTPManagerNlopt.generateTrajectory();
 
-	cout << "------- [GCMMA RESULT] -------" << endl;
+	std::cout << "------- [GCMMA RESULT] -------" << endl;
 	PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA);
 	PTPManagerManualOpt.generateTrajectory();
 
-	///////////////////////////////// RENDERING /////////////////////////////////
+	///////////////////////////////// SAVE & RENDERING /////////////////////////////////
 	bool renderingswi = false;
 
-	BSpline<-1, -1, -1> nloptSpline = PTPManagerNlopt._shared->_qSpline;
-	BSpline<-1, -1, -1> MMASpline = PTPManagerManualOpt._shared->_qSpline;
 	int datanum = 2000;
 	Real stepsize = (tf - 0.0) / 2000;
 	Real t = 0.0;
+	BSpline<-1, -1, -1> nloptSpline = PTPManagerNlopt._shared->_qSpline;
+	BSpline<-1, -1, -1> MMASpline = PTPManagerManualOpt._shared->_qSpline;
+	BSpline<-1, -1, -1> nloptqdotSpline = PTPManagerNlopt._shared->_qdotSpline;
+	BSpline<-1, -1, -1> MMAqdotSpline = PTPManagerManualOpt._shared->_qdotSpline;
+	BSpline<-1, -1, -1> nloptqddotSpline = PTPManagerNlopt._shared->_qddotSpline;
+	BSpline<-1, -1, -1> MMAqddotSpline = PTPManagerManualOpt._shared->_qddotSpline;
 	MatrixX nloptTraj(dof, datanum), MMATraj(dof, datanum);
+	MatrixX nloptqdotTraj(dof, datanum), MMAqdotTraj(dof, datanum);
+	MatrixX nloptqddotTraj(dof, datanum), MMAqddotTraj(dof, datanum);
+
 	for (int i = 0; i < datanum; i++)
 	{
 		nloptTraj.col(i) = nloptSpline(t);
 		MMATraj.col(i) = MMASpline(t);
 		t += stepsize;
 	}
+	t = 0.0;
+	for (int i = 0; i < datanum; i++)
+	{
+		nloptqdotTraj.col(i) = nloptqdotSpline(t);
+		MMAqdotTraj.col(i) = MMAqdotSpline(t);
+		t += stepsize;
+	}
+	t = 0.0;
+	for (int i = 0; i < datanum; i++)
+	{
+		nloptqddotTraj.col(i) = nloptqddotSpline(t);
+		MMAqddotTraj.col(i) = MMAqddotSpline(t);
+		t += stepsize;
+	}
+
+	MatrixX nloptTorqueTraj(dof, datanum), MMATorqueTraj(dof, datanum);
+	calculateTorqueTrajectory(nloptTraj, nloptqdotTraj, nloptqddotTraj, nloptTorqueTraj);
+	calculateTorqueTrajectory(MMATraj, MMAqdotTraj, MMAqddotTraj, MMATorqueTraj);
+
+	saveMatrixX2txt(nloptTraj, file + "nlopt/q.txt");
+	saveMatrixX2txt(nloptqdotTraj, file + "nlopt/qdot.txt");
+	saveMatrixX2txt(nloptqddotTraj, file + "nlopt/qddot.txt");
+	saveMatrixX2txt(nloptTorqueTraj, file + "nlopt/torque.txt");
+
+	saveMatrixX2txt(MMATraj, file + "MMA/q.txt");
+	saveMatrixX2txt(MMAqdotTraj, file + "MMA/qdot.txt");
+	saveMatrixX2txt(MMAqddotTraj, file + "MMA/qddot.txt");
+	saveMatrixX2txt(MMATorqueTraj, file + "MMA/torque.txt");
+
+	// constraint save
+	VectorX qct(dof * 2), qdotct(dof * 2), qddotct(dof * 2), tct(dof * 2);
+	for (int i = 0; i < dof; i++)
+	{
+		qct(i) = robot->getMotorJointPtr(i)->getLimitPosLower();
+		qct(i + dof) = robot->getMotorJointPtr(i)->getLimitPosUpper();
+		qdotct(i) = robot->getMotorJointPtr(i)->getLimitVelLower();
+		qdotct(i + dof) = robot->getMotorJointPtr(i)->getLimitVelUpper();
+		qddotct(i) = robot->getMotorJointPtr(i)->getLimitAccLower();
+		qddotct(i + dof) = robot->getMotorJointPtr(i)->getLimitAccUpper();
+		tct(i) = robot->getMotorJointPtr(i)->getLimitTorqueLower();
+		tct(i + dof) = robot->getMotorJointPtr(i)->getLimitTorqueUpper();
+	}
+
+	saveVectorX2txt(qct, file + "qconstraint.txt");
+	saveVectorX2txt(qdotct, file + "qdotconstraint.txt");
+	saveVectorX2txt(qddotct, file + "qddotconstraint.txt");
+	saveVectorX2txt(tct, file + "torqueconstraint.txt");
 
 	if (renderingswi)
 	{
@@ -136,9 +199,54 @@ int main()
 		}
 	}
 
+	std::cout << "====== Program Complete ======" << endl;
 	_getch();
 
 	return 0;
+}
+
+void saveMatrixX2txt(MatrixX in, std::string filename)
+{
+	std::ofstream fout;
+	fout.open(filename);
+
+	for (int i = 0; i < in.cols(); i++)
+	{
+		for (int j = 0; j < in.rows(); j++)
+			fout << in(j, i) << '\t';
+		fout << std::endl;
+	}
+
+	fout.close();
+}
+
+void saveVectorX2txt(VectorX in, std::string filename)
+{
+	std::ofstream fout;
+	fout.open(filename);
+
+	for (int i = 0; i < in.size(); i++)
+	{
+		fout << in(i) << endl;
+	}
+	fout.close();
+}
+
+void calculateTorqueTrajectory(const MatrixX& q, const MatrixX& qdot, const MatrixX& qddot, MatrixX& torque)
+{
+	int dof = q.rows();
+	int datanum = q.cols();
+	StatePtr state = robot->makeState();
+
+	for (int i = 0; i < datanum; i++)
+	{
+		state->setJointStatePos(q.col(i));
+		state->setJointStateVel(qdot.col(i));
+		state->setJointStateAcc(qddot.col(i));
+
+		robot->solveInverseDynamics(*state);
+		torque.col(i) = state->getJointStateTorque();
+	}
 }
 
 class TestObjFunction : public Function

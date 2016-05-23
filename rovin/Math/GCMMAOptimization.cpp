@@ -16,7 +16,7 @@ namespace rovin
 		setParameters(0.1, 0.5, 0.5, 0.7, 1.2);
 		//setParameters(0.1, 0.5, 0.5, 0.8, 1.2);
 		setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(20000.0), VectorX(_ineqN).setOnes());
-		//setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(90000.0), VectorX(_ineqN).setOnes());
+		//setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(80000.0), VectorX(_ineqN).setOnes());
 
 		_tolX = 1E-4;
 		_tolFunc = 1E-4;

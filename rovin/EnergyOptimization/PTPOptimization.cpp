@@ -214,6 +214,7 @@ namespace rovin{
 		}
 		else if (_optType == OptimizationType::GCMMA)
 		{
+			//makeIneqConstraintFunction_nlopt();
 			makeIneqConstraintFunction_MMA();
 		}
 		
@@ -271,6 +272,11 @@ namespace rovin{
 					maxX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosUpper();
 				}
 			}
+
+			//cout << "minX" << endl << minX << endl << endl;
+			//cout << "maxX" << endl << maxX << endl << endl;
+
+
 			_GCMMAoptimizer.initialize(initX.size(), _IneqFunc->func(initX).size());
 			_GCMMAoptimizer.setMinMax(minX, maxX);
 			_GCMMAoptimizer.setObjectiveFunction(_objectFunc);
@@ -283,7 +289,7 @@ namespace rovin{
 			cout << "------------------------------------" << endl;
 			cout << "computation time : " << (clock() - time) << endl << endl;
 			cout << "X : " << endl << _GCMMAoptimizer.resultX << endl << endl;
-			//cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
+			cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
 			cout << "Value of objective function : " << _GCMMAoptimizer.resultFunc << endl << endl;
 			//cout << "_suby : " << endl << _GCMMAoptimizer._suby << endl << endl;
 		}
