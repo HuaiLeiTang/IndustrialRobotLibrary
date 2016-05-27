@@ -17,12 +17,12 @@
 namespace rovin {
 
 	class PTPOptimization;
-	class effortFunction;
-	class energyLossFunction;
-	class EqualityConstraint;
-	class InequalityConstraint;
 	class sharedResource;
 
+	class effortFunction;
+	class energyLossFunction;
+	class InequalityConstraint;
+	
 	typedef std::shared_ptr<sharedResource> sharedResourcePtr;
 
 	enum ObjectiveFunctionType { effort, energyloss };
@@ -44,6 +44,7 @@ namespace rovin {
 		GCMMAOptimization _GCMMAoptimizer;
 
 		OptimizationType _optType;
+		ObjectiveFunctionType _objectiveType;
 
 		sharedResourcePtr _shared;
 		FunctionPtr _objectFunc;
@@ -82,7 +83,9 @@ namespace rovin {
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
 			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState);
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
-			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType opttype);
+			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType);
+		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
+			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType, ObjectiveFunctionType objectiveType);
 
 		void makeNonOptJointCP();
 
@@ -100,7 +103,7 @@ namespace rovin {
 	// calculate inverse 
 	class sharedResource
 	{
-
+		friend class PTPOptimization;
 	private:
 
 		PTPOptimization* _PTPOptimizer;
@@ -125,6 +128,10 @@ namespace rovin {
 		//
 		const std::vector<VectorX>& gettau(const VectorX& params);
 		const std::vector<MatrixX>& getdtaudp(const VectorX& params);
+
+		const std::vector<StatePtr> getstate() const { return _state; }
+		const std::vector<MatrixX> getdqddotdp() const { return _dqddotdp; }
+		const std::vector<MatrixX> getdqdotdp() const { return _dqdotdp; }
 
 	public:
 		BSpline<-1, -1, -1> _qSpline;
@@ -154,21 +161,16 @@ namespace rovin {
 		PTPOptimization* _PTPOptimizer;
 	};
 
-	//class energyLossFunction : public Function
-	//{
-	//	energyLossFunction() {}
+	class energyLossFunction : public Function
+	{
+	public:
+		energyLossFunction(PTPOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
 
-	//	VectorX func(const VectorX& x) const;
-	//	MatrixX Jacobian(const VectorX& x) const;
-	//};
+		VectorX func(const VectorX& params) const;
+		MatrixX Jacobian(const VectorX& params) const;
 
-	//class equalityConstraint : public Function
-	//{
-	//	equalityConstraint() {}
-
-	//	VectorX func(const VectorX& x) const;
-	//	MatrixX Jacobian(const VectorX& x) const;
-	//};
+		PTPOptimization* _PTPOptimizer;
+	};
 
 	class NonlinearInequalityConstraint : public Function
 	{

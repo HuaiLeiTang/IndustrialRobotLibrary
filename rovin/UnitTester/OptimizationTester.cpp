@@ -53,11 +53,11 @@ int main()
 	int orderOfBSpline = 4;
 
 	std::cout << "------- [NLOPT RESULT] -------" << endl;
-	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt);
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::energyloss);
 	PTPManagerNlopt.generateTrajectory();
 
 	std::cout << "------- [GCMMA RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA);
+	PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::energyloss);
 	PTPManagerManualOpt.generateTrajectory();
 
 	///////////////////////////////// SAVE & RENDERING /////////////////////////////////
@@ -113,7 +113,7 @@ int main()
 
 	// constraint save
 	VectorX qct(dof * 2), qdotct(dof * 2), qddotct(dof * 2), tct(dof * 2);
-	for (int i = 0; i < dof; i++)
+	for (unsigned int i = 0; i < dof; i++)
 	{
 		qct(i) = robot->getMotorJointPtr(i)->getLimitPosLower();
 		qct(i + dof) = robot->getMotorJointPtr(i)->getLimitPosUpper();

@@ -703,13 +703,13 @@ namespace rovin
 
 			// Calculate (Dly + G * iDx * G.transpose())
 			Real sum = 0;
-			for (int i = 0; i < _xN; i++)
+			for (int i = 0; i < _xN; i++) // Calculate G * iDx
 			{
 				for (int j = 0; j < _ineqN; j++)
 					MatSizeineqNbyxN(j, i) = G(j, i) * iDx(i, i);
 			}
 
-			for (int i = 0; i < _ineqN; i++)
+			for (int i = 0; i < _ineqN; i++) // Calculate Dly + M * G.transpose
 			{
 				for (int j = 0; j < _ineqN; j++)
 				{
@@ -1247,5 +1247,47 @@ namespace rovin
 					rhoi(i) = 10 * rhoi(i);
 		}
 	}
+
+
+	// steepest gradient method
+	//void GCMMAOptimization::xfunctionOflam(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& lam, VectorX& x)
+	//{
+	//	for (int i = 0; i < _xN; i++)
+	//	{
+	//		if (_olalpha(i) > _olbeta(i))
+	//			x(i) = _olalpha(i);
+	//		else
+	//			x(i) = _olbeta(i);
+	//	}
+
+	//	Real x_st;
+	//	for (int j = 0; j < _xN; j++)
+	//	{
+	//		
+	//	}
+
+	//	// uk : _ollow, lk : _olupp, alphak : _olalpha, betak : _olbeta 
+	//	//function[x] = x_lambda(lam)
+
+	//	//	global p0 pk q0 qk uk lk alphak betak
+
+	//	//	lam = lam(:);
+	//	//len = length(p0);
+
+	//	//x_st = zeros(len, 1);
+	//	//for j = 1 : len
+	//	//	x_st(j) = (sqrt(p0(j) + lam' * pk(:,j)) * lk(j) + sqrt(q0(j) + lam' * qk(:, j)) * uk(j)) ...
+	//	//	/ (sqrt(p0(j) + lam' * pk(:,j)) + sqrt(q0(j) + lam' * qk(:, j)));
+	//	//end
+	//	//	x = max(alphak, min(betak, x_st));
+
+	//}
+
+	//void GCMMAOptimization::yfunctionOflam(const VectorX& lam, VectorX& y)
+	//{
+
+	//}
+
+
 
 }

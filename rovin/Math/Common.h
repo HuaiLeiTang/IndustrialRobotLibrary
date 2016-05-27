@@ -237,4 +237,23 @@ namespace rovin
 		}
 		return true;
 	}
+
+	static Real VectorInner(const VectorX& vec1, const VectorX& vec2)
+	{
+		Real value = 0;
+		int size = vec1.size();
+		for (int i = 0; i < size; i++)
+			value += vec1(i) * vec2(i);
+		return value;
+	}
+
+	static Real VectorInner(const VectorX& vec1, const VectorX& vec2, const int size)
+	{
+		Real value = 0;
+		for (int i = 0; i < size; i++)
+			value += vec1(i) * vec2(i);
+		return value;
+	}
+	
+
 }

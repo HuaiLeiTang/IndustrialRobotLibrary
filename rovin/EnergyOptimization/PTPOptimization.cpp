@@ -20,6 +20,7 @@ namespace rovin{
 		_initialState = initialState;
 		_finalState = finalState;
 		_optType = OptimizationType::nlopt;
+		_objectiveType = ObjectiveFunctionType::effort;
 
 		_numOfOptJoint = 0;
 		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
@@ -47,7 +48,7 @@ namespace rovin{
 		_tf = tf;
 		_initialState = initialState;
 		_finalState = finalState;
-		_optType = optType;
+		
 
 		_numOfOptJoint = 0;
 		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
@@ -62,6 +63,37 @@ namespace rovin{
 				_noptJointIdx.push_back(i);
 			}
 		}
+		_optType = optType;
+	}
+
+	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
+		const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType, ObjectiveFunctionType objectiveType)
+	{
+		_soc = soc;
+		_optJoint = optJoint;
+		_orderOfBSpline = orderOfBSpline;
+		_numOfOptCP = numOfOptCP;
+		_numOfGQSample = numOfGQSample;
+		_tf = tf;
+		_initialState = initialState;
+		_finalState = finalState;
+
+
+		_numOfOptJoint = 0;
+		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
+		{
+			if (_optJoint[i])
+			{
+				_optJointIdx.push_back(i);
+				_numOfOptJoint++;
+			}
+			else
+			{
+				_noptJointIdx.push_back(i);
+			}
+		}
+		_optType = optType;
+		_objectiveType = objectiveType;
 	}
 
 	void PTPOptimization::makeBSplineKnot()
@@ -99,7 +131,14 @@ namespace rovin{
 
 	void PTPOptimization::makeObjectiveFunction()
 	{
-		_objectFunc = FunctionPtr(new effortFunction(this));
+		if (_objectiveType == ObjectiveFunctionType::effort)
+		{
+			_objectFunc = FunctionPtr(new effortFunction(this));
+		}
+		else if (_objectiveType == ObjectiveFunctionType::energyloss)
+		{
+			_objectFunc = FunctionPtr(new energyLossFunction(this));
+		}
 	}
 
 	void PTPOptimization::makeIneqConstraintFunction_nlopt()
@@ -233,6 +272,7 @@ namespace rovin{
 				initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
 			}
 		}
+
 		//initX << 0.556274, 0.11917, -0.328995, -0.814881, 0.603234, 0.0932657, -0.130955, -0.064882, 1.14852, 0.774952, 0.2058, -0.233091;
 		//initX << 0.419949, 0.275863, -0.263421, -0.847695, -0.218918, -0.226281, -0.224308, -0.177036, 1.22172, 1.20281, 0.169464, -0.362267;
 		LOG("Initial guess ready.");
@@ -264,12 +304,20 @@ namespace rovin{
 		else if (_optType == OptimizationType::GCMMA)
 		{
 			VectorX minX(initX.size()), maxX(initX.size());
-			for (int iii = 0; iii < _numOfOptCP; iii++)
+			//for (int iii = 0; iii < _numOfOptCP; iii++)
+			//{
+			//	for (int jjj = 0; jjj < _numOfOptJoint; jjj++)
+			//	{
+			//		minX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosLower();
+			//		maxX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosUpper();
+			//	}
+			//}
+			for (unsigned int iii = 0; iii < _numOfOptJoint; iii++)
 			{
-				for (int jjj = 0; jjj < _numOfOptJoint; jjj++)
+				for (unsigned int jjj = 0; jjj < _numOfOptCP; jjj++)
 				{
-					minX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosLower();
-					maxX(iii * _numOfOptJoint + jjj) = _soc->getMotorJointPtr(_optJointIdx[jjj])->getLimitPosUpper();
+					minX(iii * _numOfOptCP + jjj) = _soc->getMotorJointPtr(_optJointIdx[iii])->getLimitPosLower();
+					maxX(iii * _numOfOptCP + jjj) = _soc->getMotorJointPtr(_optJointIdx[iii])->getLimitPosUpper();
 				}
 			}
 
@@ -471,9 +519,61 @@ namespace rovin{
 		return jacobian;
 	}
 
+	VectorX energyLossFunction::func(const VectorX& params) const
+	{
+		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
+		MotorJointPtr joint;
+		Real voltage, current;
+		VectorX fval = VectorX::Zero(1);
+		for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+		{
+			for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
+			{
+				joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
+
+				current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
+					joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
+				voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
+
+				fval(0) += weight[k] * max(current * voltage, 0.0);
+			}
+		}
+		return fval;
+	}
+
+	MatrixX energyLossFunction::Jacobian(const VectorX& params) const
+	{
+		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+		const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
+		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
+		MotorJointPtr joint;
+		Real voltage, current;
+		MatrixX jacobian = MatrixX::Zero(1, params.size());
+		for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+		{
+			for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
+			{
+				joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
+
+				current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
+					joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
+				voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
+
+				if (RealBigger(current * voltage, 0.0))
+				{
+					MatrixX dcurrentdp = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * dtaudp[k].row(j) +
+						joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getdqddotdp()[k].row(j);
+					jacobian += weight[k] * ((current * joint->getResistance() + voltage) * dcurrentdp + current * joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getdqdotdp()[k].row(j));	
+				}
+			}
+		}
+		return jacobian;
+	}
+
+
 	VectorX NonlinearInequalityConstraint::func(const VectorX& params) const
 	{
-		//
 		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
 		VectorX fval(_PTPOptimizer->_soc->getNumOfJoint() * 2);
 		Real upper, lower;

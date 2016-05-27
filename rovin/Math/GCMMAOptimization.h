@@ -79,6 +79,12 @@ namespace rovin
 		void calcf0tilde(const VectorX& p0, const VectorX& q0, const Real& r0, const VectorX& x, /* output */ VectorX& f0tval);
 		void calcfitilde(const MatrixX& pi, const MatrixX& qi, const VectorX& ri, const VectorX& x, /* output */ VectorX& fitval);
 		void updateRho0i(const VectorX& xknu, const VectorX& xk, const VectorX& f0valknu, const VectorX& fivalknu, const VectorX& f0tvalknu, const VectorX& fitvalknu, /* output */ Real& rho0, VectorX& rhoi);
+	
+	
+		// steepest gradient method
+		//void xfunctionOflam(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi,const VectorX& lam, VectorX& x);
+		//void yfunctionOflam(const VectorX& lam, VectorX& y);
+	
 	public:
 		// user setting parameters
 		Real _ALBEFA;
