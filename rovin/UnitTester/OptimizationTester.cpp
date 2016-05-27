@@ -60,6 +60,10 @@ int main()
 	PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::energyloss);
 	PTPManagerManualOpt.generateTrajectory();
 
+	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR);
+	PTPManagerManualOptTR.generateTrajectory();
+
 	///////////////////////////////// SAVE & RENDERING /////////////////////////////////
 	bool renderingswi = false;
 

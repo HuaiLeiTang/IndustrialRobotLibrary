@@ -181,5 +181,50 @@ namespace rovin
 		VectorX dellam;
 
 		VectorX resvec;
+
+		/////////////////////////////////
+		// for TRUST-REGION ALGORITHM!!!
+	public:
+		void TR_solve(const VectorX& initialX);
+		void TR_solveSubProblem(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, /* output */ VectorX& xout);
+
+		void TRsetParameters(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
+		void TR_initializeSubProb(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& ri);
+
+
+		void TR_calcx(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& lam, /* output */ VectorX& subx);
+		void TR_calcy(const VectorX& lam, /* output */ VectorX& suby);
+
+
+		void TR_calcW(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, const VectorX& lam, /* output */ Real& W);
+		void TR_calcdW(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& ri, const VectorX& lam, /* output */ VectorX& dW);
+		void TR_calcm(const VectorX& lam, /* output */ Real& m);
+		void TR_calceta(void);
+		void TR_calclamhat(void);
+
+
+	public:
+		// parameters for trust-region
+		Real _TR_v;
+		Real _TR_w;
+		Real _TR_gamma0;
+		Real _TR_gamma1;
+		Real _TR_gamma2;
+
+
+		VectorX _TR_sublam, _TR_sublamm1, _TR_sublamhat;
+		Real _TR_subW, _TR_subWhat;
+		Real _TR_subm, _TR_submhat;
+		VectorX _TR_subdW, _TR_subdWm1;
+
+		VectorX _TR_subs; // s = lam - lamm1;
+		VectorX _TR_subt; // t = dw - dwm1;
+		Real _TR_subeta;
+		Real _TR_radius;
+		Real _TR_subtheta;
+
+		VectorX _TR_subx;
+		VectorX _TR_suby;
+
 	};
 }
