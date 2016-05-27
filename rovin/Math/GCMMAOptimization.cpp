@@ -4,6 +4,10 @@
 #include <iostream>
 #include <time.h>
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+
 using namespace std;
 
 namespace rovin
@@ -15,6 +19,9 @@ namespace rovin
 
 		setParameters(0.1, 0.5, 0.5, 0.7, 1.2);
 		//setParameters(0.1, 0.5, 0.5, 0.8, 1.2);
+
+		TRsetParameters(0.3, 0.7, 0.5, 0.7, 1.2);
+
 		setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(20000.0), VectorX(_ineqN).setOnes());
 		//setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(80000.0), VectorX(_ineqN).setOnes());
 
@@ -166,6 +173,10 @@ namespace rovin
 			//cout << rhoi << endl;
 
 			//cout << "xk" << endl << xk << endl << endl;
+			//if ((iterOL % 2 == 0) && (iterOL > 1))
+			//	_maxIterIL = 2;
+			//else
+			//	_maxIterIL = (int)1E3;
 
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
@@ -1245,6 +1256,359 @@ namespace rovin
 					rhoi(i) = 1.1*(rhoi(i) + deltaknui(i));
 				else
 					rhoi(i) = 10 * rhoi(i);
+		}
+	}
+
+	void GCMMAOptimization::TR_solve(const VectorX & initialX)
+	{
+		// initialize
+		// variables for outer loop
+
+		// m1: values of 1 loop before, m2: values of 2 loops before
+		VectorX xk(_xN), xkm1(_xN), xkm2(_xN);
+		xk = initialX; xkm1 = xk; xkm2 = xk;
+
+		//cout << "initialX" << endl << initialX << endl << endl;
+
+		//VectorX low(_xN), lowm1(_xN), upp(_xN), uppm1(_xN), alpha(_xN), beta(_xN);
+		_ollow.resize(_xN);
+		_ollowm1.resize(_xN);
+		_olupp.resize(_xN);
+		_oluppm1.resize(_xN);
+		_olalpha.resize(_xN);
+		_olbeta.resize(_xN);
+
+		
+		// function evaluation variables
+		VectorX f0val(1), f0valm1(1);		MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
+		VectorX fival(_ineqN);				MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
+		f0valm1(0) = std::numeric_limits<Real>::max();
+
+		// variables for inner loop
+		VectorX xknu(_xN);
+		// coefficients variables
+		VectorX p0(_xN), q0(_xN);
+		MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN);
+		Real r0, rho0;
+		VectorX ri(_ineqN), rhoi(_ineqN);
+		// function evaluation variables
+		VectorX f0valknu(1), f0tvalknu(1), fivalknu(_ineqN), fitvalknu(_ineqN);
+
+		int iterOL = 0, iterIL; // iter for outer/inner loop
+		while (iterOL < _maxIterOL) // outer loop
+		{
+			//cout << "=== outer iter num: " << iterOL << endl;
+
+
+			calcLowUpp(iterOL, xk, xkm1, xkm2);
+			calcAlphaBeta(xk);
+			f0val = _objectFunc->func(xk);
+			df0dx = _objectFunc->Jacobian(xk);
+			fival = _ineqConstraint->func(xk);
+			dfidx = _ineqConstraint->Jacobian(xk);
+			calcPlusMinusMatrix(df0dx, df0dxp, df0dxm);
+			calcPlusMinusMatrix(dfidx, dfidxp, dfidxm);
+
+
+			calcInitialRho(df0dx, dfidx, rho0, rhoi);
+
+
+			iterIL = 0;
+			while (iterIL < _maxIterIL) // inner loop
+			{
+				//cout << "====== inner iter num: " << iterIL << endl;
+
+				calcPQR(rho0, rhoi, df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival, p0, pi, q0, qi, r0, ri);
+
+				TR_solveSubProblem(p0, pi, q0, qi, r0, ri, xknu);
+
+
+				if (testILSuccess(p0, pi, q0, qi, r0, ri, xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
+					break; // xknu is the optimal solution
+
+				// update rho0/rhoi
+				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu, rho0, rhoi);
+
+
+				iterIL++;
+			}
+
+			// terminate condition
+			//cout << "abs(f0valm1(0) - f0valknu(0)) : " << abs(f0valm1(0) - f0valknu(0)) << endl;
+			//cout << "(xkm1 - xknu).norm() : " << (xkm1 - xknu).norm() << endl;
+			if (abs(f0valm1(0) - f0valknu(0)) < _tolFunc)
+				break;
+			if ((xkm1 - xknu).norm() < _tolX)
+				break;
+
+			// update
+			xkm2 = xkm1;
+			xkm1 = xk;
+			xk = xknu;
+			_ollowm1 = _ollow;
+			_oluppm1 = _olupp;
+			f0valm1(0) = f0valknu(0);
+
+
+			iterOL++;
+		}
+
+		resultX = xknu;
+		resultFunc = f0valknu(0);
+	}
+
+	void GCMMAOptimization::TR_solveSubProblem(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const Real & r0, const VectorX & ri, VectorX & xout)
+	{
+		// input variable size:
+		// VectorX p0(_xN), q0(_xN)
+		// MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN)
+		// VectorX ri(_ineqN)
+		// VectorX alpha(_xN), beta, low, upp
+
+		// output variable size:
+		// VectorX xout(_xN)
+
+
+		// initialize
+		TR_initializeSubProb(p0, pi, q0, qi, ri);
+		VectorX bi = -ri;
+
+
+		int iterSub = 0, maxIterSub = 1000;
+		bool solFound = false;
+		while (iterSub < maxIterSub)
+		{
+			//cout << "===================================================" << endl << endl;
+			// step 1-1: calculate eta - equation(16)
+			TR_calceta();
+			//cout << _TR_subeta << endl << endl;
+
+			// step 1-2: calculate lambda_hat - equation(18)
+			TR_calclamhat();
+			//cout << _TR_sublamhat << endl << endl;
+
+			// step 2: calculate theta
+			TR_calcW(p0, pi, q0, qi, r0, ri, _TR_sublam, _TR_subW);
+			TR_calcW(p0, pi, q0, qi, r0, ri, _TR_sublamhat, _TR_subWhat);
+			TR_calcm(_TR_sublam, _TR_subm);
+			TR_calcm(_TR_sublamhat, _TR_submhat);
+			_TR_subtheta = (_TR_subW - _TR_subWhat) / (_TR_subm - _TR_submhat);
+
+
+			//cout << _TR_subW << endl << endl;
+			//cout << _TR_subWhat << endl << endl;
+			//cout << _TR_subm << endl << endl;
+			//cout << _TR_submhat << endl << endl;
+			//cout << _TR_subtheta << endl << endl;
+
+			// step 3: update lambda
+			_TR_sublamm1 = _TR_sublam;
+			_TR_subdWm1 = _TR_subdW;
+			if (_TR_subtheta > _TR_v)
+			{
+				_TR_sublam = _TR_sublamhat;
+				TR_calcdW(p0, pi, q0, qi, ri, _TR_sublam, _TR_subdW);
+				//cout << _TR_sublam << endl << endl;
+				//cout << _TR_subdW << endl << endl;
+			}
+
+			// step 4: update radius of trust region
+			if (_TR_subtheta >= _TR_w)
+				_TR_radius *= _TR_gamma2;
+			else if (_TR_subtheta > _TR_v)
+				_TR_radius *= 1;
+			else
+				_TR_radius *= (_TR_gamma0 + _TR_gamma1) / 2;
+
+
+
+			if (_TR_radius < 1E-3) // terminate condition
+			{
+				solFound = true;
+				break;
+			}
+
+			iterSub++;
+		}
+
+		if (!solFound)
+			LOG("exceeded max iteration number - 'TRsolveSubProblem'");
+
+		//cout << iterSub << endl;
+		//cout << _subeps << endl;
+		TR_calcx(p0, pi, q0, qi, _TR_sublam, _TR_subx);
+		TR_calcy(_TR_sublam, _TR_suby);
+		xout = _TR_subx;
+
+	}
+
+
+	void GCMMAOptimization::TRsetParameters(const Real & v, const Real & w, const Real & gam0, const Real & gam1, const Real & gam2)
+	{
+		// parameter setting...
+		// 0 < v < w < 1
+		_TR_v = v;// 0.3;
+		_TR_w = w;// 0.7;
+		// 0 < gamma0 <= gamma1 < 1 <= gamma2
+		_TR_gamma0 = gam0;// 0.5;
+		_TR_gamma1 = gam1;// 0.7;
+		_TR_gamma2 = gam2;// 1.2;
+	}
+
+	void GCMMAOptimization::TR_initializeSubProb(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & ri)
+	{
+		_TR_sublam.resize(_ineqN);
+		_TR_sublamm1.resize(_ineqN);
+		_TR_sublamhat.resize(_ineqN);
+
+		_TR_subdW.resize(_ineqN);
+		_TR_subdWm1.resize(_ineqN);
+
+		_TR_subs.resize(_ineqN);
+		_TR_subt.resize(_ineqN);
+
+		_TR_subx.resize(_xN);
+		_TR_suby.resize(_ineqN);
+
+
+		// insert values...
+		_TR_sublam.setZero();
+		//_TR_sublam.setConstant(2E-3);
+		_TR_sublamm1.setConstant(1E-3);
+
+		TR_calcdW(p0, pi, q0, qi, ri, _TR_sublam, _TR_subdW);
+		TR_calcdW(p0, pi, q0, qi, ri, _TR_sublamm1, _TR_subdWm1);
+
+		_TR_radius = 0.1 * _TR_subdW.norm();
+
+		//cout << _TR_subdW << endl << endl;
+		//cout << _TR_subdWm1 << endl << endl;
+		//cout << _TR_radius << endl << endl;
+		// 여기 출력 넣고 테스트! dW, dWm1, radius
+	}
+
+
+	void GCMMAOptimization::TR_calcx(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & lam, VectorX & subx)
+	{
+		Real ltpj, ltqj, tmpval;
+		for (int j = 0; j < _xN; j++)
+		{
+			ltpj = 0; ltqj = 0;
+			for (int i = 0; i < _ineqN; i++)
+			{
+				ltpj += lam(i) * pi(i, j);
+				ltqj += lam(i) * qi(i, j);
+			}
+			//cout << p0(j) + ltpj << endl;
+			//cout << q0(j) + ltqj << endl << endl;
+			tmpval = (sqrt(p0(j) + ltpj) * _ollow(j) + sqrt(q0(j) + ltqj) * _olupp(j)) / (sqrt(p0(j) + ltpj) + sqrt(q0(j) + ltqj));
+			subx(j) = MAX(_olalpha(j), MIN(_olbeta(j), tmpval));
+			//cout << _olalpha(j) << '\t' << _olbeta(j) << '\t' << tmpval << endl << endl;
+		}
+	}
+
+	void GCMMAOptimization::TR_calcy(const VectorX & lam, VectorX & suby)
+	{
+		for (int i = 0; i < _ineqN; i++)
+			suby(i) = MAX(0.0, (lam(i) - _ci(i)) / _di(i));
+	}
+
+	void GCMMAOptimization::TR_calcW(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const Real & r0, const VectorX & ri, const VectorX & lam, Real & W)
+	{
+		TR_calcx(p0, pi, q0, qi, lam, _TR_subx);
+		TR_calcy(lam, _TR_suby);
+
+		W = 0;
+		Real tmpval0, tmpval1;
+
+		tmpval0 = 0;
+		for (int i = 0; i < _ineqN; i++)
+			tmpval0 += lam(i) * ri(i);
+
+		W += r0 + tmpval0;
+
+		for (int j = 0; j < _xN; j++)
+		{
+			tmpval0 = 0; tmpval1 = 0;
+			for (int i = 0; i < _ineqN; i++)
+			{
+				tmpval0 += lam(i)*pi(i, j);
+				tmpval1 += lam(i)*qi(i, j);
+			}
+			W += (p0(j) + tmpval0) / (_olupp(j) - _TR_subx(j)) + (q0(j) + tmpval1) / (_TR_subx(j) - _ollow(j));
+		}
+
+		for (int i = 0; i < _ineqN; i++)
+			W += _TR_suby(i) * (_ci(i) + 0.5*_di(i)*_TR_suby(i) - lam(i));
+
+		W *= -1;
+	}
+
+	void GCMMAOptimization::TR_calcdW(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & ri, const VectorX & lam, VectorX & dW)
+	{
+		// calc x/y 필요한가.....
+		TR_calcx(p0, pi, q0, qi, lam, _TR_subx);
+		TR_calcy(lam, _TR_suby);
+
+		//cout << _TR_subx << endl;
+		//cout << _TR_suby << endl;
+
+		Real tmpval;
+		for (int i = 0; i < _ineqN; i++)
+		{
+			tmpval = 0;
+			for (int j = 0; j < _xN; j++)
+				tmpval += pi(i, j) / (_olupp(j) - _TR_subx(j)) + qi(i, j) / (_TR_subx(j) - _ollow(j));
+
+			dW(i) = -tmpval - ri(i) + _TR_suby(i);
+		}
+	}
+
+	void GCMMAOptimization::TR_calcm(const VectorX & lam, Real & m)
+	{
+		Real tmpval = 0;
+		for (int i = 0; i < _ineqN; i++)
+			tmpval += _TR_subdW(i) * (lam(i) - _TR_sublam(i));
+		m = _TR_subW + tmpval;
+
+		tmpval = 0;
+		for (int i = 0; i < _ineqN; i++)
+			tmpval += (lam(i) - _TR_sublam(i)) * (lam(i) - _TR_sublam(i));
+
+		m += 0.5 * _TR_subeta * tmpval;
+	}
+
+	void GCMMAOptimization::TR_calceta(void)
+	{
+		//cout << _TR_sublam << endl << endl;
+		//cout << _TR_sublamm1 << endl << endl;
+		//cout << _TR_subdW << endl << endl;
+		//cout << _TR_subdWm1 << endl << endl;
+
+		_TR_subs = _TR_sublam - _TR_sublamm1;
+		_TR_subt = _TR_subdW - _TR_subdWm1;
+
+		//cout << _TR_subs << endl << endl;
+		//cout << _TR_subt << endl << endl;
+
+		Real tmpnum = 0, tmpden = 0;
+		for (int i = 0; i < _ineqN; i++)
+		{
+			tmpnum += _TR_subs(i) * _TR_subt(i);
+			tmpden += _TR_subs(i) * _TR_subs(i);
+		}
+		_TR_subeta = tmpnum / tmpden;
+
+		//cout << _TR_subeta << endl << endl;
+	}
+
+	void GCMMAOptimization::TR_calclamhat(void)
+	{
+		for (int i = 0; i < _ineqN; i++)
+		{
+			//cout << _TR_sublam(i) + _TR_radius << '\t' << _TR_sublam(i) - _TR_radius << '\t' << _TR_sublam(i) - (_TR_subdW(i)) / (_TR_subeta) << endl << endl;
+			_TR_sublamhat(i) = MIN(_TR_sublam(i) + _TR_radius, MAX( MAX(0.0, _TR_sublam(i) - _TR_radius), _TR_sublam(i) - (_TR_subdW(i)) / (_TR_subeta)));
+			//cout << _TR_sublamhat(i) << endl << endl;
 		}
 	}
 
