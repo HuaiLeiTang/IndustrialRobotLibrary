@@ -64,6 +64,10 @@ namespace rovin{
 			}
 		}
 		_optType = optType;
+		if (_optType == OptimizationType::GCMMA)
+			_GCMMAoptimizer = new GCMMA_PDIPM();
+		else if (_optType == OptimizationType::GCMMA_TR)
+			_GCMMAoptimizer = new GCMMA_TRM();
 	}
 
 	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
@@ -93,6 +97,10 @@ namespace rovin{
 			}
 		}
 		_optType = optType;
+		if (_optType == OptimizationType::GCMMA)
+			_GCMMAoptimizer = new GCMMA_PDIPM();
+		else if (_optType == OptimizationType::GCMMA_TR)
+			_GCMMAoptimizer = new GCMMA_TRM();
 		_objectiveType = objectiveType;
 	}
 
@@ -325,29 +333,29 @@ namespace rovin{
 			//cout << "maxX" << endl << maxX << endl << endl;
 
 
-			_GCMMAoptimizer.initialize(initX.size(), _IneqFunc->func(initX).size());
-			_GCMMAoptimizer.setMinMax(minX, maxX);
-			_GCMMAoptimizer.setObjectiveFunction(_objectFunc);
-			_GCMMAoptimizer.setInequalityConstraint(_IneqFunc);
+			_GCMMAoptimizer->initialize(initX.size(), _IneqFunc->func(initX).size());
+			_GCMMAoptimizer->setMinMax(minX, maxX);
+			_GCMMAoptimizer->setObjectiveFunction(_objectFunc);
+			_GCMMAoptimizer->setInequalityConstraint(_IneqFunc);
 			LOG("Start optimization.");
 			clock_t time = clock();
 			//for (int i = 0; i < 20; i ++)
 			//	_GCMMAoptimizer.solve(initX);
 			if (_optType == OptimizationType::GCMMA)
-				_GCMMAoptimizer.solve(initX);
+				_GCMMAoptimizer->solve(initX);
 			else if (_optType == OptimizationType::GCMMA_TR)
-				_GCMMAoptimizer.TR_solve(initX);
+				_GCMMAoptimizer->solve(initX);
 
 			LOG("Finish optimization.");
 			cout << "------------------------------------" << endl;
 			cout << "computation time : " << (clock() - time) << endl << endl;
-			cout << "X : " << endl << _GCMMAoptimizer.resultX << endl << endl;
+			cout << "X : " << endl << _GCMMAoptimizer->resultX << endl << endl;
 			cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
-			cout << "Value of objective function : " << _GCMMAoptimizer.resultFunc << endl << endl;
-			if (_optType == OptimizationType::GCMMA)
-				cout << "_suby : " << endl << _GCMMAoptimizer._suby << endl << endl;
-			else if (_optType == OptimizationType::GCMMA_TR)
-				cout << "_suby : " << endl << _GCMMAoptimizer._TR_suby << endl << endl;
+			cout << "Value of objective function : " << _GCMMAoptimizer->resultFunc << endl << endl;
+			//if (_optType == OptimizationType::GCMMA)
+			//	cout << "_suby : " << endl << _GCMMAoptimizer._suby << endl << endl;
+			//else if (_optType == OptimizationType::GCMMA_TR)
+			//	cout << "_suby : " << endl << _GCMMAoptimizer._TR_suby << endl << endl;
 		}
 	}
 	

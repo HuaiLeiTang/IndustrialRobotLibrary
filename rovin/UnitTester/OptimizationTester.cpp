@@ -61,7 +61,7 @@ int main()
 	PTPManagerManualOpt.generateTrajectory();
 
 	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR);
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
 	PTPManagerManualOptTR.generateTrajectory();
 
 	///////////////////////////////// SAVE & RENDERING /////////////////////////////////

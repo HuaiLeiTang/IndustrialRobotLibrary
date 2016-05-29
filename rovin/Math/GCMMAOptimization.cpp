@@ -20,7 +20,7 @@ namespace rovin
 		setParameters(0.1, 0.5, 0.5, 0.7, 1.2);
 		//setParameters(0.1, 0.5, 0.5, 0.8, 1.2);
 
-		TRsetParameters(0.3, 0.7, 0.5, 0.7, 1.2);
+		//TRsetParameters(0.3, 0.7, 0.5, 0.7, 1.2);
 
 		setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(20000.0), VectorX(_ineqN).setOnes());
 		//setCoefficients(1.0, VectorX(_ineqN).setZero(), VectorX(_ineqN).setConstant(80000.0), VectorX(_ineqN).setOnes());
@@ -65,68 +65,19 @@ namespace rovin
 		xk = initialX; xkm1 = xk; xkm2 = xk;
 
 		//cout << "initialX" << endl << initialX << endl << endl;
-
-		//VectorX low(_xN), lowm1(_xN), upp(_xN), uppm1(_xN), alpha(_xN), beta(_xN);
-		_ollow.resize(_xN);
-		_ollowm1.resize(_xN);
-		_olupp.resize(_xN);
-		_oluppm1.resize(_xN);
-		_olalpha.resize(_xN);
-		_olbeta.resize(_xN);
-
-		// addition part
-		tmpsubx.resize(_xN);
-		tmpsublam.resize(_ineqN);
-		tmpplam.resize(_xN);
-		tmpqlam.resize(_xN);
-		tmpdpsidx.resize(_xN);
-		tmpgival.resize(_ineqN);
-
-		G.resize(_ineqN, _xN);
-		xadi.resize(_xN);
-		bxdi.resize(_xN);
-		ydi.resize(_ineqN);
-		ldi.resize(_ineqN);
-
-		Dx.resize(_xN, _xN); Dx.setZero();
-		iDx.resize(_xN, _xN); iDx.setZero();
-		Dly.resize(_ineqN, _ineqN); Dly.setZero();
-		iDly.resize(_ineqN, _ineqN); iDly.setZero();
-		iDy.resize(_ineqN);
-
-		dxt.resize(_xN);
-		dyt.resize(_ineqN);
-		dlt.resize(_ineqN);
-		dlyt.resize(_ineqN);
-
-		DlyGDxGt.resize(_ineqN, _ineqN);
-		iDlyGDxGt.resize(_ineqN, _ineqN);
-		Lower.resize(_ineqN, _ineqN);
-		iLower.resize(_ineqN, _ineqN);
-
-		DxGtiDlyG.resize(_xN, _xN);
-		iDxGtiDlyG.resize(_xN, _xN);
-		Lower2.resize(_xN, _xN);
-		iLower2.resize(_xN, _xN);
-
-		MatSizeineqNbyxN.resize(_ineqN, _xN);
-		MatSizexNbyineqN.resize(_xN, _ineqN);
-
-		delx.resize(_xN);
-		dellam.resize(_ineqN);
+		allocOLvar();
+		allocILvar();
+		allocSUBvar();
+		
 
 		// function evaluation variables
 		VectorX f0val(1), f0valm1(1);		MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
 		VectorX fival(_ineqN);				MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
 		f0valm1(0) = std::numeric_limits<Real>::max();
 
+
 		// variables for inner loop
 		VectorX xknu(_xN);
-		// coefficients variables
-		VectorX p0(_xN), q0(_xN);
-		MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN);
-		Real r0, rho0;
-		VectorX ri(_ineqN), rhoi(_ineqN);
 		// function evaluation variables
 		VectorX f0valknu(1), f0tvalknu(1), fivalknu(_ineqN), fitvalknu(_ineqN);
 
@@ -167,7 +118,7 @@ namespace rovin
 			//cout << dfidxm << endl << endl;
 
 
-			calcInitialRho(df0dx, dfidx, rho0, rhoi);
+			calcInitialRho(df0dx, dfidx);
 
 			//cout << rho0 << endl;
 			//cout << rhoi << endl;
@@ -177,13 +128,13 @@ namespace rovin
 			//	_maxIterIL = 2;
 			//else
 			//	_maxIterIL = (int)1E3;
-
+			
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
 				//cout << "====== inner iter num: " << iterIL << endl;
 
-				calcPQR(rho0, rhoi, df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival, p0, pi, q0, qi, r0, ri);
+				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
 
 				//cout << p0 << endl << endl;
 				//cout << pi << endl << endl;
@@ -192,12 +143,12 @@ namespace rovin
 				//cout << r0 << endl << endl;
 				//cout << ri << endl << endl;
 
-				solveSubProblem(p0, pi, q0, qi, ri, xknu);
+				solveSubProblem(xknu);
 
 				//cout << xknu << endl << endl;
 
 
-				if (testILSuccess(p0, pi, q0, qi, r0, ri, xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
+				if (testILSuccess(xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
 					break; // xknu is the optimal solution
 
 							//cout << f0valknu << endl << endl;
@@ -209,7 +160,7 @@ namespace rovin
 							//cout << rhoi << endl << endl;
 
 							// update rho0/rhoi
-				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu, rho0, rhoi);
+				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu);
 
 				//cout << rho0 << endl << endl;
 				//cout << rhoi << endl << endl;
@@ -245,74 +196,6 @@ namespace rovin
 
 		resultX = xknu;
 		resultFunc = f0valknu(0);
-	}
-
-
-	void GCMMAOptimization::solveSubProblem(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & ri, VectorX & xout)
-	{
-		// input variable size:
-		// VectorX p0(_xN), q0(_xN)
-		// MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN)
-		// VectorX ri(_ineqN)
-		// VectorX alpha(_xN), beta, low, upp
-
-		// output variable size:
-		// VectorX xout(_xN)
-
-
-		// initialize
-		VectorX bi = -ri;
-		initializeSubProb();
-		VectorX delw(_subDimW);
-		Real tau;
-
-		int iterSub = 0, maxIterSub = 1000;
-		bool solFound = false;
-		while (iterSub < maxIterSub)
-		{
-			//cout << "solveSubProblem iter num : " << iterSub << endl;
-			//cout << "calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) : " << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) << endl;
-			//cout << "subx" << endl << _subx << endl << endl;
-
-			// step 1: calculate gradient of w
-			//calcGradientW(p0, pi, q0, qi, bi, delw);
-			calcGradientW_tmp(p0, pi, q0, qi, bi, delw);
-
-			//cout << "[delw]" << endl << delw << endl << endl;
-
-			// step 2: calculate step length 'tau'
-			tau = calcStepLength(delw, p0, pi, q0, qi, bi);
-
-			//cout << "tau : " << tau << endl << endl;
-
-			// step 3: update w
-			_subw += tau * delw;
-			separateFromW();
-
-			// step 4: update epsilon
-			//if (calcNormResidual(p0, pi, q0, qi, bi, delw, 0.0, -1) < 0.9 * _subeps)
-			if (calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) < 0.9 * _subeps)
-				_subeps *= 0.1;
-
-			// step 5: check terminate condition
-			//if (_subeps <= 1E-6)
-			if (_subeps <= 1E-4)
-			{
-				solFound = true;
-				break;
-			}
-
-			iterSub++;
-		}
-
-		if (!solFound)
-			LOG("exceeded max iteration number - 'solveSubProblem'");
-
-		//cout << iterSub << endl;
-		//cout << _subeps << endl;
-		xout = _subx;
-
-
 	}
 
 
@@ -390,7 +273,7 @@ namespace rovin
 		}
 	}
 
-	void GCMMAOptimization::calcInitialRho(const MatrixX & df0dx, const MatrixX & dfidx, Real & rho0, VectorX & rhoi)
+	void GCMMAOptimization::calcInitialRho(const MatrixX & df0dx, const MatrixX & dfidx)
 	{
 		// input variable size:	df0dx(1, _xN), dfidx(_ineqN, _xN)
 		// output variable size: Real rho0, VectorX rhoi(_ineqN);
@@ -398,20 +281,20 @@ namespace rovin
 		Real tmpSum = 0;
 		for (int j = 0; j < _xN; j++)
 			tmpSum += abs(df0dx(0, j)) * (_maxX(j) - _minX(j));
-		rho0 = 0.1 * tmpSum / (Real)_xN;
+		_ilrho0 = 0.1 * tmpSum / (Real)_xN;
 
 		for (int i = 0; i < _ineqN; i++)
 		{
 			tmpSum = 0;
 			for (int j = 0; j < _xN; j++)
 				tmpSum += abs(dfidx(i, j)) * (_maxX(j) - _minX(j));
-			rhoi(i) = 0.1 * tmpSum / (Real)_xN;
-			if (rhoi(i) < 1E-6)
-				rhoi(i) = 1E-6;
+			_ilrhoi(i) = 0.1 * tmpSum / (Real)_xN;
+			if (_ilrhoi(i) < 1E-6)
+				_ilrhoi(i) = 1E-6;
 		}
 	}
 
-	void GCMMAOptimization::calcPQR(const Real & rho0, const VectorX & rhoi, const MatrixX & df0dxp, const MatrixX & df0dxm, const MatrixX & dfidxp, const MatrixX & dfidxm, const VectorX & xk, const VectorX & f0val, const VectorX & fival, VectorX & p0, MatrixX & pi, VectorX & q0, MatrixX & qi, Real & r0, VectorX & ri)
+	void GCMMAOptimization::calcPQR(const MatrixX & df0dxp, const MatrixX & df0dxm, const MatrixX & dfidxp, const MatrixX & dfidxm, const VectorX & xk, const VectorX & f0val, const VectorX & fival)
 	{
 		// input variable size:
 		// Real rho0
@@ -430,29 +313,351 @@ namespace rovin
 
 		for (int j = 0; j < _xN; j++)
 		{
-			p0(j) = (_olupp(j) - xk(j)) * (_olupp(j) - xk(j)) * (1.001 * df0dxp(0, j) + 0.001 * df0dxm(0, j) + rho0 / (_maxX(j) - _minX(j)));
-			q0(j) = (xk(j) - _ollow(j)) * (xk(j) - _ollow(j)) * (0.001 * df0dxp(0, j) + 1.001 * df0dxm(0, j) + rho0 / (_maxX(j) - _minX(j)));
+			_ilp0(j) = (_olupp(j) - xk(j)) * (_olupp(j) - xk(j)) * (1.001 * df0dxp(0, j) + 0.001 * df0dxm(0, j) + _ilrho0 / (_maxX(j) - _minX(j)));
+			_ilq0(j) = (xk(j) - _ollow(j)) * (xk(j) - _ollow(j)) * (0.001 * df0dxp(0, j) + 1.001 * df0dxm(0, j) + _ilrho0 / (_maxX(j) - _minX(j)));
 
-			tmpSum += p0(j) / (_olupp(j) - xk(j)) + q0(j) / (xk(j) - _ollow(j));
+			tmpSum += _ilp0(j) / (_olupp(j) - xk(j)) + _ilq0(j) / (xk(j) - _ollow(j));
 		}
-		r0 = f0val(0) - tmpSum;
+		_ilr0 = f0val(0) - tmpSum;
 
 		for (int i = 0; i < _ineqN; i++)
 		{
 			tmpSum = 0;
 			for (int j = 0; j < _xN; j++)
 			{
-				pi(i, j) = (_olupp(j) - xk(j)) * (_olupp(j) - xk(j)) * (1.001 * dfidxp(i, j) + 0.001 * dfidxm(i, j) + rhoi(i) / (_maxX(j) - _minX(j)));
-				qi(i, j) = (xk(j) - _ollow(j)) * (xk(j) - _ollow(j)) * (0.001 * dfidxp(i, j) + 1.001 * dfidxm(i, j) + rhoi(i) / (_maxX(j) - _minX(j)));
+				_ilpi(i, j) = (_olupp(j) - xk(j)) * (_olupp(j) - xk(j)) * (1.001 * dfidxp(i, j) + 0.001 * dfidxm(i, j) + _ilrhoi(i) / (_maxX(j) - _minX(j)));
+				_ilqi(i, j) = (xk(j) - _ollow(j)) * (xk(j) - _ollow(j)) * (0.001 * dfidxp(i, j) + 1.001 * dfidxm(i, j) + _ilrhoi(i) / (_maxX(j) - _minX(j)));
 
-				tmpSum += pi(i, j) / (_olupp(j) - xk(j)) + qi(i, j) / (xk(j) - _ollow(j));
+				tmpSum += _ilpi(i, j) / (_olupp(j) - xk(j)) + _ilqi(i, j) / (xk(j) - _ollow(j));
 			}
-			ri(i) = fival(i) - tmpSum;
+			_ilri(i) = fival(i) - tmpSum;
 		}
 
 	}
 
-	void GCMMAOptimization::initializeSubProb()
+
+	//void GCMMAOptimization::calcGradientW(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & bi, VectorX & delw)
+	//{
+	//	// output delw consists of delx, dely, delz, dellam, delxsi,...
+	//	VectorX delx(_xN), dely(_ineqN), dellam(_ineqN), delxsi(_xN), deleta(_xN), delmu(_ineqN), dels(_ineqN);
+	//	Real delz, delzet;
+
+	//	MatrixX Psi(_xN, _xN), G(_ineqN, _xN);
+	//	VectorX tmpplam(_xN), tmpqlam(_xN), tmpdpsidx(_xN), tmpgival(_ineqN);
+	//	calcpqlam(p0, pi, _sublam, tmpplam);
+	//	calcpqlam(q0, qi, _sublam, tmpqlam);
+	//	calcdpsidx(tmpplam, tmpqlam, _subx, tmpdpsidx);
+	//	calcgi(pi, qi, _subx, tmpgival);
+
+	//	Psi.setZero();
+	//	for (int j = 0; j < _xN; j++)
+	//		Psi(j, j) = 2 * tmpplam(j) / pow(_olupp(j) - _subx(j), 3) + 2 * tmpqlam(j) / pow(_subx(j) - _ollow(j), 3);
+	//	for (int i = 0; i < _ineqN; i++)
+	//		for (int j = 0; j < _xN; j++)
+	//			G(i, j) = pi(i, j) / pow(_olupp(j) - _subx(j), 2) - qi(i, j) / pow(_subx(j) - _ollow(j), 2);
+
+	//	MatrixX xadi = (_subx - _olalpha).asDiagonal(); // <x-alpha>
+	//	for (int i = 0; i < xadi.cols(); i++)
+	//		xadi(i, i) = 1 / xadi(i, i);
+
+	//	MatrixX bxdi = (_olbeta - _subx).asDiagonal().inverse(); // <beta -x>
+	//	MatrixX ydi = _suby.asDiagonal().inverse(); // <y>
+	//	MatrixX dd = _di.asDiagonal(); // <d>
+	//	MatrixX ldi = _sublam.asDiagonal().inverse(); //<lamda>
+	//	VectorX onesn(_xN);		onesn.setOnes();
+	//	VectorX onesm(_ineqN);	onesm.setOnes();
+
+	//	MatrixX Dx = Psi + xadi * _subxsi.asDiagonal() + bxdi * _subeta.asDiagonal();
+	//	MatrixX Dy = dd + ydi * _submu.asDiagonal();
+	//	MatrixX Dl = ldi * _subs.asDiagonal();
+	//	MatrixX Dly = Dl + Dy.inverse();
+
+	//	MatrixX iDx = MatrixX::Zero(Dx.rows(), Dx.cols());
+	//	MatrixX iDy = MatrixX::Zero(Dy.rows(), Dy.cols());
+	//	MatrixX iDly = MatrixX::Zero(Dly.rows(), Dly.cols());
+	//	for (int i = 0; i < Dx.cols(); i++)
+	//		iDx(i, i) = 1 / Dx(i, i);
+
+	//	for (int i = 0; i < Dy.cols(); i++)
+	//		iDy(i, i) = 1 / Dy(i, i);
+
+	//	for (int i = 0; i < Dly.cols(); i++)
+	//		iDly(i, i) = 1 / Dly(i, i);
+
+	//	VectorX dxt = tmpdpsidx - _subeps * xadi * onesn + _subeps * bxdi * onesn;
+	//	VectorX dyt = _ci + dd * _suby - _sublam - _subeps * ydi * onesm;
+	//	Real dzt = _a0 - _sublam.transpose() * _ai - _subeps / _subz;
+	//	VectorX dlt = tmpgival - _subz * _ai - _suby - bi + _subeps * ldi * onesm;
+	//	VectorX dlyt = dlt + iDy * dyt;
+
+	//	MatrixX smallA;
+	//	VectorX smallx, smallb;
+	//	if (_xN > _ineqN)
+	//	{
+	//		// equation (5.20)
+	//		smallA.resize(_ineqN + 1, _ineqN + 1);
+	//		smallx.resize(_ineqN + 1);
+	//		smallb.resize(_ineqN + 1);
+	//		smallA.block(0, 0, _ineqN, _ineqN) = Dly + G*iDx*G.transpose();
+	//		smallA.block(0, _ineqN, _ineqN, 1) = _ai;
+	//		smallA.block(_ineqN, 0, 1, _ineqN) = _ai.transpose();
+	//		smallA(_ineqN, _ineqN) = -_subzet / _subz;
+	//		smallb.block(0, 0, _ineqN, 1) = dlyt - G*iDx*dxt;
+	//		smallb(_ineqN) = dzt;
+	//		smallx = smallA.inverse() * smallb;
+	//		dellam = smallx.block(0, 0, _ineqN, 1);
+	//		delz = smallx(_ineqN);
+	//		delx = -iDx*(G.transpose()*dellam + dxt);
+	//	}
+	//	else
+	//	{
+	//		// equation (5.22)
+	//		smallA.resize(_xN + 1, _xN + 1);
+	//		smallx.resize(_xN + 1);
+	//		smallb.resize(_xN + 1);
+	//		smallA.block(0, 0, _xN, _xN) = Dx + G.transpose()*iDly*G;
+	//		smallA.block(0, _xN, _xN, 1) = -G.transpose()*iDly*_ai;
+	//		smallA.block(_xN, 0, 1, _xN) = -_ai.transpose()*iDly*G;
+	//		smallA(_xN, _xN) = _subzet / _subz + _ai.transpose()*iDly*_ai;
+	//		smallb.block(0, 0, _xN, 1) = -dxt - G.transpose()*iDly*dlyt;
+	//		smallb(_xN) = -dzt + _ai.transpose()*iDly*dlyt;
+	//		smallx = smallA.inverse() * smallb;
+	//		delx = smallx.block(0, 0, _xN, 1);
+	//		delz = smallx(_xN);
+	//		dellam = iDly*(G*delx - _ai*delz + dlyt);
+	//	}
+	//	dely = iDy * (dellam - dyt);
+	//	delxsi = -xadi * (_subxsi.asDiagonal() * delx - _subeps * onesn) - _subxsi;
+	//	deleta = bxdi * (_subeta.asDiagonal() * delx + _subeps * onesn) - _subeta;
+	//	delmu = -ydi * (_submu.asDiagonal() * dely - _subeps * onesm) - _submu;
+	//	delzet = -_subzet * delz / _subz - _subzet + _subeps / _subz;
+	//	dels = -ldi * (_subs.asDiagonal() * dellam - _subeps * onesm) - _subs;
+
+	//	combineToW(delx, dely, delz, dellam, delxsi, deleta, delmu, delzet, dels, delw);
+	//}
+
+	//Real GCMMAOptimization::calcNormResidual(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & bi, const VectorX & delw, Real stepLength, int normCh)
+	//{
+	//	// output residual vector consists of deltax, deltay, deltaz, deltalam, deltaxsi,...
+	//	VectorX resvec(_subDimW);
+	//	VectorX deltax(_xN), deltay(_ineqN), deltalam(_ineqN), deltaxsi(_xN), deltaeta(_xN), deltamu(_ineqN), deltas(_ineqN); Real deltaz, deltazet;
+
+	//	// del: separate variable of delw
+	//	VectorX delx(_xN), dely(_ineqN), dellam(_ineqN), delxsi(_xN), deleta(_xN), delmu(_ineqN), dels(_ineqN); Real delz, delzet;
+	//	separateFromW(delw, delx, dely, delz, dellam, delxsi, deleta, delmu, delzet, dels);
+
+
+	//	// tmpsub = _sub + stepLength * del
+	//	VectorX tmpsubx(_xN), tmpsuby(_ineqN), tmpsublam(_ineqN), tmpsubxsi(_xN), tmpsubeta(_xN), tmpsubmu(_ineqN), tmpsubs(_ineqN); Real tmpsubz, tmpsubzet;
+	//	tmpsubx = _subx + stepLength * delx;
+	//	tmpsuby = _suby + stepLength * dely;
+	//	tmpsubz = _subz + stepLength * delz;
+	//	tmpsublam = _sublam + stepLength * dellam;
+	//	tmpsubxsi = _subxsi + stepLength * delxsi;
+	//	tmpsubeta = _subeta + stepLength * deleta;
+	//	tmpsubmu = _submu + stepLength * delmu;
+	//	tmpsubzet = _subzet + stepLength * delzet;
+	//	tmpsubs = _subs + stepLength * dels;
+
+	//	// dpsidx, gival 다 새로 구해야함, tmpsub variable 로.....
+	//	VectorX tmpplam(_xN), tmpqlam(_xN), tmpdpsidx(_xN), tmpgival(_ineqN);
+	//	calcpqlam(p0, pi, tmpsublam, tmpplam);
+	//	calcpqlam(q0, qi, tmpsublam, tmpqlam);
+	//	calcdpsidx(tmpplam, tmpqlam, tmpsubx, tmpdpsidx);
+	//	calcgi(pi, qi, tmpsubx, tmpgival);
+
+
+	//	deltax = tmpdpsidx - tmpsubxsi + tmpsubeta;
+	//	for (int i = 0; i < _ineqN; i++)
+	//	{
+	//		deltay(i) = _ci(i) + _di(i) * tmpsuby(i) - tmpsublam(i) - tmpsubmu(i);
+	//		deltamu(i) = tmpsubmu(i) * tmpsuby(i) - _subeps;
+	//		deltas(i) = tmpsublam(i) * tmpsubs(i) - _subeps;
+	//	}
+	//	deltaz = _a0 - tmpsubzet - tmpsublam.transpose() * _ai;
+	//	deltalam = tmpgival - tmpsubz * _ai - tmpsuby + tmpsubs - bi;
+	//	for (int j = 0; j < _xN; j++)
+	//	{
+	//		deltaxsi(j) = tmpsubxsi(j) * (tmpsubx(j) - _olalpha(j)) - _subeps;
+	//		deltaeta(j) = tmpsubeta(j) * (_olbeta(j) - tmpsubx(j)) - _subeps;
+	//	}
+	//	deltazet = tmpsubzet * tmpsubz - _subeps;
+
+
+	//	combineToW(deltax, deltay, deltaz, deltalam, deltaxsi, deltaeta, deltamu, deltazet, deltas, resvec);
+
+	//	Real normVal;
+	//	switch (normCh)
+	//	{
+	//	case 2: // Euclidean norm
+	//		normVal = resvec.norm();
+	//		break;
+	//	case -1: // infinite norm
+	//		normVal = resvec.cwiseAbs().maxCoeff();
+	//		break;
+	//	default:
+	//		LOG("wrong choice - function 'calcNormResidual'");
+	//		break;
+	//	}
+	//	return normVal;
+	//}
+
+
+	bool GCMMAOptimization::testILSuccess(const VectorX & testx, VectorX & f0valknu, VectorX & fivalknu, VectorX & f0tvalknu, VectorX & fitvalknu)
+	{
+		//VectorX f0val(1), f0tval(1), fival(_ineqN), fitval(_ineqN);
+		f0valknu = _objectFunc->func(testx);
+		fivalknu = _ineqConstraint->func(testx);
+		calcf0tilde(testx, f0tvalknu);
+		calcfitilde(testx, fitvalknu);
+
+		bool ret = false;
+
+		if (f0tvalknu(0) >= f0valknu(0))
+		{
+			ret = true;
+			for (int i = 0; i < _ineqN; i++)
+			{
+				if (fitvalknu(i) < fivalknu(i))
+				{
+					ret = false;
+					break;
+				}
+			}
+		}
+		return ret;
+	}
+
+
+	void GCMMAOptimization::calcf0tilde(const VectorX & x, VectorX & f0tval)
+	{
+		f0tval(0) = _ilr0;
+		for (int j = 0; j < _xN; j++)
+			f0tval(0) += _ilp0(j) / (_olupp(j) - x(j)) + _ilq0(j) / (x(j) - _ollow(j));
+	}
+
+	void GCMMAOptimization::calcfitilde(const VectorX & x, VectorX & fitval)
+	{
+		for (int i = 0; i < _ineqN; i++)
+		{
+			fitval(i) = _ilri(i);
+			for (int j = 0; j < _xN; j++)
+				fitval(i) += _ilpi(i, j) / (_olupp(j) - x(j)) + _ilqi(i, j) / (x(j) - _ollow(j));
+		}
+	}
+
+	void GCMMAOptimization::allocOLvar(void)
+	{
+		_ollow.resize(_xN);
+		_ollowm1.resize(_xN);
+		_olupp.resize(_xN);
+		_oluppm1.resize(_xN);
+		_olalpha.resize(_xN);
+		_olbeta.resize(_xN);
+	}
+
+	void GCMMAOptimization::allocILvar(void)
+	{
+		_ilp0.resize(_xN);
+		_ilq0.resize(_xN);
+		_ilpi.resize(_ineqN, _xN);
+		_ilqi.resize(_ineqN, _xN);
+		_ilri.resize(_ineqN);
+		_ilrhoi.resize(_ineqN);
+	}
+
+
+	void GCMMAOptimization::updateRho0i(const VectorX & xknu, const VectorX & xk, const VectorX & f0valknu, const VectorX & fivalknu, const VectorX & f0tvalknu, const VectorX & fitvalknu)
+	{
+		Real dknu = 0;
+		for (int j = 0; j < _xN; j++)
+			dknu += (_olupp(j) - _ollow(j)) * (xknu(j) - xk(j)) * (xknu(j) - xk(j)) / ((_olupp(j) - xknu(j))*(xknu(j) - _ollow(j))*(_maxX(j) - _minX(j)));
+
+		Real deltaknu0 = (f0valknu(0) - f0tvalknu(0)) / dknu;
+		if (deltaknu0 > 0)
+			if (1.1*(_ilrho0 + deltaknu0) < 10 * _ilrho0)
+				_ilrho0 = 1.1*(_ilrho0 + deltaknu0);
+			else
+				_ilrho0 = 10 * _ilrho0;
+		VectorX deltaknui = (fivalknu - fitvalknu) / dknu;
+		for (int i = 0; i < _ineqN; i++)
+		{
+			if (deltaknui(i) > 0)
+				if (1.1*(_ilrhoi(i) + deltaknui(i) < 10 * _ilrhoi(i)))
+					_ilrhoi(i) = 1.1*(_ilrhoi(i) + deltaknui(i));
+				else
+					_ilrhoi(i) = 10 * _ilrhoi(i);
+		}
+	}
+
+	void GCMMA_PDIPM::solveSubProblem(VectorX & xout)
+	{
+		// input variable size:
+		// VectorX p0(_xN), q0(_xN)
+		// MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN)
+		// VectorX ri(_ineqN)
+		// VectorX alpha(_xN), beta, low, upp
+
+		// output variable size:
+		// VectorX xout(_xN)
+
+
+		// initialize
+		//VectorX bi = -_ilri;
+		initializeSubProb();
+		VectorX delw(_subDimW);
+		Real tau;
+
+		int iterSub = 0, maxIterSub = 1000;
+		bool solFound = false;
+		while (iterSub < maxIterSub)
+		{
+			//cout << "solveSubProblem iter num : " << iterSub << endl;
+			//cout << "calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) : " << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) << endl;
+			//cout << "subx" << endl << _subx << endl << endl;
+
+			// step 1: calculate gradient of w
+			//calcGradientW(p0, pi, q0, qi, bi, delw);
+			calcGradientW_tmp(delw);
+
+			//cout << "[delw]" << endl << delw << endl << endl;
+
+			// step 2: calculate step length 'tau'
+			tau = calcStepLength(delw);
+
+			//cout << "tau : " << tau << endl << endl;
+
+			// step 3: update w
+			_subw += tau * delw;
+			separateFromW();
+
+			// step 4: update epsilon
+			//if (calcNormResidual(p0, pi, q0, qi, bi, delw, 0.0, -1) < 0.9 * _subeps)
+			if (calcNormResidual_tmp(delw, 0.0, -1) < 0.9 * _subeps)
+				_subeps *= 0.1;
+
+			// step 5: check terminate condition
+			//if (_subeps <= 1E-6)
+			if (_subeps <= 1E-4)
+			{
+				solFound = true;
+				break;
+			}
+
+			iterSub++;
+		}
+
+		if (!solFound)
+			LOG("exceeded max iteration number - 'solveSubProblem'");
+
+		//cout << iterSub << endl;
+		//cout << _subeps << endl;
+		xout = _subx;
+
+
+	}
+
+	void GCMMA_PDIPM::allocSUBvar(void)
 	{
 		// x, y, z, lam, xsi, eta, mu, zet, s (in order)
 		_subDimW = _xN + _ineqN + 1 + _ineqN + _xN + _xN + _ineqN + 1 + _ineqN;
@@ -466,7 +671,64 @@ namespace rovin
 		_submu.resize(_ineqN);
 		_subs.resize(_ineqN);
 
+		// addition part
+		tmpsubx.resize(_xN);
+		tmpsublam.resize(_ineqN);
+		tmpplam.resize(_xN);
+		tmpqlam.resize(_xN);
+		tmpdpsidx.resize(_xN);
+		tmpgival.resize(_ineqN);
+
+		G.resize(_ineqN, _xN);
+		xadi.resize(_xN);
+		bxdi.resize(_xN);
+		ydi.resize(_ineqN);
+		ldi.resize(_ineqN);
+
+		Dx.resize(_xN, _xN); Dx.setZero();
+		iDx.resize(_xN, _xN); iDx.setZero();
+		Dly.resize(_ineqN, _ineqN); Dly.setZero();
+		iDly.resize(_ineqN, _ineqN); iDly.setZero();
+		iDy.resize(_ineqN);
+
+		dxt.resize(_xN);
+		dyt.resize(_ineqN);
+		dlt.resize(_ineqN);
+		dlyt.resize(_ineqN);
+
+		DlyGDxGt.resize(_ineqN, _ineqN);
+		iDlyGDxGt.resize(_ineqN, _ineqN);
+		Lower.resize(_ineqN, _ineqN);
+		iLower.resize(_ineqN, _ineqN);
+
+		DxGtiDlyG.resize(_xN, _xN);
+		iDxGtiDlyG.resize(_xN, _xN);
+		Lower2.resize(_xN, _xN);
+		iLower2.resize(_xN, _xN);
+
+		MatSizeineqNbyxN.resize(_ineqN, _xN);
+		MatSizexNbyineqN.resize(_xN, _ineqN);
+
+		delx.resize(_xN);
+		dellam.resize(_ineqN);
+
 		resvec.resize(_subDimW);
+	}
+
+	void GCMMA_PDIPM::initializeSubProb(void)
+	{
+		// x, y, z, lam, xsi, eta, mu, zet, s (in order)
+		//_subDimW = _xN + _ineqN + 1 + _ineqN + _xN + _xN + _ineqN + 1 + _ineqN;
+		//_subw.resize(_subDimW);
+
+		//_subx.resize(_xN);
+		//_suby.resize(_ineqN);
+		//_sublam.resize(_ineqN);
+		//_subxsi.resize(_xN);
+		//_subeta.resize(_xN);
+		//_submu.resize(_ineqN);
+		//_subs.resize(_ineqN);
+		//resvec.resize(_subDimW);
 
 		_subx = 0.5 * (_olalpha + _olbeta);
 		_suby.setOnes();
@@ -507,7 +769,8 @@ namespace rovin
 		_subeps = 1.0;
 	}
 
-	void GCMMAOptimization::separateFromW(void)
+
+	void GCMMA_PDIPM::separateFromW(void)
 	{
 		// save member variables x,y,z,lam,xsi... from member variable w
 		int idx = 0;
@@ -522,7 +785,7 @@ namespace rovin
 		_subs = _subw.block(idx, 0, _ineqN, 1);
 	}
 
-	void GCMMAOptimization::separateFromW(const VectorX & w, VectorX & x, VectorX & y, Real & z, VectorX & lam, VectorX & xsi, VectorX & eta, VectorX & mu, Real & zet, VectorX & s)
+	void GCMMA_PDIPM::separateFromW(const VectorX & w, VectorX & x, VectorX & y, Real & z, VectorX & lam, VectorX & xsi, VectorX & eta, VectorX & mu, Real & zet, VectorX & s)
 	{
 		// save x,y,z,lam,xsi... from w
 		int idx = 0;
@@ -537,9 +800,7 @@ namespace rovin
 		s = w.block(idx, 0, _ineqN, 1);
 	}
 
-
-
-	void GCMMAOptimization::combineToW(const VectorX & x, const VectorX & y, const Real & z, const VectorX & lam, const VectorX & xsi, const VectorX & eta, const VectorX & mu, const Real & zet, const VectorX & s, VectorX & w)
+	void GCMMA_PDIPM::combineToW(const VectorX & x, const VectorX & y, const Real & z, const VectorX & lam, const VectorX & xsi, const VectorX & eta, const VectorX & mu, const Real & zet, const VectorX & s, VectorX & w)
 	{
 		// save w from x,y,z,lam,xsi,...
 		int idx = 0;
@@ -554,117 +815,18 @@ namespace rovin
 		w.block(idx, 0, _ineqN, 1) = s;
 	}
 
-	void GCMMAOptimization::calcGradientW(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & bi, VectorX & delw)
-	{
-		// output delw consists of delx, dely, delz, dellam, delxsi,...
-		VectorX delx(_xN), dely(_ineqN), dellam(_ineqN), delxsi(_xN), deleta(_xN), delmu(_ineqN), dels(_ineqN);
-		Real delz, delzet;
 
-		MatrixX Psi(_xN, _xN), G(_ineqN, _xN);
-		VectorX tmpplam(_xN), tmpqlam(_xN), tmpdpsidx(_xN), tmpgival(_ineqN);
-		calcpqlam(p0, pi, _sublam, tmpplam);
-		calcpqlam(q0, qi, _sublam, tmpqlam);
-		calcdpsidx(tmpplam, tmpqlam, _subx, tmpdpsidx);
-		calcgi(pi, qi, _subx, tmpgival);
-
-		Psi.setZero();
-		for (int j = 0; j < _xN; j++)
-			Psi(j, j) = 2 * tmpplam(j) / pow(_olupp(j) - _subx(j), 3) + 2 * tmpqlam(j) / pow(_subx(j) - _ollow(j), 3);
-		for (int i = 0; i < _ineqN; i++)
-			for (int j = 0; j < _xN; j++)
-				G(i, j) = pi(i, j) / pow(_olupp(j) - _subx(j), 2) - qi(i, j) / pow(_subx(j) - _ollow(j), 2);
-
-		MatrixX xadi = (_subx - _olalpha).asDiagonal(); // <x-alpha>
-		for (int i = 0; i < xadi.cols(); i++)
-			xadi(i, i) = 1 / xadi(i, i);
-
-		MatrixX bxdi = (_olbeta - _subx).asDiagonal().inverse(); // <beta -x>
-		MatrixX ydi = _suby.asDiagonal().inverse(); // <y>
-		MatrixX dd = _di.asDiagonal(); // <d>
-		MatrixX ldi = _sublam.asDiagonal().inverse(); //<lamda>
-		VectorX onesn(_xN);		onesn.setOnes();
-		VectorX onesm(_ineqN);	onesm.setOnes();
-
-		MatrixX Dx = Psi + xadi * _subxsi.asDiagonal() + bxdi * _subeta.asDiagonal();
-		MatrixX Dy = dd + ydi * _submu.asDiagonal();
-		MatrixX Dl = ldi * _subs.asDiagonal();
-		MatrixX Dly = Dl + Dy.inverse();
-
-		MatrixX iDx = MatrixX::Zero(Dx.rows(), Dx.cols());
-		MatrixX iDy = MatrixX::Zero(Dy.rows(), Dy.cols());
-		MatrixX iDly = MatrixX::Zero(Dly.rows(), Dly.cols());
-		for (int i = 0; i < Dx.cols(); i++)
-			iDx(i, i) = 1 / Dx(i, i);
-
-		for (int i = 0; i < Dy.cols(); i++)
-			iDy(i, i) = 1 / Dy(i, i);
-
-		for (int i = 0; i < Dly.cols(); i++)
-			iDly(i, i) = 1 / Dly(i, i);
-
-		VectorX dxt = tmpdpsidx - _subeps * xadi * onesn + _subeps * bxdi * onesn;
-		VectorX dyt = _ci + dd * _suby - _sublam - _subeps * ydi * onesm;
-		Real dzt = _a0 - _sublam.transpose() * _ai - _subeps / _subz;
-		VectorX dlt = tmpgival - _subz * _ai - _suby - bi + _subeps * ldi * onesm;
-		VectorX dlyt = dlt + iDy * dyt;
-
-		MatrixX smallA;
-		VectorX smallx, smallb;
-		if (_xN > _ineqN)
-		{
-			// equation (5.20)
-			smallA.resize(_ineqN + 1, _ineqN + 1);
-			smallx.resize(_ineqN + 1);
-			smallb.resize(_ineqN + 1);
-			smallA.block(0, 0, _ineqN, _ineqN) = Dly + G*iDx*G.transpose();
-			smallA.block(0, _ineqN, _ineqN, 1) = _ai;
-			smallA.block(_ineqN, 0, 1, _ineqN) = _ai.transpose();
-			smallA(_ineqN, _ineqN) = -_subzet / _subz;
-			smallb.block(0, 0, _ineqN, 1) = dlyt - G*iDx*dxt;
-			smallb(_ineqN) = dzt;
-			smallx = smallA.inverse() * smallb;
-			dellam = smallx.block(0, 0, _ineqN, 1);
-			delz = smallx(_ineqN);
-			delx = -iDx*(G.transpose()*dellam + dxt);
-		}
-		else
-		{
-			// equation (5.22)
-			smallA.resize(_xN + 1, _xN + 1);
-			smallx.resize(_xN + 1);
-			smallb.resize(_xN + 1);
-			smallA.block(0, 0, _xN, _xN) = Dx + G.transpose()*iDly*G;
-			smallA.block(0, _xN, _xN, 1) = -G.transpose()*iDly*_ai;
-			smallA.block(_xN, 0, 1, _xN) = -_ai.transpose()*iDly*G;
-			smallA(_xN, _xN) = _subzet / _subz + _ai.transpose()*iDly*_ai;
-			smallb.block(0, 0, _xN, 1) = -dxt - G.transpose()*iDly*dlyt;
-			smallb(_xN) = -dzt + _ai.transpose()*iDly*dlyt;
-			smallx = smallA.inverse() * smallb;
-			delx = smallx.block(0, 0, _xN, 1);
-			delz = smallx(_xN);
-			dellam = iDly*(G*delx - _ai*delz + dlyt);
-		}
-		dely = iDy * (dellam - dyt);
-		delxsi = -xadi * (_subxsi.asDiagonal() * delx - _subeps * onesn) - _subxsi;
-		deleta = bxdi * (_subeta.asDiagonal() * delx + _subeps * onesn) - _subeta;
-		delmu = -ydi * (_submu.asDiagonal() * dely - _subeps * onesm) - _submu;
-		delzet = -_subzet * delz / _subz - _subzet + _subeps / _subz;
-		dels = -ldi * (_subs.asDiagonal() * dellam - _subeps * onesm) - _subs;
-
-		combineToW(delx, dely, delz, dellam, delxsi, deleta, delmu, delzet, dels, delw);
-	}
-
-	void GCMMAOptimization::calcGradientW_tmp(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & bi, VectorX & delw)
+	void GCMMA_PDIPM::calcGradientW_tmp(VectorX & delw)
 	{
 		// output delw consists of delx, dely, delz, dellam, delxsi,...
 		delw.setZero();
 		delx.setZero();
 		dellam.setZero();
 
-		calcpqlam(p0, pi, _sublam, tmpplam);
-		calcpqlam(q0, qi, _sublam, tmpqlam);
+		calcpqlam(_ilp0, _ilpi, _sublam, tmpplam);
+		calcpqlam(_ilq0, _ilqi, _sublam, tmpqlam);
 		calcdpsidx(tmpplam, tmpqlam, _subx, tmpdpsidx);
-		calcgi(pi, qi, _subx, tmpgival);
+		calcgi(_subx, tmpgival);
 
 		//cout << "tmpdpsidx : " << tmpdpsidx << endl << endl;
 		//cout << "tmpgival : " << tmpgival << endl << endl;
@@ -672,7 +834,7 @@ namespace rovin
 
 		for (int i = 0; i < _ineqN; i++)
 			for (int j = 0; j < _xN; j++)
-				G(i, j) = pi(i, j) / pow(_olupp(j) - _subx(j), 2) - qi(i, j) / pow(_subx(j) - _ollow(j), 2);
+				G(i, j) = _ilpi(i, j) / pow(_olupp(j) - _subx(j), 2) - _ilqi(i, j) / pow(_subx(j) - _ollow(j), 2);
 
 		Gt = G.transpose();
 
@@ -702,7 +864,7 @@ namespace rovin
 		for (int i = 0; i < _ineqN; i++)
 			dyt(i) = _ci(i) + _di(i) * _suby(i) - _sublam(i) - _subeps * ydi(i);
 		dzt = _a0 - _sublam.transpose() * _ai - _subeps / _subz;
-		dlt = tmpgival - _subz * _ai - _suby - bi + _subeps * ldi;
+		dlt = tmpgival - _subz * _ai - _suby + _ilri + _subeps * ldi;
 		for (int i = 0; i < _ineqN; i++)
 			dlyt(i) = dlt(i) + iDy(i) * dyt(i);
 
@@ -904,7 +1066,7 @@ namespace rovin
 			delw(i + _xN + _ineqN + 1 + _ineqN + _xN + _xN + _ineqN + 1) = -ldi(i) * (_subs(i) * delw(i + _xN + _ineqN + 1) - _subeps) - _subs(i);
 	}
 
-	void GCMMAOptimization::calcpqlam(const VectorX & pq0, const MatrixX & pqi, const VectorX & lam, VectorX & pqlam)
+	void GCMMA_PDIPM::calcpqlam(const VectorX & pq0, const MatrixX & pqi, const VectorX & lam, VectorX & pqlam)
 	{
 		// input variable size:
 		// VectorX pq0: p0(_xN) or q0(_xN)
@@ -928,7 +1090,7 @@ namespace rovin
 		}
 	}
 
-	void GCMMAOptimization::calcdpsidx(const VectorX & plam, const VectorX & qlam, const VectorX & x, VectorX & dpsidx)
+	void GCMMA_PDIPM::calcdpsidx(const VectorX & plam, const VectorX & qlam, const VectorX & x, VectorX & dpsidx)
 	{
 		//cout << "plam" << endl << plam << endl << endl;
 		//cout << "qlam" << endl << qlam << endl << endl;
@@ -940,18 +1102,18 @@ namespace rovin
 			dpsidx(j) = plam(j) / pow(_olupp(j) - x(j), 2) - qlam(j) / pow(x(j) - _ollow(j), 2);
 	}
 
-	void GCMMAOptimization::calcgi(const MatrixX & pi, const MatrixX & qi, const VectorX & x, VectorX & gival)
+	void GCMMA_PDIPM::calcgi(const VectorX & x, VectorX & gival)
 	{
 		// equation 5.2
 		for (int i = 0; i < _ineqN; i++)
 		{
 			gival(i) = 0;
 			for (int j = 0; j < _xN; j++)
-				gival(i) += pi(i, j) / (_olupp(j) - x(j)) + qi(i, j) / (x(j) - _ollow(j));
+				gival(i) += _ilpi(i, j) / (_olupp(j) - x(j)) + _ilqi(i, j) / (x(j) - _ollow(j));
 		}
 	}
 
-	Real GCMMAOptimization::calcStepLength(const VectorX & delw, const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & bi)
+	Real GCMMA_PDIPM::calcStepLength(const VectorX & delw)
 	{
 		// minValLeq has the minimum value of sths (t <= sth)
 		// maxValGeq has the maximum value of sths (t >= sth)
@@ -1021,7 +1183,7 @@ namespace rovin
 		//cout << "minVelLeg : " << minValLeq << endl;
 
 		//Real resNorm = calcNormResidual(p0, pi, q0, qi, bi, delw, 0.0, 2);
-		Real resNorm = calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, 2);
+		Real resNorm = calcNormResidual_tmp(delw, 0.0, 2);
 		bool tauFound = false;
 		int iterTau = 0, maxIterTau = 1000;
 
@@ -1029,7 +1191,7 @@ namespace rovin
 		while (iterTau < maxIterTau)
 		{
 			//if (calcNormResidual(p0, pi, q0, qi, bi, delw, minValLeq, 2) < resNorm)
-			if (calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, minValLeq, 2) < resNorm)
+			if (calcNormResidual_tmp(delw, minValLeq, 2) < resNorm)
 			{
 				//cout << "minValLeg : " << minValLeq << endl;
 				//cout << "calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, minValLeq, 2) : " << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, minValLeq, 2) << endl;
@@ -1057,73 +1219,7 @@ namespace rovin
 		return minValLeq;
 	}
 
-	Real GCMMAOptimization::calcNormResidual(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & bi, const VectorX & delw, Real stepLength, int normCh)
-	{
-		// output residual vector consists of deltax, deltay, deltaz, deltalam, deltaxsi,...
-		VectorX resvec(_subDimW);
-		VectorX deltax(_xN), deltay(_ineqN), deltalam(_ineqN), deltaxsi(_xN), deltaeta(_xN), deltamu(_ineqN), deltas(_ineqN); Real deltaz, deltazet;
-
-		// del: separate variable of delw
-		VectorX delx(_xN), dely(_ineqN), dellam(_ineqN), delxsi(_xN), deleta(_xN), delmu(_ineqN), dels(_ineqN); Real delz, delzet;
-		separateFromW(delw, delx, dely, delz, dellam, delxsi, deleta, delmu, delzet, dels);
-
-
-		// tmpsub = _sub + stepLength * del
-		VectorX tmpsubx(_xN), tmpsuby(_ineqN), tmpsublam(_ineqN), tmpsubxsi(_xN), tmpsubeta(_xN), tmpsubmu(_ineqN), tmpsubs(_ineqN); Real tmpsubz, tmpsubzet;
-		tmpsubx = _subx + stepLength * delx;
-		tmpsuby = _suby + stepLength * dely;
-		tmpsubz = _subz + stepLength * delz;
-		tmpsublam = _sublam + stepLength * dellam;
-		tmpsubxsi = _subxsi + stepLength * delxsi;
-		tmpsubeta = _subeta + stepLength * deleta;
-		tmpsubmu = _submu + stepLength * delmu;
-		tmpsubzet = _subzet + stepLength * delzet;
-		tmpsubs = _subs + stepLength * dels;
-
-		// dpsidx, gival 다 새로 구해야함, tmpsub variable 로.....
-		VectorX tmpplam(_xN), tmpqlam(_xN), tmpdpsidx(_xN), tmpgival(_ineqN);
-		calcpqlam(p0, pi, tmpsublam, tmpplam);
-		calcpqlam(q0, qi, tmpsublam, tmpqlam);
-		calcdpsidx(tmpplam, tmpqlam, tmpsubx, tmpdpsidx);
-		calcgi(pi, qi, tmpsubx, tmpgival);
-
-
-		deltax = tmpdpsidx - tmpsubxsi + tmpsubeta;
-		for (int i = 0; i < _ineqN; i++)
-		{
-			deltay(i) = _ci(i) + _di(i) * tmpsuby(i) - tmpsublam(i) - tmpsubmu(i);
-			deltamu(i) = tmpsubmu(i) * tmpsuby(i) - _subeps;
-			deltas(i) = tmpsublam(i) * tmpsubs(i) - _subeps;
-		}
-		deltaz = _a0 - tmpsubzet - tmpsublam.transpose() * _ai;
-		deltalam = tmpgival - tmpsubz * _ai - tmpsuby + tmpsubs - bi;
-		for (int j = 0; j < _xN; j++)
-		{
-			deltaxsi(j) = tmpsubxsi(j) * (tmpsubx(j) - _olalpha(j)) - _subeps;
-			deltaeta(j) = tmpsubeta(j) * (_olbeta(j) - tmpsubx(j)) - _subeps;
-		}
-		deltazet = tmpsubzet * tmpsubz - _subeps;
-
-
-		combineToW(deltax, deltay, deltaz, deltalam, deltaxsi, deltaeta, deltamu, deltazet, deltas, resvec);
-
-		Real normVal;
-		switch (normCh)
-		{
-		case 2: // Euclidean norm
-			normVal = resvec.norm();
-			break;
-		case -1: // infinite norm
-			normVal = resvec.cwiseAbs().maxCoeff();
-			break;
-		default:
-			LOG("wrong choice - function 'calcNormResidual'");
-			break;
-		}
-		return normVal;
-	}
-
-	Real GCMMAOptimization::calcNormResidual_tmp(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, const VectorX& delw, Real stepLength, int normCh)
+	Real GCMMA_PDIPM::calcNormResidual_tmp(const VectorX& delw, Real stepLength, int normCh)
 	{
 		//VectorX resvec(_subDimW);
 
@@ -1138,10 +1234,10 @@ namespace rovin
 		//cout << "tmpsubx" << endl << tmpsubx << endl << endl;
 
 		//VectorX tmpplam(_xN), tmpqlam(_xN), tmpdpsidx(_xN), tmpgival(_ineqN);
-		calcpqlam(p0, pi, tmpsublam, tmpplam);
-		calcpqlam(q0, qi, tmpsublam, tmpqlam);
+		calcpqlam(_ilp0, _ilpi, tmpsublam, tmpplam);
+		calcpqlam(_ilq0, _ilqi, tmpsublam, tmpqlam);
 		calcdpsidx(tmpplam, tmpqlam, tmpsubx, tmpdpsidx);
-		calcgi(pi, qi, tmpsubx, tmpgival);
+		calcgi(tmpsubx, tmpgival);
 
 		//cout << "tmpdpsidx" << endl << tmpdpsidx << endl << endl;
 		//cout << "_subxsi" << endl << _subxsi << endl;
@@ -1157,7 +1253,7 @@ namespace rovin
 		resvec(idx) = _a0 - (_subzet + stepLength * delw(_xN + _ineqN + 1 + _ineqN + _xN + _xN + _ineqN)) - tmpsublam.transpose() * _ai;
 		idx += 1;
 		for (int i = 0; i < _ineqN; i++)
-			resvec(i + idx) = tmpgival(i) - (_subz + stepLength * delw(_xN + _ineqN)) * _ai(i) - (_suby(i) + stepLength * delw(i + _xN)) + (_subs(i) + stepLength * delw(i + _xN + _ineqN + 1 + _ineqN + _xN + _xN + _ineqN + 1)) - bi(i);
+			resvec(i + idx) = tmpgival(i) - (_subz + stepLength * delw(_xN + _ineqN)) * _ai(i) - (_suby(i) + stepLength * delw(i + _xN)) + (_subs(i) + stepLength * delw(i + _xN + _ineqN + 1 + _ineqN + _xN + _xN + _ineqN + 1)) + _ilri(i);
 		idx += _ineqN;
 		for (int i = 0; i < _xN; i++)
 			resvec(i + idx) = (_subxsi(i) + stepLength * delw(i + _xN + _ineqN + 1 + _ineqN)) * (tmpsubx(i) - _olalpha(i)) - _subeps;
@@ -1193,171 +1289,10 @@ namespace rovin
 		return 0;
 	}
 
-	bool GCMMAOptimization::testILSuccess(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const Real & r0, const VectorX & ri, const VectorX & testx, VectorX & f0valknu, VectorX & fivalknu, VectorX & f0tvalknu, VectorX & fitvalknu)
-	{
-		//VectorX f0val(1), f0tval(1), fival(_ineqN), fitval(_ineqN);
-		f0valknu = _objectFunc->func(testx);
-		fivalknu = _ineqConstraint->func(testx);
-		calcf0tilde(p0, q0, r0, testx, f0tvalknu);
-		calcfitilde(pi, qi, ri, testx, fitvalknu);
-
-		bool ret = false;
-
-		if (f0tvalknu(0) >= f0valknu(0))
-		{
-			ret = true;
-			for (int i = 0; i < _ineqN; i++)
-			{
-				if (fitvalknu(i) < fivalknu(i))
-				{
-					ret = false;
-					break;
-				}
-			}
-		}
-		return ret;
-	}
 
 
-	void GCMMAOptimization::calcf0tilde(const VectorX & p0, const VectorX & q0, const Real & r0, const VectorX & x, VectorX & f0tval)
-	{
-		f0tval(0) = r0;
-		for (int j = 0; j < _xN; j++)
-			f0tval(0) += p0(j) / (_olupp(j) - x(j)) + q0(j) / (x(j) - _ollow(j));
-	}
 
-	void GCMMAOptimization::calcfitilde(const MatrixX & pi, const MatrixX & qi, const VectorX & ri, const VectorX & x, VectorX & fitval)
-	{
-		for (int i = 0; i < _ineqN; i++)
-		{
-			fitval(i) = ri(i);
-			for (int j = 0; j < _xN; j++)
-				fitval(i) += pi(i, j) / (_olupp(j) - x(j)) + qi(i, j) / (x(j) - _ollow(j));
-		}
-	}
-
-	void GCMMAOptimization::updateRho0i(const VectorX & xknu, const VectorX & xk, const VectorX & f0valknu, const VectorX & fivalknu, const VectorX & f0tvalknu, const VectorX & fitvalknu, Real & rho0, VectorX & rhoi)
-	{
-		Real dknu = 0;
-		for (int j = 0; j < _xN; j++)
-			dknu += (_olupp(j) - _ollow(j)) * (xknu(j) - xk(j)) * (xknu(j) - xk(j)) / ((_olupp(j) - xknu(j))*(xknu(j) - _ollow(j))*(_maxX(j) - _minX(j)));
-
-		Real deltaknu0 = (f0valknu(0) - f0tvalknu(0)) / dknu;
-		if (deltaknu0 > 0)
-			if (1.1*(rho0 + deltaknu0) < 10 * rho0)
-				rho0 = 1.1*(rho0 + deltaknu0);
-			else
-				rho0 = 10 * rho0;
-		VectorX deltaknui = (fivalknu - fitvalknu) / dknu;
-		for (int i = 0; i < _ineqN; i++)
-		{
-			if (deltaknui(i) > 0)
-				if (1.1*(rhoi(i) + deltaknui(i) < 10 * rhoi(i)))
-					rhoi(i) = 1.1*(rhoi(i) + deltaknui(i));
-				else
-					rhoi(i) = 10 * rhoi(i);
-		}
-	}
-
-	void GCMMAOptimization::TR_solve(const VectorX & initialX)
-	{
-		// initialize
-		// variables for outer loop
-
-		// m1: values of 1 loop before, m2: values of 2 loops before
-		VectorX xk(_xN), xkm1(_xN), xkm2(_xN);
-		xk = initialX; xkm1 = xk; xkm2 = xk;
-
-		//cout << "initialX" << endl << initialX << endl << endl;
-
-		//VectorX low(_xN), lowm1(_xN), upp(_xN), uppm1(_xN), alpha(_xN), beta(_xN);
-		_ollow.resize(_xN);
-		_ollowm1.resize(_xN);
-		_olupp.resize(_xN);
-		_oluppm1.resize(_xN);
-		_olalpha.resize(_xN);
-		_olbeta.resize(_xN);
-
-		
-		// function evaluation variables
-		VectorX f0val(1), f0valm1(1);		MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
-		VectorX fival(_ineqN);				MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
-		f0valm1(0) = std::numeric_limits<Real>::max();
-
-		// variables for inner loop
-		VectorX xknu(_xN);
-		// coefficients variables
-		VectorX p0(_xN), q0(_xN);
-		MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN);
-		Real r0, rho0;
-		VectorX ri(_ineqN), rhoi(_ineqN);
-		// function evaluation variables
-		VectorX f0valknu(1), f0tvalknu(1), fivalknu(_ineqN), fitvalknu(_ineqN);
-
-		int iterOL = 0, iterIL; // iter for outer/inner loop
-		while (iterOL < _maxIterOL) // outer loop
-		{
-			//cout << "=== outer iter num: " << iterOL << endl;
-
-
-			calcLowUpp(iterOL, xk, xkm1, xkm2);
-			calcAlphaBeta(xk);
-			f0val = _objectFunc->func(xk);
-			df0dx = _objectFunc->Jacobian(xk);
-			fival = _ineqConstraint->func(xk);
-			dfidx = _ineqConstraint->Jacobian(xk);
-			calcPlusMinusMatrix(df0dx, df0dxp, df0dxm);
-			calcPlusMinusMatrix(dfidx, dfidxp, dfidxm);
-
-
-			calcInitialRho(df0dx, dfidx, rho0, rhoi);
-
-
-			iterIL = 0;
-			while (iterIL < _maxIterIL) // inner loop
-			{
-				//cout << "====== inner iter num: " << iterIL << endl;
-
-				calcPQR(rho0, rhoi, df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival, p0, pi, q0, qi, r0, ri);
-
-				TR_solveSubProblem(p0, pi, q0, qi, r0, ri, xknu);
-
-
-				if (testILSuccess(p0, pi, q0, qi, r0, ri, xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
-					break; // xknu is the optimal solution
-
-				// update rho0/rhoi
-				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu, rho0, rhoi);
-
-
-				iterIL++;
-			}
-
-			// terminate condition
-			//cout << "abs(f0valm1(0) - f0valknu(0)) : " << abs(f0valm1(0) - f0valknu(0)) << endl;
-			//cout << "(xkm1 - xknu).norm() : " << (xkm1 - xknu).norm() << endl;
-			if (abs(f0valm1(0) - f0valknu(0)) < _tolFunc)
-				break;
-			if ((xkm1 - xknu).norm() < _tolX)
-				break;
-
-			// update
-			xkm2 = xkm1;
-			xkm1 = xk;
-			xk = xknu;
-			_ollowm1 = _ollow;
-			_oluppm1 = _olupp;
-			f0valm1(0) = f0valknu(0);
-
-
-			iterOL++;
-		}
-
-		resultX = xknu;
-		resultFunc = f0valknu(0);
-	}
-
-	void GCMMAOptimization::TR_solveSubProblem(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const Real & r0, const VectorX & ri, VectorX & xout)
+	void GCMMA_TRM::solveSubProblem(VectorX & xout)
 	{
 		// input variable size:
 		// VectorX p0(_xN), q0(_xN)
@@ -1370,9 +1305,7 @@ namespace rovin
 
 
 		// initialize
-		TR_initializeSubProb(p0, pi, q0, qi, ri);
-		VectorX bi = -ri;
-
+		initializeSubProb();
 
 		int iterSub = 0, maxIterSub = 1000;
 		bool solFound = false;
@@ -1380,19 +1313,19 @@ namespace rovin
 		{
 			//cout << "===================================================" << endl << endl;
 			// step 1-1: calculate eta - equation(16)
-			TR_calceta();
+			calceta();
 			//cout << _TR_subeta << endl << endl;
 
 			// step 1-2: calculate lambda_hat - equation(18)
-			TR_calclamhat();
+			calclamhat();
 			//cout << _TR_sublamhat << endl << endl;
 
 			// step 2: calculate theta
-			TR_calcW(p0, pi, q0, qi, r0, ri, _TR_sublam, _TR_subW);
-			TR_calcW(p0, pi, q0, qi, r0, ri, _TR_sublamhat, _TR_subWhat);
-			TR_calcm(_TR_sublam, _TR_subm);
-			TR_calcm(_TR_sublamhat, _TR_submhat);
-			_TR_subtheta = (_TR_subW - _TR_subWhat) / (_TR_subm - _TR_submhat);
+			calcW(_sublam, _subW);
+			calcW(_sublamhat, _subWhat);
+			calcm(_sublam, _subm);
+			calcm(_sublamhat, _submhat);
+			_subtheta = (_subW - _subWhat) / (_subm - _submhat);
 
 
 			//cout << _TR_subW << endl << endl;
@@ -1402,27 +1335,27 @@ namespace rovin
 			//cout << _TR_subtheta << endl << endl;
 
 			// step 3: update lambda
-			_TR_sublamm1 = _TR_sublam;
-			_TR_subdWm1 = _TR_subdW;
-			if (_TR_subtheta > _TR_v)
+			_sublamm1 = _sublam;
+			_subdWm1 = _subdW;
+			if (_subtheta > _TR_v)
 			{
-				_TR_sublam = _TR_sublamhat;
-				TR_calcdW(p0, pi, q0, qi, ri, _TR_sublam, _TR_subdW);
+				_sublam = _sublamhat;
+				calcdW(_sublam, _subdW);
 				//cout << _TR_sublam << endl << endl;
 				//cout << _TR_subdW << endl << endl;
 			}
 
 			// step 4: update radius of trust region
-			if (_TR_subtheta >= _TR_w)
-				_TR_radius *= _TR_gamma2;
-			else if (_TR_subtheta > _TR_v)
-				_TR_radius *= 1;
+			if (_subtheta >= _TR_w)
+				_radius *= _TR_gamma2;
+			else if (_subtheta > _TR_v)
+				_radius *= 1;
 			else
-				_TR_radius *= (_TR_gamma0 + _TR_gamma1) / 2;
+				_radius *= (_TR_gamma0 + _TR_gamma1) / 2;
 
 
 
-			if (_TR_radius < 1E-3) // terminate condition
+			if (_radius < 1E-3) // terminate condition
 			{
 				solFound = true;
 				break;
@@ -1436,14 +1369,27 @@ namespace rovin
 
 		//cout << iterSub << endl;
 		//cout << _subeps << endl;
-		TR_calcx(p0, pi, q0, qi, _TR_sublam, _TR_subx);
-		TR_calcy(_TR_sublam, _TR_suby);
-		xout = _TR_subx;
+		calcx(_sublam, _subx);
+		calcy(_sublam, _suby);
+		xout = _subx;
+	}
+	void GCMMA_TRM::allocSUBvar(void)
+	{
+		_sublam.resize(_ineqN);
+		_sublamm1.resize(_ineqN);
+		_sublamhat.resize(_ineqN);
 
+		_subdW.resize(_ineqN);
+		_subdWm1.resize(_ineqN);
+
+		_subs.resize(_ineqN);
+		_subt.resize(_ineqN);
+
+		_subx.resize(_xN);
+		_suby.resize(_ineqN);
 	}
 
-
-	void GCMMAOptimization::TRsetParameters(const Real & v, const Real & w, const Real & gam0, const Real & gam1, const Real & gam2)
+	void GCMMA_TRM::setParametersTR(const Real & v, const Real & w, const Real & gam0, const Real & gam1, const Real & gam2)
 	{
 		// parameter setting...
 		// 0 < v < w < 1
@@ -1455,40 +1401,20 @@ namespace rovin
 		_TR_gamma2 = gam2;// 1.2;
 	}
 
-	void GCMMAOptimization::TR_initializeSubProb(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & ri)
+	void GCMMA_TRM::initializeSubProb(void)
 	{
-		_TR_sublam.resize(_ineqN);
-		_TR_sublamm1.resize(_ineqN);
-		_TR_sublamhat.resize(_ineqN);
-
-		_TR_subdW.resize(_ineqN);
-		_TR_subdWm1.resize(_ineqN);
-
-		_TR_subs.resize(_ineqN);
-		_TR_subt.resize(_ineqN);
-
-		_TR_subx.resize(_xN);
-		_TR_suby.resize(_ineqN);
-
-
 		// insert values...
-		_TR_sublam.setZero();
+		_sublam.setZero();
 		//_TR_sublam.setConstant(2E-3);
-		_TR_sublamm1.setConstant(1E-3);
+		_sublamm1.setConstant(1E-3);
 
-		TR_calcdW(p0, pi, q0, qi, ri, _TR_sublam, _TR_subdW);
-		TR_calcdW(p0, pi, q0, qi, ri, _TR_sublamm1, _TR_subdWm1);
+		calcdW(_sublam, _subdW);
+		calcdW(_sublamm1, _subdWm1);
 
-		_TR_radius = 0.1 * _TR_subdW.norm();
-
-		//cout << _TR_subdW << endl << endl;
-		//cout << _TR_subdWm1 << endl << endl;
-		//cout << _TR_radius << endl << endl;
-		// 여기 출력 넣고 테스트! dW, dWm1, radius
+		_radius = 0.1 * _subdW.norm();
 	}
 
-
-	void GCMMAOptimization::TR_calcx(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & lam, VectorX & subx)
+	void GCMMA_TRM::calcx(const VectorX & lam, VectorX & subx)
 	{
 		Real ltpj, ltqj, tmpval;
 		for (int j = 0; j < _xN; j++)
@@ -1496,59 +1422,59 @@ namespace rovin
 			ltpj = 0; ltqj = 0;
 			for (int i = 0; i < _ineqN; i++)
 			{
-				ltpj += lam(i) * pi(i, j);
-				ltqj += lam(i) * qi(i, j);
+				ltpj += lam(i) * _ilpi(i, j);
+				ltqj += lam(i) * _ilqi(i, j);
 			}
 			//cout << p0(j) + ltpj << endl;
 			//cout << q0(j) + ltqj << endl << endl;
-			tmpval = (sqrt(p0(j) + ltpj) * _ollow(j) + sqrt(q0(j) + ltqj) * _olupp(j)) / (sqrt(p0(j) + ltpj) + sqrt(q0(j) + ltqj));
+			tmpval = (sqrt(_ilp0(j) + ltpj) * _ollow(j) + sqrt(_ilq0(j) + ltqj) * _olupp(j)) / (sqrt(_ilp0(j) + ltpj) + sqrt(_ilq0(j) + ltqj));
 			subx(j) = MAX(_olalpha(j), MIN(_olbeta(j), tmpval));
 			//cout << _olalpha(j) << '\t' << _olbeta(j) << '\t' << tmpval << endl << endl;
 		}
 	}
 
-	void GCMMAOptimization::TR_calcy(const VectorX & lam, VectorX & suby)
+	void GCMMA_TRM::calcy(const VectorX & lam, VectorX & suby)
 	{
 		for (int i = 0; i < _ineqN; i++)
 			suby(i) = MAX(0.0, (lam(i) - _ci(i)) / _di(i));
 	}
 
-	void GCMMAOptimization::TR_calcW(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const Real & r0, const VectorX & ri, const VectorX & lam, Real & W)
+	void GCMMA_TRM::calcW(const VectorX & lam, Real & W)
 	{
-		TR_calcx(p0, pi, q0, qi, lam, _TR_subx);
-		TR_calcy(lam, _TR_suby);
+		calcx(lam, _subx);
+		calcy(lam, _suby);
 
 		W = 0;
 		Real tmpval0, tmpval1;
 
 		tmpval0 = 0;
 		for (int i = 0; i < _ineqN; i++)
-			tmpval0 += lam(i) * ri(i);
+			tmpval0 += lam(i) * _ilri(i);
 
-		W += r0 + tmpval0;
+		W += _ilr0 + tmpval0;
 
 		for (int j = 0; j < _xN; j++)
 		{
 			tmpval0 = 0; tmpval1 = 0;
 			for (int i = 0; i < _ineqN; i++)
 			{
-				tmpval0 += lam(i)*pi(i, j);
-				tmpval1 += lam(i)*qi(i, j);
+				tmpval0 += lam(i)*_ilpi(i, j);
+				tmpval1 += lam(i)*_ilqi(i, j);
 			}
-			W += (p0(j) + tmpval0) / (_olupp(j) - _TR_subx(j)) + (q0(j) + tmpval1) / (_TR_subx(j) - _ollow(j));
+			W += (_ilp0(j) + tmpval0) / (_olupp(j) - _subx(j)) + (_ilq0(j) + tmpval1) / (_subx(j) - _ollow(j));
 		}
 
 		for (int i = 0; i < _ineqN; i++)
-			W += _TR_suby(i) * (_ci(i) + 0.5*_di(i)*_TR_suby(i) - lam(i));
+			W += _suby(i) * (_ci(i) + 0.5*_di(i)*_suby(i) - lam(i));
 
 		W *= -1;
 	}
 
-	void GCMMAOptimization::TR_calcdW(const VectorX & p0, const MatrixX & pi, const VectorX & q0, const MatrixX & qi, const VectorX & ri, const VectorX & lam, VectorX & dW)
+	void GCMMA_TRM::calcdW(const VectorX & lam, VectorX & dW)
 	{
 		// calc x/y 필요한가.....
-		TR_calcx(p0, pi, q0, qi, lam, _TR_subx);
-		TR_calcy(lam, _TR_suby);
+		calcx(lam, _subx);
+		calcy(lam, _suby);
 
 		//cout << _TR_subx << endl;
 		//cout << _TR_suby << endl;
@@ -1558,35 +1484,35 @@ namespace rovin
 		{
 			tmpval = 0;
 			for (int j = 0; j < _xN; j++)
-				tmpval += pi(i, j) / (_olupp(j) - _TR_subx(j)) + qi(i, j) / (_TR_subx(j) - _ollow(j));
+				tmpval += _ilpi(i, j) / (_olupp(j) - _subx(j)) + _ilqi(i, j) / (_subx(j) - _ollow(j));
 
-			dW(i) = -tmpval - ri(i) + _TR_suby(i);
+			dW(i) = -tmpval - _ilri(i) + _suby(i);
 		}
 	}
 
-	void GCMMAOptimization::TR_calcm(const VectorX & lam, Real & m)
+	void GCMMA_TRM::calcm(const VectorX & lam, Real & m)
 	{
 		Real tmpval = 0;
 		for (int i = 0; i < _ineqN; i++)
-			tmpval += _TR_subdW(i) * (lam(i) - _TR_sublam(i));
-		m = _TR_subW + tmpval;
+			tmpval += _subdW(i) * (lam(i) - _sublam(i));
+		m = _subW + tmpval;
 
 		tmpval = 0;
 		for (int i = 0; i < _ineqN; i++)
-			tmpval += (lam(i) - _TR_sublam(i)) * (lam(i) - _TR_sublam(i));
+			tmpval += (lam(i) - _sublam(i)) * (lam(i) - _sublam(i));
 
-		m += 0.5 * _TR_subeta * tmpval;
+		m += 0.5 * _subeta * tmpval;
 	}
 
-	void GCMMAOptimization::TR_calceta(void)
+	void GCMMA_TRM::calceta(void)
 	{
 		//cout << _TR_sublam << endl << endl;
 		//cout << _TR_sublamm1 << endl << endl;
 		//cout << _TR_subdW << endl << endl;
 		//cout << _TR_subdWm1 << endl << endl;
 
-		_TR_subs = _TR_sublam - _TR_sublamm1;
-		_TR_subt = _TR_subdW - _TR_subdWm1;
+		_subs = _sublam - _sublamm1;
+		_subt = _subdW - _subdWm1;
 
 		//cout << _TR_subs << endl << endl;
 		//cout << _TR_subt << endl << endl;
@@ -1594,22 +1520,25 @@ namespace rovin
 		Real tmpnum = 0, tmpden = 0;
 		for (int i = 0; i < _ineqN; i++)
 		{
-			tmpnum += _TR_subs(i) * _TR_subt(i);
-			tmpden += _TR_subs(i) * _TR_subs(i);
+			tmpnum += _subs(i) * _subt(i);
+			tmpden += _subs(i) * _subs(i);
 		}
-		_TR_subeta = tmpnum / tmpden;
+		_subeta = tmpnum / tmpden;
 
 		//cout << _TR_subeta << endl << endl;
 	}
 
-	void GCMMAOptimization::TR_calclamhat(void)
+	void GCMMA_TRM::calclamhat(void)
 	{
 		for (int i = 0; i < _ineqN; i++)
 		{
 			//cout << _TR_sublam(i) + _TR_radius << '\t' << _TR_sublam(i) - _TR_radius << '\t' << _TR_sublam(i) - (_TR_subdW(i)) / (_TR_subeta) << endl << endl;
-			_TR_sublamhat(i) = MIN(_TR_sublam(i) + _TR_radius, MAX( MAX(0.0, _TR_sublam(i) - _TR_radius), _TR_sublam(i) - (_TR_subdW(i)) / (_TR_subeta)));
+			_sublamhat(i) = MIN(_sublam(i) + _radius, MAX( MAX(0.0, _sublam(i) - _radius), _sublam(i) - (_subdW(i)) / (_subeta)));
 			//cout << _TR_sublamhat(i) << endl << endl;
 		}
 	}
+
+
+
 
 }
