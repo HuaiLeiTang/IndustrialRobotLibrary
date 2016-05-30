@@ -261,8 +261,8 @@ namespace rovin{
 		}
 		else if ( (_optType == OptimizationType::GCMMA) || (_optType == OptimizationType::GCMMA_TR) || (_optType == OptimizationType::GCMMA_GD))
 		{
-			//makeIneqConstraintFunction_nlopt();
-			makeIneqConstraintFunction_MMA();
+			makeIneqConstraintFunction_nlopt();
+			//makeIneqConstraintFunction_MMA();
 		}
 		
 		LOG("Optimization ready.");
@@ -329,25 +329,19 @@ namespace rovin{
 				}
 			}
 
-			//cout << "minX" << endl << minX << endl << endl;
-			//cout << "maxX" << endl << maxX << endl << endl;
-
-
 			_GCMMAoptimizer->initialize(initX.size(), _IneqFunc->func(initX).size());
 			_GCMMAoptimizer->setMinMax(minX, maxX);
 			_GCMMAoptimizer->setObjectiveFunction(_objectFunc);
 			_GCMMAoptimizer->setInequalityConstraint(_IneqFunc);
 			LOG("Start optimization.");
 			clock_t time = clock();
-
 			_GCMMAoptimizer->solve(initX);
-
 			LOG("Finish optimization.");
 			cout << "------------------------------------" << endl;
 			cout << "computation time : " << (clock() - time) << endl << endl;
-			cout << "X : " << endl << _GCMMAoptimizer->resultX << endl << endl;
+			cout << "X : " << endl << _GCMMAoptimizer->getResultX() << endl << endl;
 			cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
-			cout << "Value of objective function : " << _GCMMAoptimizer->resultFunc << endl << endl;
+			cout << "Value of objective function : " << _GCMMAoptimizer->getResultFunc() << endl << endl;
 			//if (_optType == OptimizationType::GCMMA)
 			//	cout << "_suby : " << endl << _GCMMAoptimizer._suby << endl << endl;
 			//else if (_optType == OptimizationType::GCMMA_TR)
