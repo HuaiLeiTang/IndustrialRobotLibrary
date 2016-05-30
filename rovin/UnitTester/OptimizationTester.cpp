@@ -28,6 +28,26 @@ SerialOpenChainPtr robot(new efortRobot());
 
 int main()
 {
+	//VectorX v1(10), v2(10), v3(10);
+	//v1.setConstant(0.1);
+	//v2.setConstant(0.2);
+	//int cntMax = 10000000;
+
+	//clock_t time = clock();
+	//for (int cnt = 0; cnt < cntMax; cnt++)
+	//{
+	//	v3 = v1 + v2;
+	//}
+	//cout << "computation time : " << (clock() - time) << endl << endl;
+
+	//time = clock();
+	//for (int cnt = 0; cnt < cntMax; cnt++)
+	//{
+	//	for (int ii = 0; ii < 10; ii++)
+	//		v3(ii) = v1(ii) + v2(ii);
+	//}
+	//cout << "computation time : " << (clock() - time) << endl << endl;
+
 	unsigned int dof = robot->getNumOfJoint();
 
 	StatePtr initState, finalState;
@@ -52,16 +72,19 @@ int main()
 	int numOfOptCP = 4;
 	int orderOfBSpline = 4;
 
-	//std::cout << "------- [NLOPT RESULT] -------" << endl;
+
+	std::cout << "------- [NLOPT RESULT] -------" << endl;
 	//PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::energyloss);
-	//PTPManagerNlopt.generateTrajectory();
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt);
+	PTPManagerNlopt.generateTrajectory();
 
 	//std::cout << "------- [GCMMA RESULT] -------" << endl;
 	//PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::energyloss);
 	//PTPManagerManualOpt.generateTrajectory();
 
 	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR);
 	PTPManagerManualOptTR.generateTrajectory();
 
 	//std::cout << "------- [GCMMA GRADIENT DESCENT RESULT] -------" << endl;
@@ -73,7 +96,6 @@ int main()
 
 	//PTPOptimization* PTPManager1 = &PTPManagerNlopt;
 	//PTPOptimization* PTPManager2 = &PTPManagerManualOptGD;
-
 	//int datanum = 2000;
 	//Real stepsize = (tf - 0.0) / 2000;
 	//Real t = 0.0;
