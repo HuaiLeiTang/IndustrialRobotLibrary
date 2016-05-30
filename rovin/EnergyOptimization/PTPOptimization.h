@@ -26,7 +26,7 @@ namespace rovin {
 	typedef std::shared_ptr<sharedResource> sharedResourcePtr;
 
 	enum ObjectiveFunctionType { effort, energyloss };
-	enum OptimizationType { nlopt, GCMMA, GCMMA_TR };
+	enum OptimizationType { nlopt, GCMMA, GCMMA_TR, GCMMA_GD };
 
 	// 제로 속도에서 제로 속도로 가는거..?!!!
 

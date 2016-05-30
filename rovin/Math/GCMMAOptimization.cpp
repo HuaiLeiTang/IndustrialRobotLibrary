@@ -1259,6 +1259,400 @@ namespace rovin
 		}
 	}
 
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// STEEPEST DESCENT ALGORITHM!!!///////////////////////////////////////////////////////////////////////////////////////////////////
+	void GCMMAOptimization::GD_solve(const VectorX& initialX)
+	{
+		// initialize
+		// variables for outer loop
+
+		// m1: values of 1 loop before, m2: values of 2 loops before
+		VectorX xk(_xN), xkm1(_xN), xkm2(_xN);
+		xk = initialX; xkm1 = xk; xkm2 = xk;
+
+		//cout << "initialX" << endl << initialX << endl << endl;
+
+		//VectorX low(_xN), lowm1(_xN), upp(_xN), uppm1(_xN), alpha(_xN), beta(_xN);
+		_ollow.resize(_xN);
+		_ollowm1.resize(_xN);
+		_olupp.resize(_xN);
+		_oluppm1.resize(_xN);
+		_olalpha.resize(_xN);
+		_olbeta.resize(_xN);
+
+		// function evaluation variables
+		VectorX f0val(1), f0valm1(1);		MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
+		VectorX fival(_ineqN);				MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
+		f0valm1(0) = std::numeric_limits<Real>::max();
+
+		// variables for inner loop
+		VectorX xknu(_xN);
+		// coefficients variables
+		VectorX p0(_xN), q0(_xN);
+		MatrixX pi(_ineqN, _xN), qi(_ineqN, _xN);
+		Real r0, rho0;
+		VectorX ri(_ineqN), rhoi(_ineqN);
+		// function evaluation variables
+		VectorX f0valknu(1), f0tvalknu(1), fivalknu(_ineqN), fitvalknu(_ineqN);
+
+		int iterOL = 0, iterIL; // iter for outer/inner loop
+		while (iterOL < _maxIterOL) // outer loop
+		{
+			//cout << "=== outer iter num: " << iterOL << endl;
+			calcLowUpp(iterOL, xk, xkm1, xkm2);
+			calcAlphaBeta(xk);
+			f0val = _objectFunc->func(xk);
+			df0dx = _objectFunc->Jacobian(xk);
+			fival = _ineqConstraint->func(xk);
+			dfidx = _ineqConstraint->Jacobian(xk);
+			calcPlusMinusMatrix(df0dx, df0dxp, df0dxm);
+			calcPlusMinusMatrix(dfidx, dfidxp, dfidxm);
+			calcInitialRho(df0dx, dfidx, rho0, rhoi);
+
+			iterIL = 0;
+			while (iterIL < _maxIterIL) // inner loop
+			{
+				//cout << "====== inner iter num: " << iterIL << endl;
+				calcPQR(rho0, rhoi, df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival, p0, pi, q0, qi, r0, ri);
+
+				GD_solveSubProblem(p0, pi, q0, qi, r0, ri, xknu);
+				if (testILSuccess(p0, pi, q0, qi, r0, ri, xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
+					break; // xknu is the optimal solution
+
+						   // update rho0/rhoi
+				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu, rho0, rhoi);
+				iterIL++;
+			}
+
+			// terminate condition
+			//cout << "abs(f0valm1(0) - f0valknu(0)) : " << abs(f0valm1(0) - f0valknu(0)) << endl;
+			//cout << "(xkm1 - xknu).norm() : " << (xkm1 - xknu).norm() << endl;
+			if (abs(f0valm1(0) - f0valknu(0)) < _tolFunc)
+				break;
+			if ((xkm1 - xknu).norm() < _tolX)
+				break;
+
+			// update
+			xkm2 = xkm1;
+			xkm1 = xk;
+			xk = xknu;
+			_ollowm1 = _ollow;
+			_oluppm1 = _olupp;
+			f0valm1(0) = f0valknu(0);
+
+
+			iterOL++;
+		}
+
+		resultX = xknu;
+		resultFunc = f0valknu(0);
+	}
+
+
+	void GCMMAOptimization::GD_solveSubProblem(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, /* output */ VectorX& xout)
+	{
+		// initialize
+		TR_initializeSubProb(p0, pi, q0, qi, ri);
+		GD_initializeSubProb();
+		VectorX bi = -ri;
+		
+		int idx = 0, idx2 = 0;
+
+		int iterSub = 0, maxIterSub = 1000;
+		bool solFound = false;
+		while (iterSub < maxIterSub)
+		{
+			_GD_maxNum = 1;
+			_GD_minNum = -1;
+
+			TR_calcdW(p0, pi, q0, qi, ri, _GD_sublam, _GD_grad_or);
+			_GD_t = 1;
+			
+			if (_GD_swi)
+			{
+				if (_GD_sublam(idx) - _GD_t * _GD_grad_or(idx) > 0)
+					_GD_swi = false;
+			}
+
+			if (_GD_swi)
+			{
+				for (int i = 0; i < _ineqN; i++)
+				{
+					_GD_proj(i) = _GD_grad_or(i);
+				}
+				_GD_proj(idx) = 0;
+				_GD_proj /= _GD_proj.norm();
+				_GD_grad = _GD_proj * VectorInner(_GD_grad_or, _GD_proj, _ineqN);				
+			}
+			else
+			{
+				for (int i = 0; i < _ineqN; i++)
+					_GD_grad(i) = _GD_grad_or(i);
+			}
+
+			//cout << "sublam" << endl << _GD_sublam << endl << endl;
+			//cout << "grad" << endl << _GD_grad << endl << endl;
+
+			if (_GD_swi == false)
+			{
+				for (int i = 0; i < _ineqN; i++)
+				{
+					if (_GD_grad(i) > 0)
+					{
+						if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
+							_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
+					}
+					else if (_GD_grad(i) < 0)
+					{
+						if (_GD_sublam(i) / _GD_grad(i) > _GD_minNum)
+							_GD_minNum = _GD_sublam(i) / _GD_grad(i);
+					}
+					else if (RealEqual(_GD_grad(i), 0))
+						LOG("RealEqual(_GD_grad(i), 0)");
+				}
+				_GD_t = _GD_maxNum;
+			}
+			else
+			{
+				for (int i = 0; i < _ineqN; i++)
+				{
+					if (i != idx)
+					{
+						if (_GD_grad(i) > 0)
+						{
+							if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
+								_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
+						}
+						else if (_GD_grad(i) < 0)
+						{
+							if (_GD_sublam(i) / _GD_grad(i) > _GD_minNum)
+								_GD_minNum = _GD_sublam(i) / _GD_grad(i);
+						}
+						else if (RealEqual(_GD_grad(i), 0))
+							LOG("RealEqual(_GD_grad(i), 0)");
+					}
+				}
+				_GD_t = _GD_maxNum;
+			}
+
+			
+
+			// line search
+			_GD_v_ob.resize(3);
+			_GD_swi_line = false;
+			_GD_f_x = _GD_sublam;
+			_GD_m_x = _GD_sublam - 0.5 * _GD_t * _GD_grad;
+			_GD_b_x = _GD_sublam - _GD_t * _GD_grad;
+
+			TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+			TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
+			TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+			_GD_v_ob(0) = _GD_f_ob;
+			_GD_v_ob(1) = _GD_m_ob;
+			_GD_v_ob(2) = _GD_b_ob;
+
+			for (int i = 0; i < 5; i++)
+			{
+				_GD_t *= 0.5;
+				if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_f_ob))
+				{
+					_GD_b_x = _GD_m_x;
+					_GD_b_ob = _GD_m_ob;
+					_GD_m_x = _GD_f_x - 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
+				}
+				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_b_ob))
+				{
+					_GD_f_x = _GD_m_x;
+					_GD_f_ob = _GD_m_ob;
+					_GD_m_x = _GD_f_x - 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
+				}
+				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_m_ob))
+				{
+					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+					_GD_swi_line = true;
+				}
+				else if (_GD_swi_line == true && RealEqual(_GD_v_ob.minCoeff(), _GD_f_ob))
+				{
+					_GD_m_x = _GD_f_x;
+					_GD_m_ob = _GD_f_ob;
+					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+				}
+				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_b_ob))
+				{
+					_GD_m_x = _GD_b_x;
+					_GD_m_ob = _GD_b_ob;
+					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+				}
+				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_m_ob))
+				{
+					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+				}
+			}
+
+			_GD_v_ob(0) = _GD_f_ob;
+			_GD_v_ob(1) = _GD_m_ob;
+			_GD_v_ob(2) = _GD_b_ob;
+
+			Real min_coeff = _GD_v_ob.minCoeff();
+
+			if (RealEqual(min_coeff, _GD_f_ob))
+				_GD_sublam = _GD_f_x;
+			else if (RealEqual(min_coeff, _GD_m_ob))
+				_GD_sublam = _GD_m_x;
+			else if (RealEqual(min_coeff, _GD_b_ob))
+				_GD_sublam = _GD_b_x;
+
+			if (_GD_swi == false)
+			{
+				for (int i = 0; i < _ineqN; i++)
+				{
+					if (std::abs(_GD_sublam(i)) < 1E-4)
+					{
+						idx = i;
+						_GD_vec(idx) = 0;
+						_GD_swi = true;
+						//cout << "iterSub : " << iterSub << endl;
+						//cout << "idx : " << idx << endl;
+						//cout << "sublam" << endl << _GD_sublam << endl;
+					}
+				}
+			}
+			else
+			{
+				for (int i = 0; i < _ineqN; i++)
+				{
+					if (i != idx)
+					{
+						if (std::abs(_GD_sublam(i)) < 1E-4)
+						{
+							idx2 = i;
+							_GD_swi_opt = true;
+							//cout << "iterSub : " << iterSub << endl;
+							//cout << "idx : " << idx << endl;
+							//cout << "idx2 : " << idx2 << endl;
+							//cout << "sublam" << endl << _GD_sublam << endl;
+						}
+					}
+				}
+			}
+
+			// optimality check && terminal criterion
+			Real val1 = 0, val2 = 0;
+			if (_GD_swi_opt == true)
+			{
+				_GD_z(idx) = -1;
+				val1 = _GD_z.transpose() * -(_GD_grad_or);
+
+				//cout << "GD_z" << endl << _GD_z << endl;
+				//cout << "val1 : " << val1 << endl;
+
+				_GD_z(idx) = 0;
+				_GD_z(idx2) = -1;
+				val2 = _GD_z.transpose() * -(_GD_grad_or);
+
+				//cout << "GD_z" << endl << _GD_z << endl;
+				//cout << "val2 : " << val2 << endl;
+
+				_GD_z(idx2) = 0;
+				if (val1 > 0 && val2 > 0)
+				{
+					_GD_break_swi = true;
+					//LOG("_GD_swi_opt")
+				}
+				else if (val1 < 0 && val2 > 0)
+				{
+					idx = idx2;
+					idx2 = 0;
+					_GD_swi_opt = false;
+				}
+			}
+
+			if (_GD_grad.norm() < _GD_epsilon)
+			{
+				//LOG("_GD_grad.norm() < _GD_epsilon")
+				solFound = true;
+				break;
+			}
+				
+
+			if (_GD_swi)
+			{
+				if (std::abs(_GD_grad_or.transpose() * _GD_vec) < _GD_epsilon)
+				{
+					//LOG("std::abs(_GD_grad_or.transpose() * _GD_vec) < _GD_epsilon")
+					solFound = true;
+					_GD_break_swi = true;
+				}
+					
+			}
+
+			if (_GD_break_swi)
+			{
+				solFound = true;
+				break;
+			}
+			
+			iterSub++;
+			
+		}
+
+		if (!solFound)
+			//LOG("exceeded max iteration number - 'TRsolveSubProblem'");
+
+		//cout << iterSub << endl;
+		//cout << _subeps << endl;
+		TR_calcx(p0, pi, q0, qi, _GD_sublam, _TR_subx);
+		TR_calcy(_GD_sublam, _TR_suby);
+		xout = _TR_subx;
+
+	}
+
+	void GCMMAOptimization::GD_initializeSubProb()
+	{
+		_GD_sublam.resize(_ineqN); 
+		_GD_sublam.setConstant(1.0);
+		//_GD_sublam.setConstant(1E-3);
+		_GD_vec.resize(_ineqN); _GD_vec.setOnes();
+		_GD_z.resize(_ineqN); _GD_z.setZero();
+		_GD_subx.resize(_xN);
+		_GD_suby.resize(_ineqN);
+
+
+		_GD_t = 0.01;
+		_GD_epsilon = 1E-3;
+
+		_GD_swi = false;
+		_GD_swi_opt = false;
+		_GD_break_swi = false;
+
+		_GD_maxNum = 0.5;
+		_GD_minNum = -0.5;
+
+		_GD_grad.resize(_ineqN);
+		_GD_grad_or.resize(_ineqN);
+		_GD_proj.resize(_ineqN);
+
+		_GD_subdW.resize(_ineqN);
+	}
+
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// for TRUST-REGION ALGORITHM!!!///////////////////////////////////////////////////////////////////////////////////////////////////
 	void GCMMAOptimization::TR_solve(const VectorX & initialX)
 	{
 		// initialize
@@ -1322,14 +1716,11 @@ namespace rovin
 
 				TR_solveSubProblem(p0, pi, q0, qi, r0, ri, xknu);
 
-
 				if (testILSuccess(p0, pi, q0, qi, r0, ri, xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
 					break; // xknu is the optimal solution
 
 				// update rho0/rhoi
 				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu, rho0, rhoi);
-
-
 				iterIL++;
 			}
 
@@ -1419,8 +1810,6 @@ namespace rovin
 				_TR_radius *= 1;
 			else
 				_TR_radius *= (_TR_gamma0 + _TR_gamma1) / 2;
-
-
 
 			if (_TR_radius < 1E-3) // terminate condition
 			{

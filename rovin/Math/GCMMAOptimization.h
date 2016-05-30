@@ -82,8 +82,7 @@ namespace rovin
 	
 	
 		// steepest gradient method
-		//void xfunctionOflam(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi,const VectorX& lam, VectorX& x);
-		//void yfunctionOflam(const VectorX& lam, VectorX& y);
+
 	
 	public:
 		// user setting parameters
@@ -182,6 +181,50 @@ namespace rovin
 
 		VectorX resvec;
 
+
+	public:
+		/////////////////////////////////
+		// STEEPEST DESCENT ALGORITHM!!!
+		void GD_solve(const VectorX& initialX);
+		void GD_solveSubProblem(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, /* output */ VectorX& xout);
+		void GD_initializeSubProb();
+
+	public:
+		VectorX _GD_sublam;
+		VectorX _GD_subx;
+		VectorX _GD_suby;
+		VectorX _GD_vec;
+		VectorX _GD_z;
+
+		Real _GD_t;
+		Real _GD_epsilon;
+		
+		bool _GD_swi;
+		bool _GD_swi_opt;
+		bool _GD_break_swi;
+
+		Real _GD_maxNum;
+		Real _GD_minNum;
+
+		VectorX _GD_grad;
+		VectorX _GD_grad_or;
+		VectorX _GD_proj;
+
+		Real _GD_subW;
+		VectorX _GD_subdW;
+
+		bool _GD_swi_line;
+		VectorX _GD_f_x;
+		VectorX _GD_m_x;
+		VectorX _GD_b_x;
+		VectorX _GD_v_x;
+
+		Real _GD_f_ob;
+		Real _GD_m_ob;
+		Real _GD_b_ob;
+		VectorX _GD_v_ob;
+
+
 		/////////////////////////////////
 		// for TRUST-REGION ALGORITHM!!!
 	public:
@@ -201,7 +244,6 @@ namespace rovin
 		void TR_calcm(const VectorX& lam, /* output */ Real& m);
 		void TR_calceta(void);
 		void TR_calclamhat(void);
-
 
 	public:
 		// parameters for trust-region
@@ -225,6 +267,5 @@ namespace rovin
 
 		VectorX _TR_subx;
 		VectorX _TR_suby;
-
 	};
 }
