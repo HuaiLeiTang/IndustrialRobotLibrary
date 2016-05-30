@@ -48,6 +48,8 @@ int main()
 	//}
 	//cout << "computation time : " << (clock() - time) << endl << endl;
 
+	cout << "Test" << endl;
+
 	unsigned int dof = robot->getNumOfJoint();
 
 	StatePtr initState, finalState;
