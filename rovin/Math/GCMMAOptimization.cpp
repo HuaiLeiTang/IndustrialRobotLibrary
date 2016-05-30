@@ -71,9 +71,13 @@ namespace rovin
 		
 
 		// function evaluation variables
-		VectorX f0val(1), f0valm1(1);		MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
-		VectorX fival(_ineqN);				MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
-		f0valm1(0) = std::numeric_limits<Real>::max();
+		VectorX f0val(1);				MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
+		VectorX fival(_ineqN);			MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
+
+#ifdef STRATEGY_01
+		VectorX f0valm1(1), fivalm1(_ineqN);
+		MatrixX df0dxm1(1, _xN), dfidxm1(_ineqN, _xN);
+#endif
 
 
 		// variables for inner loop
@@ -117,11 +121,17 @@ namespace rovin
 			//cout << dfidxp << endl << endl;
 			//cout << dfidxm << endl << endl;
 
-
+#ifdef STRATEGY_01
+			calcSigma(iterOL, xk, xkm1, xkm2);
+			calcInitialRho_st01(iterOL, xk, xkm1, df0dx, df0dxm1, dfidx, dfidxm1);
+#else
 			calcInitialRho(df0dx, dfidx);
+#endif
 
-			//cout << rho0 << endl;
-			//cout << rhoi << endl;
+			//cout << "======" << endl;
+			//cout << iterOL << endl;
+			//cout << _ilrho0 << endl;
+			//cout << _ilrhoi << endl << endl;
 
 			//cout << "xk" << endl << xk << endl << endl;
 			//if ((iterOL % 2 == 0) && (iterOL > 1))
@@ -171,7 +181,7 @@ namespace rovin
 			// terminate condition
 			//cout << "abs(f0valm1(0) - f0valknu(0)) : " << abs(f0valm1(0) - f0valknu(0)) << endl;
 			//cout << "(xkm1 - xknu).norm() : " << (xkm1 - xknu).norm() << endl;
-			if (abs(f0valm1(0) - f0valknu(0)) < _tolFunc)
+			if (abs(f0val(0) - f0valknu(0)) < _tolFunc)
 				break;
 			if ((xkm1 - xknu).norm() < _tolX)
 				break;
@@ -182,7 +192,14 @@ namespace rovin
 			xk = xknu;
 			_ollowm1 = _ollow;
 			_oluppm1 = _olupp;
-			f0valm1(0) = f0valknu(0);
+			//f0valm1(0) = f0valknu(0);
+
+#ifdef STRATEGY_01
+			f0valm1 = f0val;
+			fivalm1 = fival;
+			df0dxm1 = df0dx;
+			dfidxm1 = dfidx;
+#endif
 
 			//cout << "---------------" << endl;
 			//cout << iterOL << endl << endl;
@@ -203,8 +220,11 @@ namespace rovin
 	{
 		if (iter == 0 || iter == 1) // first or second loop only
 		{
-			_ollow = xk - _ASYINIT * (_maxX - _minX);
-			_olupp = xk + _ASYINIT * (_maxX - _minX);
+			for (int j = 0; j < _xN; j++)
+			{
+				_ollow(j) = xk(j) - _ASYINIT * (_maxX(j) - _minX(j));
+				_olupp(j) = xk(j) + _ASYINIT * (_maxX(j) - _minX(j));
+			}
 		}
 		else
 		{
@@ -273,6 +293,105 @@ namespace rovin
 		}
 	}
 
+#ifdef STRATEGY_01
+	void GCMMAOptimization::calcSigma(int iter, const VectorX & xk, const VectorX & xkm1, const VectorX & xkm2)
+	{
+		if (iter == 0 || iter == 1) // first or second loop only
+		{
+			for (int j = 0; j < _xN; j++)
+				_olsigma(j) = _ASYINIT * (_maxX(j) - _minX(j));
+		}
+		else
+		{
+			for (int j = 0; j < _xN; j++)
+			{
+				if ((xk(j) - xkm1(j)) * (xkm1(j) - xkm2(j)) < 0)
+					_olsigma(j) *= _ASYDECR;
+				else if ((xk(j) - xkm1(j)) * (xkm1(j) - xkm2(j)) > 0)
+					_olsigma(j) *= _ASYINCR;
+				//else
+				//	_olsigma(j) *= 1.0;
+			}
+		}
+	}
+	void GCMMAOptimization::calcInitialRho_st01(int iter, const VectorX & xk, const VectorX & xkm1, const MatrixX & df0dx, const MatrixX & df0dxm1, const MatrixX & dfidx, const MatrixX & dfidxm1)
+	{
+		Real tmpnum, tmpden, tmpreal;
+		if (iter == 0)
+		{
+			_ilrho0 = 1.0;
+			for (int i = 0; i < _ineqN; i++)
+				_ilrhoi(i) = 1.0;
+		}
+		else
+		{
+			// calculate _ols
+			for (int j = 0; j < _xN; j++)
+				_ols(j) = xk(j) - xkm1(j);
+
+
+
+			// calculate _ilrho0
+			for (int j = 0; j < _xN; j++)
+			{
+				_olt(j) = df0dx(0, j) - df0dxm1(0, j);
+				_olb(j) = 2 * _olsigma(j) * abs(df0dx(0, j));
+			}
+
+			tmpnum = 0; tmpden = 0;
+			for (int j = 0; j < _xN; j++)
+			{
+				tmpnum += _ols(j) * _olt(j);
+				tmpden += _ols(j) * _ols(j);
+			}
+
+			_oleta = MIN(1E3, MAX(1E-3, tmpnum / tmpden));
+
+			tmpreal = 0;
+			for (int j = 0; j < _xN; j++)
+				tmpreal += _oleta * _olsigma(j) * _olsigma(j) - _olb(j);
+			tmpreal /= _xN;
+
+			if (tmpreal > 0)
+				_ilrho0 = tmpreal;
+			else
+				_ilrho0 = MAX(0.1*_ilrho0, 1E-5);
+
+			// calculate _ilrhoi
+			for (int i = 0; i < _ineqN; i++)
+			{
+
+				for (int j = 0; j < _xN; j++)
+				{
+					_olt(j) = dfidx(i, j) - dfidxm1(i, j);
+					_olb(j) = 2 * _olsigma(j) * abs(dfidx(i, j));
+				}
+
+				tmpnum = 0; tmpden = 0;
+				for (int j = 0; j < _xN; j++)
+				{
+					tmpnum += _ols(j) * _olt(j);
+					tmpden += _ols(j) * _ols(j);
+				}
+
+				_oleta = MIN(1E3, MAX(1E-3, tmpnum / tmpden));
+
+				tmpreal = 0;
+				for (int j = 0; j < _xN; j++)
+					tmpreal += _oleta * _olsigma(j) * _olsigma(j) - _olb(j);
+				tmpreal /= _xN;
+
+				if (tmpreal > 0)
+					_ilrhoi(i) = tmpreal;
+				else
+					_ilrhoi(i) = MAX(0.1*_ilrhoi(i), 1E-5);
+
+			}
+
+		}
+	}
+#endif
+
 	void GCMMAOptimization::calcInitialRho(const MatrixX & df0dx, const MatrixX & dfidx)
 	{
 		// input variable size:	df0dx(1, _xN), dfidx(_ineqN, _xN)
@@ -288,9 +407,7 @@ namespace rovin
 			tmpSum = 0;
 			for (int j = 0; j < _xN; j++)
 				tmpSum += abs(dfidx(i, j)) * (_maxX(j) - _minX(j));
-			_ilrhoi(i) = 0.1 * tmpSum / (Real)_xN;
-			if (_ilrhoi(i) < 1E-6)
-				_ilrhoi(i) = 1E-6;
+			_ilrhoi(i) = MAX(0.1 * tmpSum / (Real)_xN, 1E-6);
 		}
 	}
 
@@ -554,6 +671,12 @@ namespace rovin
 		_oluppm1.resize(_xN);
 		_olalpha.resize(_xN);
 		_olbeta.resize(_xN);
+#ifdef STRATEGY_01
+		_olsigma.resize(_xN);
+		_ols.resize(_xN);
+		_olt.resize(_xN);
+		_olb.resize(_xN);
+#endif
 	}
 
 	void GCMMAOptimization::allocILvar(void)
@@ -575,18 +698,12 @@ namespace rovin
 
 		Real deltaknu0 = (f0valknu(0) - f0tvalknu(0)) / dknu;
 		if (deltaknu0 > 0)
-			if (1.1*(_ilrho0 + deltaknu0) < 10 * _ilrho0)
-				_ilrho0 = 1.1*(_ilrho0 + deltaknu0);
-			else
-				_ilrho0 = 10 * _ilrho0;
+			_ilrho0 = MIN(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
 		VectorX deltaknui = (fivalknu - fitvalknu) / dknu;
 		for (int i = 0; i < _ineqN; i++)
 		{
 			if (deltaknui(i) > 0)
-				if (1.1*(_ilrhoi(i) + deltaknui(i) < 10 * _ilrhoi(i)))
-					_ilrhoi(i) = 1.1*(_ilrhoi(i) + deltaknui(i));
-				else
-					_ilrhoi(i) = 10 * _ilrhoi(i);
+				_ilrhoi(i) = MIN(1.1*(_ilrhoi(i) + deltaknui(i)), 10 * _ilrhoi(i));
 		}
 	}
 

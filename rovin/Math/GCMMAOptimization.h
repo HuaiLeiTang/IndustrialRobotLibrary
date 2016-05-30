@@ -3,6 +3,11 @@
 #include "Function.h"
 #include <rovin\Utils\Diagnostic.h>
 
+
+//#define STRATEGY_01
+#define STRATEGY_02
+
+
 namespace rovin
 {
 	class GCMMAOptimization
@@ -47,6 +52,12 @@ namespace rovin
 		void calcLowUpp(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2); ///< l^{k}, u^{k}
 		void calcAlphaBeta(const VectorX& xk); ///< alpha^{k}, beta^{k}
 		void calcPlusMinusMatrix(const MatrixX& mat, /* output */ MatrixX& matp, MatrixX& matm);
+
+#ifdef STRATEGY_01
+		void calcSigma(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2);
+		void calcInitialRho_st01(int iter, const VectorX& xk, const VectorX& xkm1, const MatrixX& df0dx, const MatrixX& df0dxm1,
+			const MatrixX& dfidx, const MatrixX& dfidxm1);
+#endif
 
 		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx);
 		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
@@ -99,6 +110,13 @@ namespace rovin
 		VectorX _oluppm1;
 		VectorX _olalpha;
 		VectorX _olbeta;
+#ifdef STRATEGY_01
+		VectorX _olsigma;
+		VectorX _ols;
+		VectorX _olt;
+		Real _oleta;
+		VectorX _olb;
+#endif
 
 	public:
 		// variables for inner loop: updated in every inner loop
