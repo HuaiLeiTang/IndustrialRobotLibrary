@@ -5,7 +5,7 @@
 
 
 //#define STRATEGY_01
-#define STRATEGY_02
+//#define STRATEGY_02
 
 
 namespace rovin
