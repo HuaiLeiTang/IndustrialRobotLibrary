@@ -200,15 +200,15 @@ namespace rovin
 				if (testILSuccess(p0, pi, q0, qi, r0, ri, xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
 					break; // xknu is the optimal solution
 
-							//cout << f0valknu << endl << endl;
-							//cout << fivalknu << endl << endl;
-							//cout << f0tvalknu << endl << endl;
-							//cout << fitvalknu << endl << endl;
+				//cout << f0valknu << endl << endl;
+				//cout << fivalknu << endl << endl;
+				//cout << f0tvalknu << endl << endl;
+				//cout << fitvalknu << endl << endl;
 
-							//cout << rho0 << endl << endl;
-							//cout << rhoi << endl << endl;
+				//cout << rho0 << endl << endl;
+				//cout << rhoi << endl << endl;
 
-							// update rho0/rhoi
+				// update rho0/rhoi
 				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu, rho0, rhoi);
 
 				//cout << rho0 << endl << endl;
@@ -1355,6 +1355,7 @@ namespace rovin
 		// initialize
 		TR_initializeSubProb(p0, pi, q0, qi, ri);
 		GD_initializeSubProb();
+		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_sublam, _GD_f_ob);
 		VectorX bi = -ri;
 		
 		int idx = 0, idx2 = 0;
@@ -1363,254 +1364,339 @@ namespace rovin
 		bool solFound = false;
 		while (iterSub < maxIterSub)
 		{
-			_GD_maxNum = 1;
-			_GD_minNum = -1;
+			_GD_maxNum = 1E+2;
+			idx = NULL;
 
-			TR_calcdW(p0, pi, q0, qi, ri, _GD_sublam, _GD_grad_or);
-			_GD_t = 1;
+			TR_calcdW(p0, pi, q0, qi, ri, _GD_sublam, _GD_grad_or); // calculate gradient
 			
-			if (_GD_swi)
-			{
-				if (_GD_sublam(idx) - _GD_t * _GD_grad_or(idx) > 0)
-					_GD_swi = false;
-			}
+			//if (_GD_swi)
+			//{
+			//	if (_GD_sublam(idx) - _GD_t * _GD_grad_or(idx) > 0)
+			//		_GD_swi = false;
+			//}
 
-			if (_GD_swi)
-			{
-				for (int i = 0; i < _ineqN; i++)
-				{
-					_GD_proj(i) = _GD_grad_or(i);
-				}
-				_GD_proj(idx) = 0;
-				_GD_proj /= _GD_proj.norm();
-				_GD_grad = _GD_proj * VectorInner(_GD_grad_or, _GD_proj, _ineqN);				
-			}
-			else
-			{
-				for (int i = 0; i < _ineqN; i++)
-					_GD_grad(i) = _GD_grad_or(i);
-			}
+			//if (_GD_swi)
+			//{
+			//	for (int i = 0; i < _ineqN; i++)
+			//	{
+			//		_GD_proj(i) = _GD_grad_or(i);
+			//	}
+			//	_GD_proj(idx) = 0;
+			//	_GD_proj /= _GD_proj.norm();
+			//	_GD_grad = _GD_proj * VectorInner(_GD_grad_or, _GD_proj, _ineqN);				
+			//}
+			//else
+			//{
+			//	for (int i = 0; i < _ineqN; i++)
+			//		_GD_grad(i) = _GD_grad_or(i);_
+			//}
+
+			for (int i = 0; i < _ineqN; i++)
+				_GD_grad(i) = _GD_grad_or(i) * _GD_proj(i);
 
 			//cout << "sublam" << endl << _GD_sublam << endl << endl;
 			//cout << "grad" << endl << _GD_grad << endl << endl;
 
-			if (_GD_swi == false)
-			{
-				for (int i = 0; i < _ineqN; i++)
-				{
-					if (_GD_grad(i) > 0)
-					{
-						if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
-							_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
-					}
-					else if (_GD_grad(i) < 0)
-					{
-						if (_GD_sublam(i) / _GD_grad(i) > _GD_minNum)
-							_GD_minNum = _GD_sublam(i) / _GD_grad(i);
-					}
-					else if (RealEqual(_GD_grad(i), 0))
-						LOG("RealEqual(_GD_grad(i), 0)");
-				}
-				_GD_t = _GD_maxNum;
-			}
-			else
-			{
-				for (int i = 0; i < _ineqN; i++)
-				{
-					if (i != idx)
-					{
-						if (_GD_grad(i) > 0)
-						{
-							if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
-								_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
-						}
-						else if (_GD_grad(i) < 0)
-						{
-							if (_GD_sublam(i) / _GD_grad(i) > _GD_minNum)
-								_GD_minNum = _GD_sublam(i) / _GD_grad(i);
-						}
-						else if (RealEqual(_GD_grad(i), 0))
-							LOG("RealEqual(_GD_grad(i), 0)");
-					}
-				}
-				_GD_t = _GD_maxNum;
-			}
+			//if (iterSub >= 90)
+			//{
+			//	cout << "[_GD_grad]" << endl << _GD_grad << endl << endl;
+			//	for (int i = 0; i < _ineqN; i++)
+			//	{
+			//		cout << "i : " << i << endl;
+			//		cout << "_GD_grad(i) : " << _GD_grad(i) << endl;
+			//		if (_GD_grad(i) > 0)
+			//		{
+			//			if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
+			//			{
+			//				_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
+			//				idx = i;
 
-			
-
-			// line search
-			_GD_v_ob.resize(3);
-			_GD_swi_line = false;
-			_GD_f_x = _GD_sublam;
-			_GD_m_x = _GD_sublam - 0.5 * _GD_t * _GD_grad;
-			_GD_b_x = _GD_sublam - _GD_t * _GD_grad;
-
-			TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
-			TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
-			TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
-			_GD_v_ob(0) = _GD_f_ob;
-			_GD_v_ob(1) = _GD_m_ob;
-			_GD_v_ob(2) = _GD_b_ob;
-
-			for (int i = 0; i < 5; i++)
-			{
-				_GD_t *= 0.5;
-				if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_f_ob))
-				{
-					_GD_b_x = _GD_m_x;
-					_GD_b_ob = _GD_m_ob;
-					_GD_m_x = _GD_f_x - 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
-				}
-				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_b_ob))
-				{
-					_GD_f_x = _GD_m_x;
-					_GD_f_ob = _GD_m_ob;
-					_GD_m_x = _GD_f_x - 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
-				}
-				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_m_ob))
-				{
-					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
-					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
-					_GD_swi_line = true;
-				}
-				else if (_GD_swi_line == true && RealEqual(_GD_v_ob.minCoeff(), _GD_f_ob))
-				{
-					_GD_m_x = _GD_f_x;
-					_GD_m_ob = _GD_f_ob;
-					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
-					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
-				}
-				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_b_ob))
-				{
-					_GD_m_x = _GD_b_x;
-					_GD_m_ob = _GD_b_ob;
-					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
-					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
-				}
-				else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_m_ob))
-				{
-					_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
-					_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
-					TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
-				}
-			}
-
-			_GD_v_ob(0) = _GD_f_ob;
-			_GD_v_ob(1) = _GD_m_ob;
-			_GD_v_ob(2) = _GD_b_ob;
-
-			Real min_coeff = _GD_v_ob.minCoeff();
-
-			if (RealEqual(min_coeff, _GD_f_ob))
-				_GD_sublam = _GD_f_x;
-			else if (RealEqual(min_coeff, _GD_m_ob))
-				_GD_sublam = _GD_m_x;
-			else if (RealEqual(min_coeff, _GD_b_ob))
-				_GD_sublam = _GD_b_x;
-
-			if (_GD_swi == false)
-			{
-				for (int i = 0; i < _ineqN; i++)
-				{
-					if (std::abs(_GD_sublam(i)) < 1E-4)
-					{
-						idx = i;
-						_GD_vec(idx) = 0;
-						_GD_swi = true;
-						//cout << "iterSub : " << iterSub << endl;
-						//cout << "idx : " << idx << endl;
-						//cout << "sublam" << endl << _GD_sublam << endl;
-					}
-				}
-			}
-			else
-			{
-				for (int i = 0; i < _ineqN; i++)
-				{
-					if (i != idx)
-					{
-						if (std::abs(_GD_sublam(i)) < 1E-4)
-						{
-							idx2 = i;
-							_GD_swi_opt = true;
-							//cout << "iterSub : " << iterSub << endl;
-							//cout << "idx : " << idx << endl;
-							//cout << "idx2 : " << idx2 << endl;
-							//cout << "sublam" << endl << _GD_sublam << endl;
-						}
-					}
-				}
-			}
-
-			// optimality check && terminal criterion
-			Real val1 = 0, val2 = 0;
-			if (_GD_swi_opt == true)
-			{
-				_GD_z(idx) = -1;
-				val1 = _GD_z.transpose() * -(_GD_grad_or);
-
-				//cout << "GD_z" << endl << _GD_z << endl;
-				//cout << "val1 : " << val1 << endl;
-
-				_GD_z(idx) = 0;
-				_GD_z(idx2) = -1;
-				val2 = _GD_z.transpose() * -(_GD_grad_or);
-
-				//cout << "GD_z" << endl << _GD_z << endl;
-				//cout << "val2 : " << val2 << endl;
-
-				_GD_z(idx2) = 0;
-				if (val1 > 0 && val2 > 0)
-				{
-					_GD_break_swi = true;
-					//LOG("_GD_swi_opt")
-				}
-				else if (val1 < 0 && val2 > 0)
-				{
-					idx = idx2;
-					idx2 = 0;
-					_GD_swi_opt = false;
-				}
-			}
-
-			if (_GD_grad.norm() < _GD_epsilon)
-			{
-				//LOG("_GD_grad.norm() < _GD_epsilon")
-				solFound = true;
-				break;
-			}
+			//			}
+			//		}
+			//	}
+			//	_GD_t = _GD_maxNum;
+			//}
 				
 
-			if (_GD_swi)
+			for (int i = 0; i < _ineqN; i++)
 			{
-				if (std::abs(_GD_grad_or.transpose() * _GD_vec) < _GD_epsilon)
+				if (_GD_grad(i) > 0)
 				{
-					//LOG("std::abs(_GD_grad_or.transpose() * _GD_vec) < _GD_epsilon")
-					solFound = true;
-					_GD_break_swi = true;
+					if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
+					{
+						_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
+						idx = i;
+						
+					}
 				}
-					
+			}
+			_GD_t = _GD_maxNum;
+
+			//if (iterSub >= 90)
+			//{
+			//	cout << "idx : " << idx << endl;
+			//	cout << "_GD_t : " << _GD_t << endl;
+			//}
+
+			//if (_GD_swi == false)
+			//{
+			//	for (int i = 0; i < _ineqN; i++)
+			//	{
+			//		if (_GD_grad(i) > 0)
+			//		{
+			//			if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
+			//				_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
+			//		}
+			//		else if (_GD_grad(i) < 0)
+			//		{
+			//			if (_GD_sublam(i) / _GD_grad(i) > _GD_minNum)
+			//				_GD_minNum = _GD_sublam(i) / _GD_grad(i);
+			//		}
+			//		else if (RealEqual(_GD_grad(i), 0))
+			//			LOG("RealEqual(_GD_grad(i), 0)");
+			//	}
+			//	_GD_t = _GD_maxNum;
+			//}
+			//else
+			//{
+			//	for (int i = 0; i < _ineqN; i++)
+			//	{
+			//		if (i != idx)
+			//		{
+			//			if (_GD_grad(i) > 0)
+			//			{
+			//				if (_GD_sublam(i) / _GD_grad(i) < _GD_maxNum)
+			//					_GD_maxNum = _GD_sublam(i) / _GD_grad(i);
+			//			}
+			//			else if (_GD_grad(i) < 0)
+			//			{
+			//				if (_GD_sublam(i) / _GD_grad(i) > _GD_minNum)
+			//					_GD_minNum = _GD_sublam(i) / _GD_grad(i);
+			//			}
+			//			else if (RealEqual(_GD_grad(i), 0))
+			//				LOG("RealEqual(_GD_grad(i), 0)");
+			//		}
+			//	}
+			//	_GD_t = _GD_maxNum;
+			//}
+
+			// line search
+			
+
+			_GD_b_x = _GD_sublam - _GD_t * _GD_grad;
+
+			//if (iterSub >= 90)
+			//{
+			//	cout << "iter : " << iterSub << endl;
+			//	cout << "[sublam]" << endl << _GD_sublam << endl;
+			//	cout << "[_GD_b_x]" << endl << _GD_b_x << endl;
+			//	cout << "[gradient]" << endl << _GD_grad << endl << endl;
+			//}
+
+			while (1)
+			{
+				TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+				if (_GD_b_ob < _GD_f_ob)
+					break;
+				_GD_t *= 0.5;
+				_GD_b_x = _GD_sublam - _GD_t * _GD_grad;
 			}
 
-			if (_GD_break_swi)
+			_GD_sublam = _GD_b_x;
+			_GD_f_ob = _GD_b_ob;
+
+			//_GD_v_ob.resize(3);
+			//_GD_swi_line = false;
+			//_GD_f_x = _GD_sublam;
+			//_GD_m_x = _GD_sublam - 0.5 * _GD_t * _GD_grad;
+			//_GD_b_x = _GD_sublam - _GD_t * _GD_grad;
+
+			//TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+			//TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
+			//TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+			//_GD_v_ob(0) = _GD_f_ob;
+			//_GD_v_ob(1) = _GD_m_ob;
+			//_GD_v_ob(2) = _GD_b_ob;
+
+			//for (int i = 0; i < 5; i++)
+			//{
+			//	_GD_t *= 0.5;
+			//	if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_f_ob))
+			//	{
+			//		_GD_b_x = _GD_m_x;
+			//		_GD_b_ob = _GD_m_ob;
+			//		_GD_m_x = _GD_f_x - 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
+			//	}
+			//	else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_b_ob))
+			//	{
+			//		_GD_f_x = _GD_m_x;
+			//		_GD_f_ob = _GD_m_ob;
+			//		_GD_m_x = _GD_f_x - 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_m_x, _GD_m_ob);
+			//	}
+			//	else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_m_ob))
+			//	{
+			//		_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+			//		_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+			//		_GD_swi_line = true;
+			//	}
+			//	else if (_GD_swi_line == true && RealEqual(_GD_v_ob.minCoeff(), _GD_f_ob))
+			//	{
+			//		_GD_m_x = _GD_f_x;
+			//		_GD_m_ob = _GD_f_ob;
+			//		_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+			//		_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+			//	}
+			//	else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_b_ob))
+			//	{
+			//		_GD_m_x = _GD_b_x;
+			//		_GD_m_ob = _GD_b_ob;
+			//		_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+			//		_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+			//	}
+			//	else if (_GD_swi_line == false && RealEqual(_GD_v_ob.minCoeff(), _GD_m_ob))
+			//	{
+			//		_GD_f_x = _GD_m_x + 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_f_x, _GD_f_ob);
+			//		_GD_b_x = _GD_m_x - 0.5 * _GD_t * _GD_grad;
+			//		TR_calcW(p0, pi, q0, qi, r0, ri, _GD_b_x, _GD_b_ob);
+			//	}
+			//}
+
+			//_GD_v_ob(0) = _GD_f_ob;
+			//_GD_v_ob(1) = _GD_m_ob;
+			//_GD_v_ob(2) = _GD_b_ob;
+
+			//Real min_coeff = _GD_v_ob.minCoeff();
+
+			//if (RealEqual(min_coeff, _GD_f_ob))
+			//	_GD_sublam = _GD_f_x;
+			//else if (RealEqual(min_coeff, _GD_m_ob))
+			//	_GD_sublam = _GD_m_x;
+			//else if (RealEqual(min_coeff, _GD_b_ob))
+			//	_GD_sublam = _GD_b_x;
+
+
+			for (int i = 0; i < _ineqN; i++)
 			{
+				if (std::abs(_GD_sublam(i)) < 1E-4)
+				{
+					_GD_proj(i) = 0;
+				}
+			}
+
+			//if (_GD_swi == false)
+			//{
+			//	for (int i = 0; i < _ineqN; i++)
+			//	{
+			//		if (std::abs(_GD_sublam(i)) < 1E-4)
+			//		{
+			//			idx = i;
+			//			_GD_vec(idx) = 0;
+			//			_GD_swi = true;
+			//		}
+			//	}
+			//}
+			//else
+			//{
+			//	for (int i = 0; i < _ineqN; i++)
+			//	{
+			//		if (i != idx)
+			//		{
+			//			if (std::abs(_GD_sublam(i)) < 1E-4)
+			//			{
+			//				idx2 = i;
+			//				_GD_swi_opt = true;
+			//			}
+			//		}
+			//	}
+			//}
+
+			// optimality check && terminal criterion
+			//Real val1 = 0, val2 = 0;
+			//if (_GD_swi_opt == true)
+			//{
+			//	_GD_z(idx) = -1;
+			//	val1 = _GD_z.transpose() * -(_GD_grad_or);
+
+			//	//cout << "GD_z" << endl << _GD_z << endl;
+			//	//cout << "val1 : " << val1 << endl;
+
+			//	_GD_z(idx) = 0;
+			//	_GD_z(idx2) = -1;
+			//	val2 = _GD_z.transpose() * -(_GD_grad_or);
+
+			//	//cout << "GD_z" << endl << _GD_z << endl;
+			//	//cout << "val2 : " << val2 << endl;
+
+			//	_GD_z(idx2) = 0;
+			//	if (val1 > 0 && val2 > 0)
+			//	{
+			//		_GD_break_swi = true;
+			//		//LOG("_GD_swi_opt")
+			//	}
+			//	else if (val1 < 0 && val2 > 0)
+			//	{
+			//		idx = idx2;
+			//		idx2 = 0;
+			//		_GD_swi_opt = false;
+			//	}
+			//}
+
+			int cnt = 0;
+			for (int i = 0; i < _ineqN; i++)
+			{
+				if (_GD_grad(i) * _GD_sublam(i) < 5E-2)
+					cnt++;
+			}
+			if (cnt == _ineqN)
+			{
+				//cout << "iterUsb : " << iterSub << endl;
+				//cout << "[sublam]" << endl << _GD_sublam << endl;
+				//cout << "[_GD_b_x]" << endl << _GD_b_x << endl;
+				//cout << "[gradient]" << endl << _GD_grad << endl << endl;
 				solFound = true;
 				break;
 			}
+
+			//if (_GD_grad.norm() < _GD_epsilon)
+			//{
+			//	//LOG("_GD_grad.norm() < _GD_epsilon")
+			//	solFound = true;
+			//	break;
+			//}
+				
+
+			//if (_GD_swi)
+			//{
+			//	if (std::abs(_GD_grad_or.transpose() * _GD_vec) < _GD_epsilon)
+			//	{%
+			//		//LOG("std::abs(_GD_grad_or.transpose() * _GD_vec) < _GD_epsilon")
+			//		solFound = true;
+			//		_GD_break_swi = true;
+			//	}
+			//		
+			//}
+
+			//if (_GD_break_swi)
+			//{
+			//	solFound = true;
+			//	break;
+			//}
+
 			
 			iterSub++;
 			
 		}
 
+		//cout << "iterSub : " << iterSub << endl;
 		if (!solFound)
 			//LOG("exceeded max iteration number - 'TRsolveSubProblem'");
 
@@ -1646,6 +1732,7 @@ namespace rovin
 		_GD_grad.resize(_ineqN);
 		_GD_grad_or.resize(_ineqN);
 		_GD_proj.resize(_ineqN);
+		_GD_proj.setOnes();
 
 		_GD_subdW.resize(_ineqN);
 	}
@@ -1819,6 +1906,11 @@ namespace rovin
 
 			iterSub++;
 		}
+
+		//_GD_grad.resize(_ineqN);
+		//TR_calcdW(p0, pi, q0, qi, ri, _TR_sublam, _GD_grad);
+		//cout << "[grad]" << endl << _GD_grad << endl;
+		//cout << "[_TR_sublam]" << endl << _TR_sublam << endl << endl;
 
 		if (!solFound)
 			LOG("exceeded max iteration number - 'TRsolveSubProblem'");

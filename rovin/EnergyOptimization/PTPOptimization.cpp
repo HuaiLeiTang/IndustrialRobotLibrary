@@ -324,7 +324,6 @@ namespace rovin{
 			//cout << "minX" << endl << minX << endl << endl;
 			//cout << "maxX" << endl << maxX << endl << endl;
 
-
 			_GCMMAoptimizer.initialize(initX.size(), _IneqFunc->func(initX).size());
 			_GCMMAoptimizer.setMinMax(minX, maxX);
 			_GCMMAoptimizer.setObjectiveFunction(_objectFunc);
@@ -340,7 +339,7 @@ namespace rovin{
 			}
 			else if (_optType == OptimizationType::GCMMA_TR)
 			{
-				for (int l = 0; l < 100; l++)
+				//for (int l = 0; l < 100; l++)
 					_GCMMAoptimizer.TR_solve(initX);
 			}
 			else if (_optType == OptimizationType::GCMMA_GD)
