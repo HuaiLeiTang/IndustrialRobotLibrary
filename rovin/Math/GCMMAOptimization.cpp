@@ -25,6 +25,9 @@ namespace rovin
 		_tolFunc = 1E-4;
 		_maxIterOL = 1000;
 		_maxIterIL = 1000;
+
+		//_minX = -VectorX(_xN).setConstant(RealMax);
+		//_maxX = -VectorX(_xN).setConstant(RealMax);
 	}
 
 	void GCMMAOptimization::setParameters(const Real & albefa, const Real & move0, const Real & asyinit, const Real & asydecr, const Real & asyincr)
@@ -1362,9 +1365,7 @@ namespace rovin
 
 		   iterSub++;
 	   }
-
-	   //cout << iterSub << endl;
-
+	   //cout << iterSub << endl;.
 	   if (!solFound)
 		   LOG("exceeded max iteration number - 'TRsolveSubProblem'");
 

@@ -35,6 +35,7 @@ namespace rovin{
 				_noptJointIdx.push_back(i);
 			}
 		}
+		_GCMMAoptimizer = NULL;
 	}
 
 	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
@@ -48,7 +49,6 @@ namespace rovin{
 		_tf = tf;
 		_initialState = initialState;
 		_finalState = finalState;
-		
 
 		_numOfOptJoint = 0;
 		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
@@ -64,10 +64,7 @@ namespace rovin{
 			}
 		}
 		_optType = optType;
-		if (_optType == OptimizationType::GCMMA)
-			_GCMMAoptimizer = new GCMMA_PDIPM();
-		else if (_optType == OptimizationType::GCMMA_TR)
-			_GCMMAoptimizer = new GCMMA_TRM();
+		_GCMMAoptimizer = NULL;
 	}
 
 	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
@@ -82,7 +79,6 @@ namespace rovin{
 		_initialState = initialState;
 		_finalState = finalState;
 
-
 		_numOfOptJoint = 0;
 		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
 		{
@@ -97,11 +93,8 @@ namespace rovin{
 			}
 		}
 		_optType = optType;
-		if (_optType == OptimizationType::GCMMA)
-			_GCMMAoptimizer = new GCMMA_PDIPM();
-		else if (_optType == OptimizationType::GCMMA_TR)
-			_GCMMAoptimizer = new GCMMA_TRM();
 		_objectiveType = objectiveType;
+		_GCMMAoptimizer = NULL;
 	}
 
 	void PTPOptimization::makeBSplineKnot()
@@ -311,6 +304,7 @@ namespace rovin{
 		}
 		else if ((_optType == OptimizationType::GCMMA) || (_optType == OptimizationType::GCMMA_TR) || (_optType == OptimizationType::GCMMA_GD))
 		{
+			
 			VectorX minX(initX.size()), maxX(initX.size());
 			//for (int iii = 0; iii < _numOfOptCP; iii++)
 			//{
@@ -329,7 +323,11 @@ namespace rovin{
 				}
 			}
 
-			_GCMMAoptimizer->initialize(initX.size(), _IneqFunc->func(initX).size());
+			if (_optType == OptimizationType::GCMMA)
+				_GCMMAoptimizer = new GCMMA_PDIPM(initX.size(), _IneqFunc->func(initX).size());
+			else if (_optType == OptimizationType::GCMMA_TR)
+				_GCMMAoptimizer = new GCMMA_TRM(initX.size(), _IneqFunc->func(initX).size());
+
 			_GCMMAoptimizer->setMinMax(minX, maxX);
 			_GCMMAoptimizer->setObjectiveFunction(_objectFunc);
 			_GCMMAoptimizer->setInequalityConstraint(_IneqFunc);

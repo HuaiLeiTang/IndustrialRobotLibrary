@@ -56,11 +56,11 @@ int main()
 
 
 	std::cout << "------- [NLOPT RESULT] -------" << endl;
-	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::energyloss);
 	PTPManagerNlopt.generateTrajectory();
 
 	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
 	PTPManagerManualOptTR.generateTrajectory();
 
 
