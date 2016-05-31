@@ -8,12 +8,12 @@ namespace rovin {
 
 	State::State(unsigned int dof) : _dof(dof), _stateInfoUpToDate(0)
 	{
-		for (int i = 0; i < _dof+1; i++)
+		for (unsigned int i = 0; i < _dof+1; i++)
 		{
 			_linkState.push_back(LinkState());
 		}
 
-		for (int i = 0; i < _dof; i++)
+		for (unsigned int i = 0; i < _dof; i++)
 		{
 			_jointState.push_back(JointState());
 		}

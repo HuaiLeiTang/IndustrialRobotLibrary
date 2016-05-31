@@ -4,8 +4,6 @@
 #include <iostream>
 #include <time.h>
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
 
 using namespace std;
 
@@ -104,19 +102,25 @@ namespace rovin
 			calcPlusMinusMatrix(dfidx, dfidxp, dfidxm);
 
 
-			//std::cout << low << std::endl << std::endl;
-			//std::cout << upp << std::endl << std::endl;
-			//std::cout << alpha << std::endl << std::endl;
-			//std::cout << beta << std::endl << std::endl;
+			//std::cout << _ollow << std::endl << std::endl;
+			//std::cout << _olupp << std::endl << std::endl;
+			//std::cout << _olalpha << std::endl << std::endl;
+			//std::cout << _olbeta << std::endl << std::endl;
+			//saveVectorX2txt123(_ollow, filedd);
+			//saveVectorX2txt123(_olupp, filedd);
+			//saveVectorX2txt123(_olalpha, filedd);
+			//saveVectorX2txt123(_olbeta, filedd);
+			
 
 			//cout << f0val << endl;
 			//cout << fival << endl;
 			//cout << df0dx << endl << endl;
-			//cout << df0dxp << endl << endl;
-			//cout << df0dxm << endl << endl;
 			//cout << dfidx << endl << endl;
-			//cout << dfidxp << endl << endl;
-			//cout << dfidxm << endl << endl;
+
+			//saveVectorX2txt123(f0val, filedd);
+			//saveVectorX2txt123(fival, filedd);
+			//saveMatrixX2txt123(df0dx, filedd);
+			//saveMatrixX2txt123(dfidx, filedd);
 
 #ifdef STRATEGY_01
 			calcSigma(iterOL, xk, xkm1, xkm2);
@@ -129,6 +133,9 @@ namespace rovin
 			//cout << iterOL << endl;
 			//cout << _ilrho0 << endl;
 			//cout << _ilrhoi << endl << endl;
+
+			//saveRealX2txt123(_ilrho0, filedd);
+			//saveVectorX2txt123(_ilrhoi, filedd);
 
 			//cout << "xk" << endl << xk << endl << endl;
 			//if ((iterOL % 2 == 0) && (iterOL > 1))
@@ -143,16 +150,24 @@ namespace rovin
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
 
-				//cout << p0 << endl << endl;
-				//cout << pi << endl << endl;
-				//cout << q0 << endl << endl;
-				//cout << qi << endl << endl;
-				//cout << r0 << endl << endl;
-				//cout << ri << endl << endl;
+				//cout << _ilp0 << endl << endl;
+				//cout << _ilpi << endl << endl;
+				//cout << _ilq0 << endl << endl;
+				//cout << _ilqi << endl << endl;
+				//cout << _ilr0 << endl << endl;
+				//cout << _ilri << endl << endl;
+
+				//saveVectorX2txt123(_ilp0, filedd);
+				//saveMatrixX2txt123(_ilpi, filedd);
+				//saveVectorX2txt123(_ilq0, filedd);
+				//saveMatrixX2txt123(_ilqi, filedd);
+				//saveRealX2txt123(_ilr0, filedd);
+				//saveVectorX2txt123(_ilri, filedd);
 
 				solveSubProblem(xknu);
 
 				//cout << xknu << endl << endl;
+				//saveVectorX2txt123(xknu, filedd);
 
 
 				if (testILSuccess(xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
@@ -163,21 +178,35 @@ namespace rovin
 				//cout << f0tvalknu << endl << endl;
 				//cout << fitvalknu << endl << endl;
 
+				//saveVectorX2txt123(f0valknu, filedd);
+				//saveVectorX2txt123(fivalknu, filedd);
+				//saveVectorX2txt123(f0tvalknu, filedd);
+				//saveVectorX2txt123(fitvalknu, filedd);
+
 				//cout << rho0 << endl << endl;
 				//cout << rhoi << endl << endl;
 
 				// update rho0/rhoi
 				updateRho0i(xknu, xk, f0valknu, fivalknu, f0tvalknu, fitvalknu);
 
-				//cout << rho0 << endl << endl;
-				//cout << rhoi << endl << endl;
+				//cout << _ilrho0 << endl << endl;
+				//cout << _ilrhoi << endl << endl;
+
+				//saveRealX2txt123(_ilrho0, filedd);
+				//saveVectorX2txt123(_ilrhoi, filedd);
 
 				iterIL++;
 			}
 
+			//cout << iterIL << endl;
+			//cout << xknu << endl;
+
 			// terminate condition
 			//cout << "abs(f0valm1(0) - f0valknu(0)) : " << abs(f0valm1(0) - f0valknu(0)) << endl;
 			//cout << "(xkm1 - xknu).norm() : " << (xkm1 - xknu).norm() << endl;
+
+			//cout << f0val(0) << endl << endl;
+
 			if (abs(f0val(0) - f0valknu(0)) < _tolFunc)
 				break;
 			if ((xkm1 - xknu).norm() < _tolX)
@@ -290,6 +319,7 @@ namespace rovin
 		}
 	}
 
+
 #ifdef STRATEGY_01
 	void GCMMAOptimization::calcSigma(int iter, const VectorX & xk, const VectorX & xkm1, const VectorX & xkm2)
 	{
@@ -308,7 +338,7 @@ namespace rovin
 					_olsigma(j) *= _ASYINCR;
 				//else
 				//   _olsigma(j) *= 1.0;
-				_olsigma(j) = MAX(0.01*(_maxX(j) - _minX(j)), MIN(_olsigma(j), 10 * (_maxX(j) - _minX(j))));
+				_olsigma(j) = Max(0.01*(_maxX(j) - _minX(j)), Min(_olsigma(j), 10 * (_maxX(j) - _minX(j))));
 			}
 		}
 	}
@@ -343,7 +373,7 @@ namespace rovin
 				tmpden += _ols(j) * _ols(j);
 			}
 
-			_oleta = MIN(1E3, MAX(1E-3, tmpnum / tmpden));
+			_oleta = Min(1E3, Max(1E-3, tmpnum / tmpden));
 
 			tmpreal = 0;
 			for (int j = 0; j < _xN; j++)
@@ -353,7 +383,7 @@ namespace rovin
 			if (tmpreal > 0)
 				_ilrho0 = tmpreal;
 			else
-				_ilrho0 = MAX(0.1*_ilrho0, 1E-5);
+				_ilrho0 = Max(0.1*_ilrho0, 1E-5);
 
 			// calculate _ilrhoi
 			for (int i = 0; i < _ineqN; i++)
@@ -372,7 +402,7 @@ namespace rovin
 					tmpden += _ols(j) * _ols(j);
 				}
 
-				_oleta = MIN(1E3, MAX(1E-3, tmpnum / tmpden));
+				_oleta = Min(1E3, Max(1E-3, tmpnum / tmpden));
 
 				tmpreal = 0;
 				for (int j = 0; j < _xN; j++)
@@ -382,7 +412,7 @@ namespace rovin
 				if (tmpreal > 0)
 					_ilrhoi(i) = tmpreal;
 				else
-					_ilrhoi(i) = MAX(0.1*_ilrhoi(i), 1E-5);
+					_ilrhoi(i) = Max(0.1*_ilrhoi(i), 1E-5);
 
 			}
 
@@ -405,7 +435,7 @@ namespace rovin
 			tmpSum = 0;
 			for (int j = 0; j < _xN; j++)
 				tmpSum += abs(dfidx(i, j)) * (_maxX(j) - _minX(j));
-			_ilrhoi(i) = MAX(0.1 * tmpSum / (Real)_xN, 1E-6);
+			_ilrhoi(i) = Max(0.1 * tmpSum / (Real)_xN, 1E-6);
 		}
 	}
 
@@ -528,12 +558,27 @@ namespace rovin
 
 		Real deltaknu0 = (f0valknu(0) - f0tvalknu(0)) / dknu;
 		if (deltaknu0 > 0)
-			_ilrho0 = MIN(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
+			if (1.1*(_ilrho0 + deltaknu0) < 10 * _ilrho0)
+				_ilrho0 = 1.1*(_ilrho0 + deltaknu0);
+			else
+				_ilrho0 = 10 * _ilrho0;
+			//_ilrho0 = MIN(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
 		VectorX deltaknui = (fivalknu - fitvalknu) / dknu;
 		for (int i = 0; i < _ineqN; i++)
 		{
+			//cout << "================" << endl;
+			//cout << i << '\t' << _ilrhoi(i) << '\t' << deltaknui(i) << endl;
+			//cout << 1.1*(_ilrhoi(i) + deltaknui(i)) << '\t' << 10 * _ilrhoi(i) << endl;
+			//Real tmpval;
+			//if (deltaknui(i) > 0)
+			//	if (1.1*(_ilrhoi(i) + deltaknui(i)) < 10 * _ilrhoi(i))
+			//		_ilrhoi(i) = 1.1*(_ilrhoi(i) + deltaknui(i));
+			//	else
+			//		_ilrhoi(i) = 10 * _ilrhoi(i);
+
 			if (deltaknui(i) > 0)
-				_ilrhoi(i) = MIN(1.1*(_ilrhoi(i) + deltaknui(i)), 10 * _ilrhoi(i));
+				_ilrhoi(i) = Min(1.1*(_ilrhoi(i) + deltaknui(i)), 10 * _ilrhoi(i));
+			//cout << _ilrhoi(i) << '\t' <<tmpval << endl;
 		}
 	}
 
@@ -1248,6 +1293,10 @@ namespace rovin
 	   // initialize
 	   initializeSubProb();
 
+	   //saveVectorX2txt123(_subdW, filedd);
+	   //saveVectorX2txt123(_subdWm1, filedd);
+	   //saveRealX2txt123(_radius, filedd);
+
 	   int iterSub = 0, maxIterSub = 1000;
 	   bool solFound = false;
 	   while (iterSub < maxIterSub)
@@ -1256,10 +1305,14 @@ namespace rovin
 		   // step 1-1: calculate eta - equation(16)
 		   calceta();
 		   //cout << _TR_subeta << endl << endl;
+		   //saveRealX2txt123(_subeta, filedd);
 
 		   // step 1-2: calculate lambda_hat - equation(18)
 		   calclamhat();
 		   //cout << _TR_sublamhat << endl << endl;
+
+		   //saveVectorX2txt123(_sublam, filedd);
+		   //saveVectorX2txt123(_sublamhat, filedd);
 
 		   // step 2: calculate theta
 		   calcW(_sublam, _subW);
@@ -1268,6 +1321,11 @@ namespace rovin
 		   calcm(_sublamhat, _submhat);
 		   _subtheta = (_subW - _subWhat) / (_subm - _submhat);
 
+		   //saveRealX2txt123(_subW, filedd);
+		   //saveRealX2txt123(_subWhat, filedd);
+		   //saveRealX2txt123(_subm, filedd);
+		   //saveRealX2txt123(_submhat, filedd);
+		   //saveRealX2txt123(_subtheta, filedd);
 
 		   //cout << _TR_subW << endl << endl;
 		   //cout << _TR_subWhat << endl << endl;
@@ -1304,6 +1362,8 @@ namespace rovin
 
 		   iterSub++;
 	   }
+
+	   //cout << iterSub << endl;
 
 	   if (!solFound)
 		   LOG("exceeded max iteration number - 'TRsolveSubProblem'");
@@ -1369,7 +1429,7 @@ namespace rovin
 		   //cout << p0(j) + ltpj << endl;
 		   //cout << q0(j) + ltqj << endl << endl;
 		   tmpval = (sqrt(_ilp0(j) + ltpj) * _ollow(j) + sqrt(_ilq0(j) + ltqj) * _olupp(j)) / (sqrt(_ilp0(j) + ltpj) + sqrt(_ilq0(j) + ltqj));
-		   subx(j) = MAX(_olalpha(j), MIN(_olbeta(j), tmpval));
+		   subx(j) = Max(_olalpha(j), Min(_olbeta(j), tmpval));
 		   //cout << _olalpha(j) << '\t' << _olbeta(j) << '\t' << tmpval << endl << endl;
 	   }
    }
@@ -1377,7 +1437,7 @@ namespace rovin
    void GCMMA_TRM::calcy(const VectorX & lam, VectorX & suby)
    {
 	   for (int i = 0; i < _ineqN; i++)
-		   suby(i) = MAX(0.0, (lam(i) - _ci(i)) / _di(i));
+		   suby(i) = Max(0.0, (lam(i) - _ci(i)) / _di(i));
    }
 
    void GCMMA_TRM::calcW(const VectorX & lam, Real & W)
@@ -1474,7 +1534,7 @@ namespace rovin
 	   for (int i = 0; i < _ineqN; i++)
 	   {
 		   //cout << _TR_sublam(i) + _TR_radius << '\t' << _TR_sublam(i) - _TR_radius << '\t' << _TR_sublam(i) - (_TR_subdW(i)) / (_TR_subeta) << endl << endl;
-		   _sublamhat(i) = MIN(_sublam(i) + _radius, MAX(MAX(0.0, _sublam(i) - _radius), _sublam(i) - (_subdW(i)) / (_subeta)));
+		   _sublamhat(i) = Min(_sublam(i) + _radius, Max(Max(0.0, _sublam(i) - _radius), _sublam(i) - (_subdW(i)) / (_subeta)));
 		   //cout << _TR_sublamhat(i) << endl << endl;
 	   }
    }

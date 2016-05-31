@@ -3,10 +3,7 @@
 #include "Function.h"
 #include <rovin\Utils\Diagnostic.h>
 
-
 //#define STRATEGY_01
-//#define STRATEGY_02
-
 
 namespace rovin
 {
@@ -132,14 +129,15 @@ namespace rovin
 		Real _tolFunc;
 		int _maxIterOL;
 		int _maxIterIL;
-	
+
+
 	};
 
 	class GCMMA_TRM : public GCMMAOptimization
 	{
 		// solve GCMMA subproblem by using 'Trust-Region Method'
 	public:
-		GCMMA_TRM() : GCMMAOptimization() { setParametersTR(0.4, 0.6, 0.2, 0.4, 1.5); }
+		GCMMA_TRM() : GCMMAOptimization() { setParametersTR(/*0.4, 0.8, 0.2, 0.4, 1.5*/0.4, 0.7, 0.4, 0.7, 1.3); }
 		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.3, 0.7, 0.5, 0.7, 1.2); }
 
 	public:
