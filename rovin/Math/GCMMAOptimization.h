@@ -3,10 +3,8 @@
 #include "Function.h"
 #include <rovin\Utils\Diagnostic.h>
 
-
-//#define STRATEGY_01
+#define STRATEGY_01
 //#define STRATEGY_02
-
 
 namespace rovin
 {
@@ -24,6 +22,85 @@ namespace rovin
 		VectorX _ci;
 		VectorX _di;
 
+		// terminate conditions
+		Real _tolX;
+		Real _tolFunc;
+		int _maxIterOL;
+		int _maxIterIL;
+
+		VectorX resultX;
+		Real resultFunc;
+	
+	public:
+		GCMMAOptimization(const int xN, const int ineqN) : _xN(xN), _ineqN(ineqN), _objectFunc(NULL), _ineqConstraint(NULL){ initialize(xN, ineqN); }
+		virtual ~GCMMAOptimization() {}
+
+		// main function
+		void solve(const VectorX& initialX);
+		
+		// get functions
+		const FunctionPtr& getObjectiveFunction() const { return _objectFunc; }
+		const FunctionPtr& getInequalityConstraint() const { return _ineqConstraint; }
+		FunctionPtr& getObjectiveFunction() { return _objectFunc; }
+		FunctionPtr& getInequalityConstraint() { return _ineqConstraint; }
+		const VectorX& getResultX() const { return resultX; }
+		const Real getResultFunc() const { return resultFunc; }
+
+		// set functions
+		void setXN(const int xN) { _xN = xN; }
+		void setIneqN(const int ineqN) { _ineqN = ineqN; }
+		void setObjectiveFunction(const FunctionPtr& objectFunc) { _objectFunc = objectFunc; }
+		void setInequalityConstraint(const FunctionPtr& ineqConstraint) { _ineqConstraint = ineqConstraint; }
+		void setParameters(const Real& albefa, const Real& move0, const Real& asyinit, const Real& asydecr, const Real& asyincr);
+		void setCoefficients(const Real& a0, const VectorX& ai, const VectorX& ci, const VectorX& di);
+		void setMinMax(const VectorX& minX, const VectorX& maxX);
+		void setTolX(const Real tolX) { _tolX = tolX; }
+		void setTolFunc(const Real tolFunc) { _tolFunc = tolFunc; }
+		void setMaxIterOL(const int maxIterOL) { _maxIterOL = maxIterOL; }
+		void setMaxIterIL(const int maxIterIL) { _maxIterIL = maxIterIL; }
+
+	private:
+		void initialize(int xN, int ineqN);
+		// memory allocation for variables of outer loop/inner loop/sub problem
+		virtual void allocSUBvar(void) = 0;
+		void allocOLvar(void);
+		void allocILvar(void);
+
+		virtual void solveSubProblem(/* output */ VectorX& xout) = 0;
+		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx);
+		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
+		void calcf0tilde(const VectorX& x, /* output */ VectorX& f0tval);
+		void calcfitilde(const VectorX& x, /* output */ VectorX& fitval);
+		void calcLowUpp(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2);
+		void calcAlphaBeta(const VectorX& xk);
+		void calcPlusMinusMatrix(const MatrixX& mat, /* output */ MatrixX& matp, MatrixX& matm);
+		void updateRho0i(const VectorX& xknu, const VectorX& xk, const VectorX& f0valknu, const VectorX& fivalknu, const VectorX& f0tvalknu, const VectorX& fitvalknu);
+		bool testILSuccess(const VectorX& testx, /* output */ VectorX& f0valknu, VectorX& fivalknu, VectorX& f0tvalknu, VectorX& fitvalknu);
+#ifdef STRATEGY_01
+		void calcSigma(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2);
+		void calcInitialRho_st01(int iter, const VectorX& xk, const VectorX& xkm1, const MatrixX& df0dx, const MatrixX& df0dxm1,
+			const MatrixX& dfidx, const MatrixX& dfidxm1);
+#endif
+	private:
+		// user setting parameters
+		Real _ALBEFA;
+		Real _MOVE0;
+		Real _ASYINIT;
+		Real _ASYDECR;
+		Real _ASYINCR;
+
+		// lower/upper bound for x
+		VectorX _minX;
+		VectorX _maxX;
+
+#ifdef STRATEGY_01
+		VectorX _olsigma;
+		VectorX _ols;
+		VectorX _olt;
+		Real _oleta;
+		VectorX _olb;
+#endif
+	public:
 		// variables for outer loop: updated in every outer loop
 		VectorX _ollow;
 		VectorX _ollowm1;
@@ -41,123 +118,12 @@ namespace rovin
 		Real _ilrho0;
 		VectorX _ilri;
 		VectorX _ilrhoi;
-
-#ifdef STRATEGY_01
-		VectorX _olsigma;
-		VectorX _ols;
-		VectorX _olt;
-		Real _oleta;
-		VectorX _olb;
-#endif
-
-	public:
-		GCMMAOptimization() : _xN(-1), _ineqN(-1),
-			_objectFunc(FunctionPtr(new EmptyFunction())), _ineqConstraint(FunctionPtr(new EmptyFunction())) {}
-		GCMMAOptimization(int xN, int ineqN) : _xN(xN), _ineqN(ineqN),
-			_objectFunc(FunctionPtr(new EmptyFunction())), _ineqConstraint(FunctionPtr(new EmptyFunction())) {
-			initialize(xN, ineqN);
-		}
-
-		
-
-		// get functions
-		const FunctionPtr& getObjectiveFunction() const { return _objectFunc; }
-		const FunctionPtr& getInequalityConstraint() const { return _ineqConstraint; }
-		FunctionPtr& getObjectiveFunction() { return _objectFunc; }
-		FunctionPtr& getInequalityConstraint() { return _ineqConstraint; }
-		const VectorX& getResultX() const { return resultX; }
-		const Real getResultFunc() const { return resultFunc; }
-
-		// set functions
-		void setXN(const int xN) { _xN = xN; }
-		void setIneqN(const int ineqN) { _ineqN = ineqN; }
-		void setObjectiveFunction(const FunctionPtr& objectFunc) { _objectFunc = objectFunc; }
-		void setInequalityConstraint(const FunctionPtr& ineqConstraint) { _ineqConstraint = ineqConstraint; }
-		void setParameters(const Real& albefa, const Real& move0, const Real& asyinit, const Real& asydecr, const Real& asyincr);
-		void setCoefficients(const Real& a0, const VectorX& ai, const VectorX& ci, const VectorX& di);
-		void setMinMax(const VectorX& minX, const VectorX& maxX);
-
-
-		void solve(const VectorX& initialX);
-
-		virtual ~GCMMAOptimization() {}
-
-	public:
-		
-
-#ifdef STRATEGY_01
-		void calcSigma(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2);
-		void calcInitialRho_st01(int iter, const VectorX& xk, const VectorX& xkm1, const MatrixX& df0dx, const MatrixX& df0dxm1,
-			const MatrixX& dfidx, const MatrixX& dfidxm1);
-#endif
-
-		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx);
-		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
-		void updateRho0i(const VectorX& xknu, const VectorX& xk, const VectorX& f0valknu, const VectorX& fivalknu, const VectorX& f0tvalknu, const VectorX& fitvalknu);
-		bool testILSuccess(const VectorX& testx, /* output */ VectorX& f0valknu, VectorX& fivalknu, VectorX& f0tvalknu, VectorX& fitvalknu);
-		void calcf0tilde(const VectorX& x, /* output */ VectorX& f0tval);
-		void calcfitilde(const VectorX& x, /* output */ VectorX& fitval);
-
-		virtual void solveSubProblem(/* output */ VectorX& xout) = 0;
-
-		// memory allocation for variables of outer loop/inner loop/sub problem
-		void allocOLvar(void);
-		void allocILvar(void);
-		virtual void allocSUBvar(void) = 0;
-
-		void initialize(int xN, int ineqN);
-
-	private:
-		void calcLowUpp(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2); ///< l^{k}, u^{k}
-		void calcAlphaBeta(const VectorX& xk); ///< alpha^{k}, beta^{k}
-		void calcPlusMinusMatrix(const MatrixX& mat, /* output */ MatrixX& matp, MatrixX& matm);
-
-	private:
-		VectorX resultX;
-		Real resultFunc;
-
-		// user setting parameters
-		Real _ALBEFA;
-		Real _MOVE0;
-		Real _ASYINIT;
-		Real _ASYDECR;
-		Real _ASYINCR;
-
-		// lower/upper bound for x
-		VectorX _minX;
-		VectorX _maxX;
-
-		// terminate conditions
-		Real _tolX;
-		Real _tolFunc;
-		int _maxIterOL;
-		int _maxIterIL;
-	
 	};
 
-	class GCMMA_TRM : public GCMMAOptimization
+
+	class GCMMA_TRM : public GCMMAOptimization // solve GCMMA subproblem by using 'Trust-Region Method'
 	{
-		// solve GCMMA subproblem by using 'Trust-Region Method'
-	public:
-		GCMMA_TRM() : GCMMAOptimization() { setParametersTR(0.4, 0.6, 0.2, 0.4, 1.5); }
-		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.3, 0.7, 0.5, 0.7, 1.2); }
-
-	public:
-		void solveSubProblem(/* output */ VectorX& xout);
-		void allocSUBvar(void);
-
-		void setParametersTR(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
-		void initializeSubProb(void);
-
-		void calcx(const VectorX& lam, /* output */ VectorX& subx);
-		void calcy(const VectorX& lam, /* output */ VectorX& suby);
-		void calcW(const VectorX& lam, /* output */ Real& W);
-		void calcdW(const VectorX& lam, /* output */ VectorX& dW);
-		void calcm(const VectorX& lam, /* output */ Real& m);
-		void calceta(void);
-		void calclamhat(void);
-
-	public:
+	private:
 		// parameters for trust-region
 		Real _TR_v;
 		Real _TR_w;
@@ -178,13 +144,28 @@ namespace rovin
 
 		VectorX _subx;
 		VectorX _suby;
+
+	public:
+		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.3, 0.7, 0.5, 0.7, 1.2); }
+
+	private:
+		void allocSUBvar(void);
+		void setParametersTR(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
+		void initializeSubProb(void);
+		void calcx(const VectorX& lam, /* output */ VectorX& subx);
+		void calcy(const VectorX& lam, /* output */ VectorX& suby);
+		void calcW(const VectorX& lam, /* output */ Real& W);
+		void calcdW(const VectorX& lam, /* output */ VectorX& dW);
+		void calcm(const VectorX& lam, /* output */ Real& m);
+		void calceta(void);
+		void calclamhat(void);
+		void solveSubProblem(/* output */ VectorX& xout);
 	};
 
 	class GCMMA_PDIPM : public GCMMAOptimization
 	{
 		// solve GCMMA subproblem by using 'Primal-Dual Interior-Point Method'
 	public:
-		GCMMA_PDIPM() : GCMMAOptimization() {}
 		GCMMA_PDIPM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) {}
 
 	public:

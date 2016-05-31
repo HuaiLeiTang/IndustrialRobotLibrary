@@ -27,6 +27,9 @@ namespace rovin
 		_tolFunc = 1E-4;
 		_maxIterOL = 1000;
 		_maxIterIL = 1000;
+
+		//_minX = -VectorX(_xN).setConstant(RealMax);
+		//_maxX = -VectorX(_xN).setConstant(RealMax);
 	}
 
 	void GCMMAOptimization::setParameters(const Real & albefa, const Real & move0, const Real & asyinit, const Real & asydecr, const Real & asyincr)
@@ -85,7 +88,7 @@ namespace rovin
 		int iterOL = 0, iterIL; // iter for outer/inner loop
 		while (iterOL < _maxIterOL) // outer loop
 		{
-			//cout << "=== outer iter num: " << iterOL << endl;
+			cout << "=== outer iter num: " << iterOL << endl;
 
 
 			//cout << xk << endl << endl;
@@ -139,7 +142,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				//cout << "====== inner iter num: " << iterIL << endl;
+				cout << "====== inner iter num: " << iterIL << endl;
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
 
@@ -1305,6 +1308,7 @@ namespace rovin
 		   iterSub++;
 	   }
 
+	   cout << "iterSub : " << iterSub << endl;
 	   if (!solFound)
 		   LOG("exceeded max iteration number - 'TRsolveSubProblem'");
 
