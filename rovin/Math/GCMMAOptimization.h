@@ -3,11 +3,16 @@
 #include "Function.h"
 #include <rovin\Utils\Diagnostic.h>
 
+
+//#define STRATEGY_01
+#define STRATEGY_02
+
+
 namespace rovin
 {
 	class GCMMAOptimization
 	{
-	private:
+	public:
 		int _xN; ///< number of parameters
 		int _ineqN; ///< number of inequality constrain
 
@@ -44,46 +49,35 @@ namespace rovin
 
 		void solve(const VectorX& initialX);
 
-		void solveSubProblem(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& ri, /* output */ VectorX& xout);
 		void calcLowUpp(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2); ///< l^{k}, u^{k}
 		void calcAlphaBeta(const VectorX& xk); ///< alpha^{k}, beta^{k}
 		void calcPlusMinusMatrix(const MatrixX& mat, /* output */ MatrixX& matp, MatrixX& matm);
-		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx, /* output */ Real& rho0, VectorX& rhoi);
-		void calcPQR(const Real& rho0, const VectorX& rhoi, const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm,
-			const VectorX& xk, const VectorX& f0val, const VectorX& fival, /* output */ VectorX& p0, MatrixX& pi, VectorX& q0, MatrixX& qi, Real& r0, VectorX& ri);
-		void initializeSubProb(void);
-		void separateFromW(void);
-		void separateFromW(const VectorX& w, /* output */ VectorX& x, VectorX& y, Real& z, VectorX& lam, VectorX& xsi, VectorX& eta,
-			VectorX& mu, Real& zet, VectorX& s);
-		void combineToW(const VectorX& x, const VectorX& y, const Real& z, const VectorX& lam, const VectorX& xsi, const VectorX& eta,
-			const VectorX& mu, const Real& zet, const VectorX& s, /* output */ VectorX& w);
 
-		// modification ing
-		void calcGradientW(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, /* output */ VectorX& delw);
-		void calcGradientW_tmp(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, /* output */ VectorX& delw);
+#ifdef STRATEGY_01
+		void calcSigma(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2);
+		void calcInitialRho_st01(int iter, const VectorX& xk, const VectorX& xkm1, const MatrixX& df0dx, const MatrixX& df0dxm1,
+			const MatrixX& dfidx, const MatrixX& dfidxm1);
+#endif
 
-		void calcpqlam(const VectorX& pq0, const MatrixX& pqi, const VectorX& lam, /* output */ VectorX& pqlam);
-		void calcdpsidx(const VectorX& plam, const VectorX& qlam, const VectorX& x, /* output */ VectorX& dpsidx);
-		void calcgi(const MatrixX& pi, const MatrixX& qi, const VectorX& x, /* output */ VectorX& gival);
-		Real calcStepLength(const VectorX& delw, const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi);
+		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx);
+		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
+		void updateRho0i(const VectorX& xknu, const VectorX& xk, const VectorX& f0valknu, const VectorX& fivalknu, const VectorX& f0tvalknu, const VectorX& fitvalknu);
+		bool testILSuccess(const VectorX& testx, /* output */ VectorX& f0valknu, VectorX& fivalknu, VectorX& f0tvalknu, VectorX& fitvalknu);
+		void calcf0tilde(const VectorX& x, /* output */ VectorX& f0tval);
+		void calcfitilde(const VectorX& x, /* output */ VectorX& fitval);
 
+		virtual void solveSubProblem(/* output */ VectorX& xout) = 0;
 
-		// modification ing
-		Real calcNormResidual(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, const VectorX& delw, Real stepLength, int normCh);
-		Real calcNormResidual_tmp(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, const VectorX& delw, Real stepLength, int normCh);
+		// memory allocation for variables of outer loop/inner loop/sub problem
+		void allocOLvar(void);
+		void allocILvar(void);
+		virtual void allocSUBvar(void) = 0;
 
 
-
-		bool testILSuccess(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, const VectorX& testx,
-			/* output */ VectorX& f0valknu, VectorX& fivalknu, VectorX& f0tvalknu, VectorX& fitvalknu);
-		void calcf0tilde(const VectorX& p0, const VectorX& q0, const Real& r0, const VectorX& x, /* output */ VectorX& f0tval);
-		void calcfitilde(const MatrixX& pi, const MatrixX& qi, const VectorX& ri, const VectorX& x, /* output */ VectorX& fitval);
-		void updateRho0i(const VectorX& xknu, const VectorX& xk, const VectorX& f0valknu, const VectorX& fivalknu, const VectorX& f0tvalknu, const VectorX& fitvalknu, /* output */ Real& rho0, VectorX& rhoi);
-	
-	
 		// steepest gradient method
+		//void xfunctionOflam(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi,const VectorX& lam, VectorX& x);
+		//void yfunctionOflam(const VectorX& lam, VectorX& y);
 
-	
 	public:
 		// user setting parameters
 		Real _ALBEFA;
@@ -116,24 +110,74 @@ namespace rovin
 		VectorX _oluppm1;
 		VectorX _olalpha;
 		VectorX _olbeta;
+#ifdef STRATEGY_01
+		VectorX _olsigma;
+		VectorX _ols;
+		VectorX _olt;
+		Real _oleta;
+		VectorX _olb;
+#endif
+
+	public:
+		// variables for inner loop: updated in every inner loop
+		VectorX _ilp0;
+		VectorX _ilq0;
+		MatrixX _ilpi;
+		MatrixX _ilqi;
+		Real _ilr0;
+		Real _ilrho0;
+		VectorX _ilri;
+		VectorX _ilrhoi;
+
+
+	};
+
+	class GCMMA_PDIPM : public GCMMAOptimization
+	{
+		// solve GCMMA subproblem by using 'Primal-Dual Interior-Point Method'
+	public:
+		GCMMA_PDIPM() : GCMMAOptimization() {}
+		GCMMA_PDIPM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) {}
+
+	public:
+
+		void solveSubProblem(/* output */ VectorX& xout);
+		void allocSUBvar(void);
+
+
+		void initializeSubProb(void);
+		void separateFromW(void);
+		void separateFromW(const VectorX& w, /* output */ VectorX& x, VectorX& y, Real& z, VectorX& lam, VectorX& xsi, VectorX& eta,
+			VectorX& mu, Real& zet, VectorX& s);
+		void combineToW(const VectorX& x, const VectorX& y, const Real& z, const VectorX& lam, const VectorX& xsi, const VectorX& eta,
+			const VectorX& mu, const Real& zet, const VectorX& s, /* output */ VectorX& w);
+		// modification ing
+		//      void calcGradientW(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, /* output */ VectorX& delw);
+		void calcGradientW_tmp(/* output */ VectorX& delw);
+		void calcpqlam(const VectorX& pq0, const MatrixX& pqi, const VectorX& lam, /* output */ VectorX& pqlam);
+		void calcdpsidx(const VectorX& plam, const VectorX& qlam, const VectorX& x, /* output */ VectorX& dpsidx);
+		void calcgi(const VectorX& x, /* output */ VectorX& gival);
+		Real calcStepLength(const VectorX& delw);
+		// modification ing
+		//      Real calcNormResidual(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, const VectorX& delw, Real stepLength, int normCh);
+		Real calcNormResidual_tmp(const VectorX& delw, Real stepLength, int normCh);
 
 	public:
 		// variables for subproblem
-		VectorX _subx;		// _xN
-		VectorX _suby;		// _ineqN
-		Real	_subz;
-		VectorX _sublam;	// _ineqN
-		VectorX _subxsi;	// _xN
-		VectorX _subeta;	// _xN
-		VectorX _submu;		// _ineqN
-		Real	_subzet;
-		VectorX _subs;		// _ineqN
+		VectorX _subx;      // _xN
+		VectorX _suby;      // _ineqN
+		Real   _subz;
+		VectorX _sublam;   // _ineqN
+		VectorX _subxsi;   // _xN
+		VectorX _subeta;   // _xN
+		VectorX _submu;      // _ineqN
+		Real   _subzet;
+		VectorX _subs;      // _ineqN
 
 		VectorX _subw;
-		Real	_subeps;
-		int		_subDimW;
+		Real   _subeps;
+		int      _subDimW;
 
-	public:
 		// tmp variable
 		VectorX tmpsubx;
 		VectorX tmpsublam;
@@ -180,70 +224,32 @@ namespace rovin
 		VectorX dellam;
 
 		VectorX resvec;
+	};
 
+
+	class GCMMA_TRM : public GCMMAOptimization
+	{
+		// solve GCMMA subproblem by using 'Trust-Region Method'
+	public:
+		GCMMA_TRM() : GCMMAOptimization() { setParametersTR(0.4, 0.6, 0.2, 0.4, 1.5); }
+		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.3, 0.7, 0.5, 0.7, 1.2); }
 
 	public:
-		/////////////////////////////////
-		// STEEPEST DESCENT ALGORITHM!!!
-		void GD_solve(const VectorX& initialX);
-		void GD_solveSubProblem(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, /* output */ VectorX& xout);
-		void GD_initializeSubProb();
 
-	public:
-		VectorX _GD_sublam;
-		VectorX _GD_subx;
-		VectorX _GD_suby;
-		VectorX _GD_vec;
-		VectorX _GD_z;
+		void solveSubProblem(/* output */ VectorX& xout);
+		void allocSUBvar(void);
 
-		Real _GD_t;
-		Real _GD_epsilon;
-		
-		bool _GD_swi;
-		bool _GD_swi_opt;
-		bool _GD_break_swi;
+		void setParametersTR(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
+		void initializeSubProb(void);
 
-		Real _GD_maxNum;
-		Real _GD_minNum;
+		void calcx(const VectorX& lam, /* output */ VectorX& subx);
+		void calcy(const VectorX& lam, /* output */ VectorX& suby);
+		void calcW(const VectorX& lam, /* output */ Real& W);
+		void calcdW(const VectorX& lam, /* output */ VectorX& dW);
+		void calcm(const VectorX& lam, /* output */ Real& m);
+		void calceta(void);
+		void calclamhat(void);
 
-		VectorX _GD_grad;
-		VectorX _GD_grad_or;
-		VectorX _GD_proj;
-
-		Real _GD_subW;
-		VectorX _GD_subdW;
-
-		bool _GD_swi_line;
-		VectorX _GD_f_x;
-		VectorX _GD_m_x;
-		VectorX _GD_b_x;
-		VectorX _GD_v_x;
-
-		Real _GD_f_ob;
-		Real _GD_m_ob;
-		Real _GD_b_ob;
-		VectorX _GD_v_ob;
-
-
-		/////////////////////////////////
-		// for TRUST-REGION ALGORITHM!!!
-	public:
-		void TR_solve(const VectorX& initialX);
-		void TR_solveSubProblem(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, /* output */ VectorX& xout);
-
-		void TRsetParameters(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
-		void TR_initializeSubProb(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& ri);
-
-
-		void TR_calcx(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& lam, /* output */ VectorX& subx);
-		void TR_calcy(const VectorX& lam, /* output */ VectorX& suby);
-
-
-		void TR_calcW(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const Real& r0, const VectorX& ri, const VectorX& lam, /* output */ Real& W);
-		void TR_calcdW(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& ri, const VectorX& lam, /* output */ VectorX& dW);
-		void TR_calcm(const VectorX& lam, /* output */ Real& m);
-		void TR_calceta(void);
-		void TR_calclamhat(void);
 
 	public:
 		// parameters for trust-region
@@ -254,18 +260,19 @@ namespace rovin
 		Real _TR_gamma2;
 
 
-		VectorX _TR_sublam, _TR_sublamm1, _TR_sublamhat;
-		Real _TR_subW, _TR_subWhat;
-		Real _TR_subm, _TR_submhat;
-		VectorX _TR_subdW, _TR_subdWm1;
+		VectorX _sublam, _sublamm1, _sublamhat;
+		Real _subW, _subWhat;
+		Real _subm, _submhat;
+		VectorX _subdW, _subdWm1;
 
-		VectorX _TR_subs; // s = lam - lamm1;
-		VectorX _TR_subt; // t = dw - dwm1;
-		Real _TR_subeta;
-		Real _TR_radius;
-		Real _TR_subtheta;
+		VectorX _subs; // s = lam - lamm1;
+		VectorX _subt; // t = dw - dwm1;
+		Real _subeta;
+		Real _radius;
+		Real _subtheta;
 
-		VectorX _TR_subx;
-		VectorX _TR_suby;
+		VectorX _subx;
+		VectorX _suby;
+
 	};
 }

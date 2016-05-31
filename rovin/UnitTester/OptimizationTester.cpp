@@ -1,7 +1,7 @@
 #include <rovin\Optimizer\NonlinearOptimization.h>
 #include <rovin\Math\Function.h>
 #include <rovin\EnergyOptimization\PTPOptimization.h>
-#include <rovin\Renderer\OSG_simpleRender.h>
+//#include <rovin\Renderer\OSG_simpleRender.h>
 
 #include "efortRobot.h"
 
@@ -28,6 +28,26 @@ SerialOpenChainPtr robot(new efortRobot());
 
 int main()
 {
+	//VectorX v1(10), v2(10), v3(10);
+	//v1.setConstant(0.1);
+	//v2.setConstant(0.2);
+	//int cntMax = 10000000;
+
+	//clock_t time = clock();
+	//for (int cnt = 0; cnt < cntMax; cnt++)
+	//{
+	//	v3 = v1 + v2;
+	//}
+	//cout << "computation time : " << (clock() - time) << endl << endl;
+
+	//time = clock();
+	//for (int cnt = 0; cnt < cntMax; cnt++)
+	//{
+	//	for (int ii = 0; ii < 10; ii++)
+	//		v3(ii) = v1(ii) + v2(ii);
+	//}
+	//cout << "computation time : " << (clock() - time) << endl << endl;
+
 	unsigned int dof = robot->getNumOfJoint();
 
 	StatePtr initState, finalState;
@@ -53,7 +73,8 @@ int main()
 	int orderOfBSpline = 4;
 
 	std::cout << "------- [NLOPT RESULT] -------" << endl;
-	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
+	//PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::energyloss);
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt);
 	PTPManagerNlopt.generateTrajectory();
 
 	//std::cout << "------- [GCMMA RESULT] -------" << endl;
@@ -61,7 +82,8 @@ int main()
 	//PTPManagerManualOpt.generateTrajectory();
 
 	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR);
 	PTPManagerManualOptTR.generateTrajectory();
 
 	//std::cout << "------- [GCMMA GRADIENT DESCENT RESULT] -------" << endl;
@@ -69,146 +91,145 @@ int main()
 	//PTPManagerManualOptGD.generateTrajectory();
 
 	///////////////////////////////// SAVE & RENDERING /////////////////////////////////
-	bool renderingswi = true;
+	//bool renderingswi = true;
 
-	PTPOptimization* PTPManager1 = &PTPManagerNlopt;
-	PTPOptimization* PTPManager2 = &PTPManagerManualOptTR;
+	//PTPOptimization* PTPManager1 = &PTPManagerNlopt;
+	//PTPOptimization* PTPManager2 = &PTPManagerManualOptGD;
+	//int datanum = 2000;
+	//Real stepsize = (tf - 0.0) / 2000;
+	//Real t = 0.0;
+	//BSpline<-1, -1, -1> nloptSpline = PTPManager1->_shared->_qSpline;
+	//BSpline<-1, -1, -1> MMASpline = PTPManager2->_shared->_qSpline;
+	//BSpline<-1, -1, -1> nloptqdotSpline = PTPManager1->_shared->_qdotSpline;
+	//BSpline<-1, -1, -1> MMAqdotSpline = PTPManager2->_shared->_qdotSpline;
+	//BSpline<-1, -1, -1> nloptqddotSpline = PTPManager1->_shared->_qddotSpline;
+	//BSpline<-1, -1, -1> MMAqddotSpline = PTPManager2->_shared->_qddotSpline;
+	//MatrixX nloptTraj(dof, datanum), MMATraj(dof, datanum);
+	//MatrixX nloptqdotTraj(dof, datanum), MMAqdotTraj(dof, datanum);
+	//MatrixX nloptqddotTraj(dof, datanum), MMAqddotTraj(dof, datanum);
 
-	int datanum = 2000;
-	Real stepsize = (tf - 0.0) / 2000;
-	Real t = 0.0;
-	BSpline<-1, -1, -1> nloptSpline = PTPManager1->_shared->_qSpline;
-	BSpline<-1, -1, -1> MMASpline = PTPManager2->_shared->_qSpline;
-	BSpline<-1, -1, -1> nloptqdotSpline = PTPManager1->_shared->_qdotSpline;
-	BSpline<-1, -1, -1> MMAqdotSpline = PTPManager2->_shared->_qdotSpline;
-	BSpline<-1, -1, -1> nloptqddotSpline = PTPManager1->_shared->_qddotSpline;
-	BSpline<-1, -1, -1> MMAqddotSpline = PTPManager2->_shared->_qddotSpline;
-	MatrixX nloptTraj(dof, datanum), MMATraj(dof, datanum);
-	MatrixX nloptqdotTraj(dof, datanum), MMAqdotTraj(dof, datanum);
-	MatrixX nloptqddotTraj(dof, datanum), MMAqddotTraj(dof, datanum);
+	//for (int i = 0; i < datanum; i++)
+	//{
+	//	nloptTraj.col(i) = nloptSpline(t);
+	//	MMATraj.col(i) = MMASpline(t);
+	//	t += stepsize;
+	//}
+	//t = 0.0;
+	//for (int i = 0; i < datanum; i++)
+	//{
+	//	nloptqdotTraj.col(i) = nloptqdotSpline(t);
+	//	MMAqdotTraj.col(i) = MMAqdotSpline(t);
+	//	t += stepsize;
+	//}
+	//t = 0.0;
+	//for (int i = 0; i < datanum; i++)
+	//{
+	//	nloptqddotTraj.col(i) = nloptqddotSpline(t);
+	//	MMAqddotTraj.col(i) = MMAqddotSpline(t);
+	//	t += stepsize;
+	//}
 
-	for (int i = 0; i < datanum; i++)
-	{
-		nloptTraj.col(i) = nloptSpline(t);
-		MMATraj.col(i) = MMASpline(t);
-		t += stepsize;
-	}
-	t = 0.0;
-	for (int i = 0; i < datanum; i++)
-	{
-		nloptqdotTraj.col(i) = nloptqdotSpline(t);
-		MMAqdotTraj.col(i) = MMAqdotSpline(t);
-		t += stepsize;
-	}
-	t = 0.0;
-	for (int i = 0; i < datanum; i++)
-	{
-		nloptqddotTraj.col(i) = nloptqddotSpline(t);
-		MMAqddotTraj.col(i) = MMAqddotSpline(t);
-		t += stepsize;
-	}
+	//MatrixX nloptTorqueTraj(dof, datanum), MMATorqueTraj(dof, datanum);
+	//calculateTorqueTrajectory(nloptTraj, nloptqdotTraj, nloptqddotTraj, nloptTorqueTraj);
+	//calculateTorqueTrajectory(MMATraj, MMAqdotTraj, MMAqddotTraj, MMATorqueTraj);
 
-	MatrixX nloptTorqueTraj(dof, datanum), MMATorqueTraj(dof, datanum);
-	calculateTorqueTrajectory(nloptTraj, nloptqdotTraj, nloptqddotTraj, nloptTorqueTraj);
-	calculateTorqueTrajectory(MMATraj, MMAqdotTraj, MMAqddotTraj, MMATorqueTraj);
+	//saveMatrixX2txt(nloptTraj, file + "nlopt/q.txt");
+	//saveMatrixX2txt(nloptqdotTraj, file + "nlopt/qdot.txt");
+	//saveMatrixX2txt(nloptqddotTraj, file + "nlopt/qddot.txt");
+	//saveMatrixX2txt(nloptTorqueTraj, file + "nlopt/torque.txt");
 
-	saveMatrixX2txt(nloptTraj, file + "nlopt/q.txt");
-	saveMatrixX2txt(nloptqdotTraj, file + "nlopt/qdot.txt");
-	saveMatrixX2txt(nloptqddotTraj, file + "nlopt/qddot.txt");
-	saveMatrixX2txt(nloptTorqueTraj, file + "nlopt/torque.txt");
+	//saveMatrixX2txt(MMATraj, file + "MMA/q.txt");
+	//saveMatrixX2txt(MMAqdotTraj, file + "MMA/qdot.txt");
+	//saveMatrixX2txt(MMAqddotTraj, file + "MMA/qddot.txt");
+	//saveMatrixX2txt(MMATorqueTraj, file + "MMA/torque.txt");
 
-	saveMatrixX2txt(MMATraj, file + "MMA/q.txt");
-	saveMatrixX2txt(MMAqdotTraj, file + "MMA/qdot.txt");
-	saveMatrixX2txt(MMAqddotTraj, file + "MMA/qddot.txt");
-	saveMatrixX2txt(MMATorqueTraj, file + "MMA/torque.txt");
+	//// constraint save
+	//VectorX qct(dof * 2), qdotct(dof * 2), qddotct(dof * 2), tct(dof * 2);
+	//for (unsigned int i = 0; i < dof; i++)
+	//{
+	//	qct(i) = robot->getMotorJointPtr(i)->getLimitPosLower();
+	//	qct(i + dof) = robot->getMotorJointPtr(i)->getLimitPosUpper();
+	//	qdotct(i) = robot->getMotorJointPtr(i)->getLimitVelLower();
+	//	qdotct(i + dof) = robot->getMotorJointPtr(i)->getLimitVelUpper();
+	//	qddotct(i) = robot->getMotorJointPtr(i)->getLimitAccLower();
+	//	qddotct(i + dof) = robot->getMotorJointPtr(i)->getLimitAccUpper();
+	//	tct(i) = robot->getMotorJointPtr(i)->getLimitTorqueLower();
+	//	tct(i + dof) = robot->getMotorJointPtr(i)->getLimitTorqueUpper();
+	//}
 
-	// constraint save
-	VectorX qct(dof * 2), qdotct(dof * 2), qddotct(dof * 2), tct(dof * 2);
-	for (unsigned int i = 0; i < dof; i++)
-	{
-		qct(i) = robot->getMotorJointPtr(i)->getLimitPosLower();
-		qct(i + dof) = robot->getMotorJointPtr(i)->getLimitPosUpper();
-		qdotct(i) = robot->getMotorJointPtr(i)->getLimitVelLower();
-		qdotct(i + dof) = robot->getMotorJointPtr(i)->getLimitVelUpper();
-		qddotct(i) = robot->getMotorJointPtr(i)->getLimitAccLower();
-		qddotct(i + dof) = robot->getMotorJointPtr(i)->getLimitAccUpper();
-		tct(i) = robot->getMotorJointPtr(i)->getLimitTorqueLower();
-		tct(i + dof) = robot->getMotorJointPtr(i)->getLimitTorqueUpper();
-	}
+	//saveVectorX2txt(qct, file + "qconstraint.txt");
+	//saveVectorX2txt(qdotct, file + "qdotconstraint.txt");
+	//saveVectorX2txt(qddotct, file + "qddotconstraint.txt");
+	//saveVectorX2txt(tct, file + "torqueconstraint.txt");
 
-	saveVectorX2txt(qct, file + "qconstraint.txt");
-	saveVectorX2txt(qdotct, file + "qdotconstraint.txt");
-	saveVectorX2txt(qddotct, file + "qddotconstraint.txt");
-	saveVectorX2txt(tct, file + "torqueconstraint.txt");
+	//if (renderingswi)
+	//{
+	//	OSG_simpleRender renderer(*robot, *initState, 800, 800);
+	//	shared_ptr<Points> sp, ep;
+	//	shared_ptr<Line> l_nlopt, l_MMA;
+	//	Real psize = 20.0;
 
-	if (renderingswi)
-	{
-		OSG_simpleRender renderer(*robot, *initState, 800, 800);
-		shared_ptr<Points> sp, ep;
-		shared_ptr<Line> l_nlopt, l_MMA;
-		Real psize = 20.0;
+	//	SE3 T(Vector3(0.0, 0.0, 0.12));
+	//	initState->setJointStatePos(init_q); robot->solveForwardKinematics(*initState);
+	//	Vector3 spos = (initState->getLinkStateSE3(dof)*T).getPosition();
+	//	finalState->setJointStatePos(final_q); robot->solveForwardKinematics(*finalState);
+	//	Vector3 epos = (finalState->getLinkStateSE3(dof)*T).getPosition();
+	//	sp = shared_ptr<Points>(new Points);
+	//	ep = shared_ptr<Points>(new Points);
+	//	sp->push_back(osg::Vec3(spos(0), spos(1), spos(2)));
+	//	ep->push_back(osg::Vec3(epos(0), epos(1), epos(2)));
+	//	sp->setSize(psize); ep->setSize(psize);
+	//	sp->setColor(0.0f, 0.0f, 1.0f); ep->setColor(1.0f, 0.0f, 0.0f);
+	//	renderer.addGeometry(*sp);
+	//	renderer.addGeometry(*ep);
 
-		SE3 T(Vector3(0.0, 0.0, 0.12));
-		initState->setJointStatePos(init_q); robot->solveForwardKinematics(*initState);
-		Vector3 spos = (initState->getLinkStateSE3(dof)*T).getPosition();
-		finalState->setJointStatePos(final_q); robot->solveForwardKinematics(*finalState);
-		Vector3 epos = (finalState->getLinkStateSE3(dof)*T).getPosition();
-		sp = shared_ptr<Points>(new Points);
-		ep = shared_ptr<Points>(new Points);
-		sp->push_back(osg::Vec3(spos(0), spos(1), spos(2)));
-		ep->push_back(osg::Vec3(epos(0), epos(1), epos(2)));
-		sp->setSize(psize); ep->setSize(psize);
-		sp->setColor(0.0f, 0.0f, 1.0f); ep->setColor(1.0f, 0.0f, 0.0f);
-		renderer.addGeometry(*sp);
-		renderer.addGeometry(*ep);
+	//	Vector3 nloptPos, MMAPos;
+	//	l_nlopt = shared_ptr<Line>(new Line);
+	//	l_MMA = shared_ptr<Line>(new Line);
+	//	for (int i = 0; i < datanum; i++)
+	//	{
+	//		initState->setJointStatePos(nloptTraj.col(i));
+	//		robot->solveForwardKinematics(*initState);
+	//		nloptPos = (initState->getLinkStateSE3(dof)*T).getPosition();
+	//		l_nlopt->push_back(osg::Vec3(nloptPos(0), nloptPos(1), nloptPos(2)));
+	//	}
+	//	for (int i = 0; i < datanum; i++)
+	//	{
+	//		initState->setJointStatePos(MMATraj.col(i));
+	//		robot->solveForwardKinematics(*initState);
+	//		MMAPos = (initState->getLinkStateSE3(dof)*T).getPosition();
+	//		l_MMA->push_back(osg::Vec3(MMAPos(0), MMAPos(1), MMAPos(2)));
+	//	}
+	//	l_nlopt->setColor(0.0f, 0.0f, 1.0f);
+	//	l_MMA->setColor(1.0f, 0.0f, 0.0f);
+	//	renderer.addGeometry(*l_nlopt);
+	//	renderer.addGeometry(*l_MMA);
 
-		Vector3 nloptPos, MMAPos;
-		l_nlopt = shared_ptr<Line>(new Line);
-		l_MMA = shared_ptr<Line>(new Line);
-		for (int i = 0; i < datanum; i++)
-		{
-			initState->setJointStatePos(nloptTraj.col(i));
-			robot->solveForwardKinematics(*initState);
-			nloptPos = (initState->getLinkStateSE3(dof)*T).getPosition();
-			l_nlopt->push_back(osg::Vec3(nloptPos(0), nloptPos(1), nloptPos(2)));
-		}
-		for (int i = 0; i < datanum; i++)
-		{
-			initState->setJointStatePos(MMATraj.col(i));
-			robot->solveForwardKinematics(*initState);
-			MMAPos = (initState->getLinkStateSE3(dof)*T).getPosition();
-			l_MMA->push_back(osg::Vec3(MMAPos(0), MMAPos(1), MMAPos(2)));
-		}
-		l_nlopt->setColor(0.0f, 0.0f, 1.0f);
-		l_MMA->setColor(1.0f, 0.0f, 0.0f);
-		renderer.addGeometry(*l_nlopt);
-		renderer.addGeometry(*l_MMA);
+	//	Real startT = 0.0, endT = tf;
+	//	Real frame = 500;
+	//	Real dT = 1.0 / frame;
 
-		Real startT = 0.0, endT = tf;
-		Real frame = 500;
-		Real dT = 1.0 / frame;
+	//	renderer.getViewer().realize();
+	//	int count = 0;
+	//	Real pastT = clock();
 
-		renderer.getViewer().realize();
-		int count = 0;
-		Real pastT = clock();
+	//	while (1)
+	//	{
+	//		if ((clock() - pastT) / 1e+3 >= dT)
+	//		{
+	//			pastT = clock();
 
-		while (1)
-		{
-			if ((clock() - pastT) / 1e+3 >= dT)
-			{
-				pastT = clock();
-
-				if (count >= nloptTraj.cols())
-				{
-					count = 0;
-				}
-				initState->setJointStatePos(nloptTraj.col(count));
-				robot->solveForwardKinematics(*initState);
-				count += 5;
-			}
-			renderer.updateFrame();
-		}
-	}
+	//			if (count >= nloptTraj.cols())
+	//			{
+	//				count = 0;
+	//			}
+	//			initState->setJointStatePos(nloptTraj.col(count));
+	//			robot->solveForwardKinematics(*initState);
+	//			count += 5;
+	//		}
+	//		renderer.updateFrame();
+	//	}
+	//}
 
 	std::cout << "====== Program Complete ======" << endl;
 	_getch();

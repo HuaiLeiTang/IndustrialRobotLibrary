@@ -14,6 +14,7 @@
 #include <rovin/Math/Interpolation.h>
 #include <rovin/Math/GCMMAOptimization.h>
 
+
 namespace rovin {
 
 	class PTPOptimization;
@@ -41,7 +42,8 @@ namespace rovin {
 
 	public:
 		NonlinearOptimization _optimizer;
-		GCMMAOptimization _GCMMAoptimizer;
+		GCMMAOptimization * _GCMMAoptimizer;
+//		GCMMA_PDIPM _GCMMAoptimizer;
 
 		OptimizationType _optType;
 		ObjectiveFunctionType _objectiveType;
@@ -86,6 +88,7 @@ namespace rovin {
 			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType);
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
 			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType, ObjectiveFunctionType objectiveType);
+		~PTPOptimization() { delete _GCMMAoptimizer; }
 
 		void makeNonOptJointCP();
 
