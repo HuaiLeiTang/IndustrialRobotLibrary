@@ -120,6 +120,10 @@ namespace rovin
 		Real _ilrho0;
 		VectorX _ilri;
 		VectorX _ilrhoi;
+
+	public:
+		VectorX _resulty;
+		VectorX _resultlam;
 	};
 
 
@@ -150,9 +154,10 @@ namespace rovin
 		VectorX _subx;
 		VectorX _suby;
 
-	public:
-		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.3, 0.7, 0.5, 0.7, 1.2); }
+		bool _bUpdated;
 
+	public:
+		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.0001, 0.25, 0.25, 0.5, 2/*0.0001, 0.5, 0.2, 0.3, 2*/); }
 	private:
 		void allocSUBvar(void);
 		void setParametersTR(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);

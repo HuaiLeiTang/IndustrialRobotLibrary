@@ -51,16 +51,20 @@ int main()
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
 	Real tf = 2.0;
-	int numOfOptCP = 6;
+	int numOfOptCP =5;
 	int orderOfBSpline = 4;
 
 
 	std::cout << "------- [NLOPT RESULT] -------" << endl;
-	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::energyloss);
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
 	PTPManagerNlopt.generateTrajectory();
 
+	//std::cout << "------- [GCMMA RESULT] -------" << endl;
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
+	//PTPManagerManualOptTR.generateTrajectory();
+
 	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
 	PTPManagerManualOptTR.generateTrajectory();
 
 

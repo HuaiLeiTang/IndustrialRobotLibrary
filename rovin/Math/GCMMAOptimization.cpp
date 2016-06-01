@@ -14,7 +14,8 @@ namespace rovin
 		setXN(xN);
 		setIneqN(ineqN);
 
-		setParameters(0.1, 0.5, 0.5, 0.7, 1.2);
+		//setParameters(0.1, 0.5, 0.5, 0.7, 1.2);
+		setParameters(0.1, 0.25, 0.5, 0.8, 1.2);
 		//setParameters(0.1, 0.5, 0.5, 0.8, 1.2);
 		//TRsetParameters(0.3, 0.7, 0.5, 0.7, 1.2);
 
@@ -149,7 +150,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				//cout << "====== inner iter num: " << iterIL << endl;
+				cout << iterOL << '\t' << iterIL << endl;
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
 
@@ -377,6 +378,7 @@ namespace rovin
 			}
 
 			_oleta = Min(1E3, Max(1E-3, tmpnum / tmpden));
+			//cout << _oleta << endl;
 
 			tmpreal = 0;
 			for (int j = 0; j < _xN; j++)
@@ -406,6 +408,7 @@ namespace rovin
 				}
 
 				_oleta = Min(1E3, Max(1E-3, tmpnum / tmpden));
+				//cout << _oleta << endl;
 
 				tmpreal = 0;
 				for (int j = 0; j < _xN; j++)
@@ -1295,19 +1298,20 @@ namespace rovin
 
 	   // initialize
 	   initializeSubProb();
+	   _bUpdated = true;
 
 	   //saveVectorX2txt123(_subdW, filedd);
 	   //saveVectorX2txt123(_subdWm1, filedd);
 	   //saveRealX2txt123(_radius, filedd);
 
-	   int iterSub = 0, maxIterSub = 1000;
+	   int iterSub = 0, maxIterSub = 50, iterSub1 = 0, maxIterSub1 = 100;
 	   bool solFound = false;
-	   while (iterSub < maxIterSub)
+	   while (iterSub < maxIterSub && iterSub1 < maxIterSub1)
 	   {
 		   //cout << "===================================================" << endl << endl;
 		   // step 1-1: calculate eta - equation(16)
 		   calceta();
-		   //cout << _TR_subeta << endl << endl;
+		   //cout << _subeta << endl << endl;
 		   //saveRealX2txt123(_subeta, filedd);
 
 		   // step 1-2: calculate lambda_hat - equation(18)
@@ -1341,10 +1345,22 @@ namespace rovin
 		   _subdWm1 = _subdW;
 		   if (_subtheta > _TR_v)
 		   {
+			   _bUpdated = true;
 			   _sublam = _sublamhat;
 			   calcdW(_sublam, _subdW);
 			   //cout << _TR_sublam << endl << endl;
 			   //cout << _TR_subdW << endl << endl;
+				iterSub++;
+				//cout << iterSub << '\t' << _subW << '\t' << _subW - _subWhat << '\t'
+				//	<< VectorInner(_sublam, _subdW, _ineqN) << '\t' << (_sublam - _sublamm1).norm() << _radius << endl;
+				//cout << iterSub << '\t' << VectorInner(_sublam - _sublamm1, _subdW, _ineqN) << endl;
+				//if (abs(VectorInner(_sublam - _sublamm1, _subdW, _ineqN)) < 1E-2)
+				//	break;
+		   }
+		   else
+		   {
+			   _bUpdated = false;
+			   //_bUpdated = true;
 		   }
 
 		   // step 4: update radius of trust region
@@ -1355,24 +1371,45 @@ namespace rovin
 		   else
 			   _radius *= (_TR_gamma0 + _TR_gamma1) / 2;
 
+		   //if (_bUpdated && abs(VectorInner(_sublam - _sublamm1, _subdW, _ineqN)) < 1E-2)
+		   //{
+			  // cout << iterSub << endl;
+			  // break;
+		   //}
+		   //cout << VectorInner(_sublam, _subdW, _ineqN) << endl;
+		   //if ( iterSub > 10 &&(abs(VectorInner(_sublam, _subdW, _ineqN)) < 1E-3))
+		   //{
+			  // cout << _subW << endl;
+			  // solFound = true;
+			  // cout << iterSub << endl;
+			  // break;
+		   //}
 
-
-		   if (_radius < 1E-3) // terminate condition
-		   {
-			   solFound = true;
-			   break;
-		   }
-
-		   iterSub++;
+		   //if (_bUpdated)
+		   //{
+			  // cout << VectorInner(_sublam, _subdW, _ineqN) << endl;
+			  // //cout << (_sublam - _sublamm1).norm() << '\t' << _subW << '\t' <<_subWhat<< endl;
+		   //}
+		   //if (_radius < 1E-3) // terminate condition
+		   //{
+			  // solFound = true;
+			  // break;
+		   //}
+		   iterSub1++;
 	   }
-	   //cout << iterSub << endl;.
-	   if (!solFound)
-		   LOG("exceeded max iteration number - 'TRsolveSubProblem'");
+
+	   //if (!solFound)
+		  // LOG("exceeded max iteration number - 'TRsolveSubProblem'");
 
 	   //cout << iterSub << endl;
 	   //cout << _subeps << endl;
+	   //cout << "lambda: " << _sublam << endl;
 	   calcx(_sublam, _subx);
 	   calcy(_sublam, _suby);
+
+	   _resulty = _suby;
+	   _resultlam = _sublam;
+
 	   xout = _subx;
    }
    void GCMMA_TRM::allocSUBvar(void)
@@ -1414,6 +1451,7 @@ namespace rovin
 	   calcdW(_sublamm1, _subdWm1);
 
 	   _radius = 0.1 * _subdW.norm();
+	   //_radius = 0.1 * abs(_subdW.maxCoeff());
    }
 
    void GCMMA_TRM::calcx(const VectorX & lam, VectorX & subx)
@@ -1512,22 +1550,32 @@ namespace rovin
 	   //cout << _TR_sublamm1 << endl << endl;
 	   //cout << _TR_subdW << endl << endl;
 	   //cout << _TR_subdWm1 << endl << endl;
-
-	   _subs = _sublam - _sublamm1;
-	   _subt = _subdW - _subdWm1;
-
-	   //cout << _TR_subs << endl << endl;
-	   //cout << _TR_subt << endl << endl;
-
-	   Real tmpnum = 0, tmpden = 0;
-	   for (int i = 0; i < _ineqN; i++)
+	   if (_bUpdated)
 	   {
-		   tmpnum += _subs(i) * _subt(i);
-		   tmpden += _subs(i) * _subs(i);
-	   }
-	   _subeta = tmpnum / tmpden;
+		   _subs = _sublam - _sublamm1;
+		   _subt = _subdW - _subdWm1;
 
-	   //cout << _TR_subeta << endl << endl;
+		   Real tmpnum = 0, tmpden = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   tmpnum += _subs(i) * _subt(i);
+			   tmpden += _subs(i) * _subs(i);
+		   }
+		   //_subeta = tmpnum / tmpden;
+		   _subeta = Max(1E-3, Min(1E3, tmpnum / tmpden));
+		   //cout << tmpnum / tmpden << endl;
+		  // _subeta = Max(0.5E-3, Min(1E3, tmpnum / tmpden));
+	   }
+
+	   //if (RealLess(tmpden, 1E-2))
+		  // _subeta = 1E-2;
+	   //else
+		  // _subeta = tmpnum / tmpden;
+
+
+	   //cout << tmpnum << endl;
+	   //cout << tmpden << endl;
+	   //cout << _subeta << endl;
    }
 
    void GCMMA_TRM::calclamhat(void)

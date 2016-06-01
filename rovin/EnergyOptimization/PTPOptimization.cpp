@@ -340,6 +340,8 @@ namespace rovin{
 			cout << "X : " << endl << _GCMMAoptimizer->getResultX() << endl << endl;
 			cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
 			cout << "Value of objective function : " << _GCMMAoptimizer->getResultFunc() << endl << endl;
+			//cout << "_suby : " << endl << _GCMMAoptimizer->_resulty << endl << endl;
+			//cout << "_sublam : " << endl << _GCMMAoptimizer->_resultlam << endl << endl;
 			//if (_optType == OptimizationType::GCMMA)
 			//	cout << "_suby : " << endl << _GCMMAoptimizer._suby << endl << endl;
 			//else if (_optType == OptimizationType::GCMMA_TR)
