@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Function.h"
+#include "Common.h"
+#include "Interpolation.h"
+
 #include <rovin\Utils\Diagnostic.h>
 
 #define STRATEGY_01
@@ -10,6 +13,9 @@ namespace rovin
 {
 	class GCMMAOptimization
 	{
+	public:
+		void saveMatrixX2txt(MatrixX in, std::string filename);
+
 	public:
 		int _xN; ///< number of parameters
 		int _ineqN; ///< number of inequality constrain
@@ -160,6 +166,8 @@ namespace rovin
 		void calceta(void);
 		void calclamhat(void);
 		void solveSubProblem(/* output */ VectorX& xout);
+
+	
 	};
 
 	class GCMMA_PDIPM : public GCMMAOptimization

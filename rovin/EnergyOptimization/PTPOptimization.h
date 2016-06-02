@@ -80,6 +80,9 @@ namespace rovin {
 
 		// Gaussian quadrature
 		GaussianQuadrature GQ;
+		
+		// initial value
+		VectorX initX;
 
 	public:
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,

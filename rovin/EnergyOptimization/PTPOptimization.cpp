@@ -265,7 +265,7 @@ namespace rovin{
 		//cout << "LinearInequalityCondition(b): " << endl << static_pointer_cast<AffineFunction>(_linearIneqFunc)->getb() << endl;
 
 		// Initial Guess
-		VectorX initX(_numOfOptJoint * _numOfOptCP);
+		initX.resize(_numOfOptJoint * _numOfOptCP);
 		for (unsigned int i = 0; i < _numOfOptJoint; i++)
 		{
 			for (unsigned int j = 0; j < _numOfOptCP; j++)
@@ -273,6 +273,17 @@ namespace rovin{
 				initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
 			}
 		}
+
+		//cout << "initX : " << initX << endl << endl;
+		//cout << "initCP" << endl;
+		//for (int i = 0; i < _initialCP.size(); i++)
+		//	cout << _initialCP[i] << endl;
+		//cout << "finalCP" << endl;
+		//for (int i = 0; i < _finalCP.size(); i++)
+		//	cout << _finalCP[i] << endl;
+		//cout << "_noptJointCP" << endl;
+		//cout << _noptJointCP << endl;
+
 
 		//initX << 0.556274, 0.11917, -0.328995, -0.814881, 0.603234, 0.0932657, -0.130955, -0.064882, 1.14852, 0.774952, 0.2058, -0.233091;
 		//initX << 0.419949, 0.275863, -0.263421, -0.847695, -0.218918, -0.226281, -0.224308, -0.177036, 1.22172, 1.20281, 0.169464, -0.362267;
@@ -331,6 +342,7 @@ namespace rovin{
 			_GCMMAoptimizer->setMinMax(minX, maxX);
 			_GCMMAoptimizer->setObjectiveFunction(_objectFunc);
 			_GCMMAoptimizer->setInequalityConstraint(_IneqFunc);
+			//cout << "initial objective value : " << _GCMMAoptimizer->_objectFunc->func(initX) << endl;
 			LOG("Start optimization.");
 			clock_t time = clock();
 			_GCMMAoptimizer->solve(initX);

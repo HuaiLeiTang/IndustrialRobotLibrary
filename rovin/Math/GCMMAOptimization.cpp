@@ -1,16 +1,28 @@
 #include "GCMMAOptimization.h"
 
-#include "Common.h"
 #include <iostream>
+#include <fstream>
 #include <time.h>
-
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
 
 using namespace std;
 
 namespace rovin
 {
+	void GCMMAOptimization::saveMatrixX2txt(MatrixX in, std::string filename)
+	{
+		std::ofstream fout;
+		fout.open(filename);
+
+		for (int i = 0; i < in.cols(); i++)
+		{
+			for (int j = 0; j < in.rows(); j++)
+				fout << in(j, i) << '\t';
+			fout << std::endl;
+		}
+
+		fout.close();
+	}
+
 	void GCMMAOptimization::initialize(int xN, int ineqN)
 	{
 		setXN(xN);
@@ -57,6 +69,17 @@ namespace rovin
 
 	void GCMMAOptimization::solve(const VectorX & initialX)
 	{
+		MatrixX tmpcp(6, 12);
+		VectorX tmpknot(6 + 4 + 6);
+		tmpcp << 1.0854, 1.0854, 1.0854, 0.742536, 0.399671, 0.0568071, -0.286057, -0.628921, -0.971786, -1.31465, -1.31465, -1.31465,
+			1.02654, 1.02654, 1.02654, 0.89829, 0.770039, 0.641789, 0.513538, 0.385288, 0.257037, 0.128787, 0.128787, 0.128787,
+			0.798359, 0.798359, 0.798359, 0.606166, 0.413973, 0.22178, 0.029587, -0.162606, -0.354799, -0.546992, -0.546992, -0.546992,
+			2.97849, 2.97849, 2.97849, 2.95824, 2.93798, 2.91773, 2.89747, 2.87722, 2.85696, 2.83671, 2.83671, 2.83671,
+			1.50724, 1.50724, 1.50724, 1.02645, 0.545657, 0.0648657, -0.415926, -0.896717, -1.37751, -1.8583, -1.8583, -1.8583,
+			1.45496, 1.45496, 1.45496, 1.66858, 1.8822, 2.09582, 2.30943, 2.52305, 2.73667, 2.95029, 2.95029, 2.95029;
+		tmpknot << 0, 0, 0, 0, 0.222222, 0.444444, 0.666667, 0.888889, 1.11111, 1.33333, 1.55556, 1.77778, 2, 2, 2, 2;
+
+
 		// initialize
 		// variables for outer loop
 
@@ -88,7 +111,7 @@ namespace rovin
 		int iterOL = 0, iterIL; // iter for outer/inner loop
 		while (iterOL < _maxIterOL) // outer loop
 		{
-			cout << "=== outer iter num: " << iterOL << endl;
+			//cout << "=== outer iter num: " << iterOL << endl;
 
 
 			//cout << xk << endl << endl;
@@ -142,7 +165,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				cout << "====== inner iter num: " << iterIL << endl;
+				//cout << "====== inner iter num: " << iterIL << endl;
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
 
@@ -157,6 +180,48 @@ namespace rovin
 
 				//cout << xknu << endl << endl;
 
+
+				/////////////////////////////////////////////////
+				//for (int i = 0; i < 3; i++)
+				//{
+				//	for (int j = 0; j < 6; j++)
+				//	{
+				//		tmpcp(i, j + 3) = xknu(i * 6 + j);
+				//	}
+				//}
+				//int datanum = 2000;
+				//Real stepsize = (2.0 - 0.0) / 2000;
+				//Real t = 0.0;
+				//BSpline<-1, -1, -1> tmpqSpline(tmpknot, tmpcp);
+				//BSpline<-1, -1, -1> tmpqdotSpline = tmpqSpline.derivative();
+				//BSpline<-1, -1, -1> tmpqddotSpline = tmpqdotSpline.derivative();
+				//MatrixX qTraj(6, datanum), qdotTraj(6, datanum), qddotTraj(6, datanum);
+
+				//for (int i = 0; i < datanum; i++)
+				//{
+				//	qTraj.col(i) = tmpqSpline(t);
+				//	t += stepsize;
+				//}
+				//t = 0.0;
+				//for (int i = 0; i < datanum; i++)
+				//{
+				//	qdotTraj.col(i) = tmpqdotSpline(t);
+				//	t += stepsize;
+				//}
+				//t = 0.0;
+				//for (int i = 0; i < datanum; i++)
+				//{
+				//	qddotTraj.col(i) = tmpqddotSpline(t);
+				//	t += stepsize;
+				//}
+
+				//std::string filename = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/exp/";
+
+				//saveMatrixX2txt(qTraj, filename + "q.txt");
+				//saveMatrixX2txt(qdotTraj, filename + "qdot.txt");
+				//saveMatrixX2txt(qddotTraj, filename + "qddot.txt");
+				/////////////////////////////////////////////////
+				
 
 				if (testILSuccess(xknu, f0valknu, fivalknu, f0tvalknu, fitvalknu))
 					break; // xknu is the optimal solution
@@ -177,6 +242,47 @@ namespace rovin
 
 				iterIL++;
 			}
+
+			/////////////////////////////////////////////////
+			//for (int i = 0; i < 3; i++)
+			//{
+			//	for (int j = 0; j < 6; j++)
+			//	{
+			//		tmpcp(i, j + 3) = xknu(i * 6 + j);
+			//	}
+			//}
+			//int datanum = 2000;
+			//Real stepsize = (2.0 - 0.0) / 2000;
+			//Real t = 0.0;
+			//BSpline<-1, -1, -1> tmpqSpline(tmpknot, tmpcp);
+			//BSpline<-1, -1, -1> tmpqdotSpline = tmpqSpline.derivative();
+			//BSpline<-1, -1, -1> tmpqddotSpline = tmpqdotSpline.derivative();
+			//MatrixX qTraj(6, datanum), qdotTraj(6, datanum), qddotTraj(6, datanum);
+
+			//for (int i = 0; i < datanum; i++)
+			//{
+			//	qTraj.col(i) = tmpqSpline(t);
+			//	t += stepsize;
+			//}
+			//t = 0.0;
+			//for (int i = 0; i < datanum; i++)
+			//{
+			//	qdotTraj.col(i) = tmpqdotSpline(t);
+			//	t += stepsize;
+			//}
+			//t = 0.0;
+			//for (int i = 0; i < datanum; i++)
+			//{
+			//	qddotTraj.col(i) = tmpqddotSpline(t);
+			//	t += stepsize;
+			//}
+
+			//std::string filename = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/exp/";
+
+			//saveMatrixX2txt(qTraj, filename + "q.txt");
+			//saveMatrixX2txt(qdotTraj, filename + "qdot.txt");
+			//saveMatrixX2txt(qddotTraj, filename + "qddot.txt");
+			/////////////////////////////////////////////////
 
 			// terminate condition
 			//cout << "abs(f0valm1(0) - f0valknu(0)) : " << abs(f0valm1(0) - f0valknu(0)) << endl;
@@ -207,13 +313,14 @@ namespace rovin
 			//cout << f0valknu << endl << endl;
 			//cout << fivalknu << endl << endl << endl;
 
-
 			iterOL++;
 		}
 
 		resultX = xknu;
 		resultFunc = f0valknu(0);
 	}
+
+
 
 
 	void GCMMAOptimization::calcLowUpp(int iter, const VectorX & xk, const VectorX & xkm1, const VectorX & xkm2)
@@ -311,7 +418,7 @@ namespace rovin
 					_olsigma(j) *= _ASYINCR;
 				//else
 				//   _olsigma(j) *= 1.0;
-				_olsigma(j) = MAX(0.01*(_maxX(j) - _minX(j)), MIN(_olsigma(j), 10 * (_maxX(j) - _minX(j))));
+				_olsigma(j) = Max(0.01*(_maxX(j) - _minX(j)), Min(_olsigma(j), 10 * (_maxX(j) - _minX(j))));
 			}
 		}
 	}
@@ -346,7 +453,7 @@ namespace rovin
 				tmpden += _ols(j) * _ols(j);
 			}
 
-			_oleta = MIN(1E3, MAX(1E-3, tmpnum / tmpden));
+			_oleta = Min(1E3, Max(1E-3, tmpnum / tmpden));
 
 			tmpreal = 0;
 			for (int j = 0; j < _xN; j++)
@@ -356,7 +463,7 @@ namespace rovin
 			if (tmpreal > 0)
 				_ilrho0 = tmpreal;
 			else
-				_ilrho0 = MAX(0.1*_ilrho0, 1E-5);
+				_ilrho0 = Max(0.1*_ilrho0, 1E-5);
 
 			// calculate _ilrhoi
 			for (int i = 0; i < _ineqN; i++)
@@ -375,7 +482,7 @@ namespace rovin
 					tmpden += _ols(j) * _ols(j);
 				}
 
-				_oleta = MIN(1E3, MAX(1E-3, tmpnum / tmpden));
+				_oleta = Min(1E3, Max(1E-3, tmpnum / tmpden));
 
 				tmpreal = 0;
 				for (int j = 0; j < _xN; j++)
@@ -385,7 +492,7 @@ namespace rovin
 				if (tmpreal > 0)
 					_ilrhoi(i) = tmpreal;
 				else
-					_ilrhoi(i) = MAX(0.1*_ilrhoi(i), 1E-5);
+					_ilrhoi(i) = Max(0.1*_ilrhoi(i), 1E-5);
 
 			}
 
@@ -408,7 +515,7 @@ namespace rovin
 			tmpSum = 0;
 			for (int j = 0; j < _xN; j++)
 				tmpSum += abs(dfidx(i, j)) * (_maxX(j) - _minX(j));
-			_ilrhoi(i) = MAX(0.1 * tmpSum / (Real)_xN, 1E-6);
+			_ilrhoi(i) = Max(0.1 * tmpSum / (Real)_xN, 1E-6);
 		}
 	}
 
@@ -531,12 +638,12 @@ namespace rovin
 
 		Real deltaknu0 = (f0valknu(0) - f0tvalknu(0)) / dknu;
 		if (deltaknu0 > 0)
-			_ilrho0 = MIN(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
+			_ilrho0 = Min(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
 		VectorX deltaknui = (fivalknu - fitvalknu) / dknu;
 		for (int i = 0; i < _ineqN; i++)
 		{
 			if (deltaknui(i) > 0)
-				_ilrhoi(i) = MIN(1.1*(_ilrhoi(i) + deltaknui(i)), 10 * _ilrhoi(i));
+				_ilrhoi(i) = Min(1.1*(_ilrhoi(i) + deltaknui(i)), 10 * _ilrhoi(i));
 		}
 	}
 
@@ -1297,7 +1404,7 @@ namespace rovin
 		   else
 			   _radius *= (_TR_gamma0 + _TR_gamma1) / 2;
 
-
+		  //cout << "cost : " << _subW << endl;
 
 		   if (_radius < 1E-3) // terminate condition
 		   {
@@ -1308,7 +1415,11 @@ namespace rovin
 		   iterSub++;
 	   }
 
-	   cout << "iterSub : " << iterSub << endl;
+	   //cout << "[_subdWm1]" << endl << _subdWm1 << endl << endl;
+	   //cout << "[_subdW]" << endl << _subdW << endl << endl;
+	   //cout << "[_sublamm1]" << endl << _sublamm1 << endl << endl;
+	   //cout << "[_sublam]" << endl << _sublam << endl << endl;
+	   //cout << "iterSub : " << iterSub << endl << endl;
 	   if (!solFound)
 		   LOG("exceeded max iteration number - 'TRsolveSubProblem'");
 
@@ -1373,7 +1484,7 @@ namespace rovin
 		   //cout << p0(j) + ltpj << endl;
 		   //cout << q0(j) + ltqj << endl << endl;
 		   tmpval = (sqrt(_ilp0(j) + ltpj) * _ollow(j) + sqrt(_ilq0(j) + ltqj) * _olupp(j)) / (sqrt(_ilp0(j) + ltpj) + sqrt(_ilq0(j) + ltqj));
-		   subx(j) = MAX(_olalpha(j), MIN(_olbeta(j), tmpval));
+		   subx(j) = Max(_olalpha(j), Min(_olbeta(j), tmpval));
 		   //cout << _olalpha(j) << '\t' << _olbeta(j) << '\t' << tmpval << endl << endl;
 	   }
    }
@@ -1381,7 +1492,7 @@ namespace rovin
    void GCMMA_TRM::calcy(const VectorX & lam, VectorX & suby)
    {
 	   for (int i = 0; i < _ineqN; i++)
-		   suby(i) = MAX(0.0, (lam(i) - _ci(i)) / _di(i));
+		   suby(i) = Max(0.0, (lam(i) - _ci(i)) / _di(i));
    }
 
    void GCMMA_TRM::calcW(const VectorX & lam, Real & W)
@@ -1478,7 +1589,7 @@ namespace rovin
 	   for (int i = 0; i < _ineqN; i++)
 	   {
 		   //cout << _TR_sublam(i) + _TR_radius << '\t' << _TR_sublam(i) - _TR_radius << '\t' << _TR_sublam(i) - (_TR_subdW(i)) / (_TR_subeta) << endl << endl;
-		   _sublamhat(i) = MIN(_sublam(i) + _radius, MAX(MAX(0.0, _sublam(i) - _radius), _sublam(i) - (_subdW(i)) / (_subeta)));
+		   _sublamhat(i) = Min(_sublam(i) + _radius, Max(Max(0.0, _sublam(i) - _radius), _sublam(i) - (_subdW(i)) / (_subeta)));
 		   //cout << _TR_sublamhat(i) << endl << endl;
 	   }
    }
