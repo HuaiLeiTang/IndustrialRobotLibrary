@@ -22,35 +22,12 @@ void saveMatrixX2txt(MatrixX in, std::string filename);
 void saveVectorX2txt(VectorX in, std::string filename);
 void calculateTorqueTrajectory(const MatrixX& q, const MatrixX& qdot, const MatrixX& qddot, MatrixX& torque);
 
-std::string file = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/";
+std::string file = "D:/jkkim/Documents/matlabTest/opt/";
 
 SerialOpenChainPtr robot(new efortRobot());
 
-int SerialOpenChain::count = 0;
-int SerialOpenChain::count2 = 0;
-
 int main()
 {
-	//VectorX v1(10), v2(10), v3(10);
-	//v1.setConstant(0.1);
-	//v2.setConstant(0.2);
-	//int cntMax = 10000000;
-
-	//clock_t time = clock();
-	//for (int cnt = 0; cnt < cntMax; cnt++)
-	//{
-	//	v3 = v1 + v2;
-	//}
-	//cout << "computation time : " << (clock() - time) << endl << endl;
-
-	//time = clock();
-	//for (int cnt = 0; cnt < cntMax; cnt++)
-	//{
-	//	for (int ii = 0; ii < 10; ii++)
-	//		v3(ii) = v1(ii) + v2(ii);
-	//}
-	//cout << "computation time : " << (clock() - time) << endl << endl;
-
 	cout << "Test" << endl;
 
 	unsigned int dof = robot->getNumOfJoint();
@@ -74,7 +51,7 @@ int main()
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
 	Real tf = 2.0;
-	int numOfOptCP = 4;
+	int numOfOptCP =5;
 	int orderOfBSpline = 4;
 
 	//std::cout << "------- [NLOPT RESULT] -------" << endl;
@@ -82,22 +59,18 @@ int main()
 	//PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt);
 	//PTPManagerNlopt.generateTrajectory();
 
-	//std::cout << "------- [GCMMA PRIMAL_DUAL_METHOD RESULT] -------" << endl;
-	////PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::energyloss);
-	//PTPOptimization PTPManagerManualOpt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA);
-	//PTPManagerManualOpt.generateTrajectory();
+	std::cout << "------- [NLOPT RESULT] -------" << endl;
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
+	PTPManagerNlopt.generateTrajectory();
 
-	//std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	////PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::energyloss);
-	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR);
+	//std::cout << "------- [GCMMA RESULT] -------" << endl;
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
 	//PTPManagerManualOptTR.generateTrajectory();
 
-	//std::cout << "------- [GCMMA GRADIENT DESCENT RESULT] -------" << endl;
-	//PTPOptimization PTPManagerManualOptGD(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_GD, ObjectiveFunctionType::energyloss);
-	//PTPManagerManualOptGD.generateTrajectory();
+	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
+	PTPManagerManualOptTR.generateTrajectory();
 
-	//cout << SerialOpenChain::count << endl;
-	//cout << SerialOpenChain::count2 << endl;
 
 	//MatrixX cpp(dof, 6 + numOfOptCP);
 	//for (int i = 0; i < 3; i++)

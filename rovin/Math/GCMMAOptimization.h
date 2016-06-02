@@ -28,11 +28,6 @@ namespace rovin
 		VectorX _ci;
 		VectorX _di;
 
-		// terminate conditions
-		Real _tolX;
-		Real _tolFunc;
-		int _maxIterOL;
-		int _maxIterIL;
 
 		VectorX resultX;
 		Real resultFunc;
@@ -99,6 +94,12 @@ namespace rovin
 		VectorX _minX;
 		VectorX _maxX;
 
+		// terminate conditions
+		Real _tolX;
+		Real _tolFunc;
+		int _maxIterOL;
+		int _maxIterIL;
+
 #ifdef STRATEGY_01
 		VectorX _olsigma;
 		VectorX _ols;
@@ -106,6 +107,7 @@ namespace rovin
 		Real _oleta;
 		VectorX _olb;
 #endif
+
 	public:
 		// variables for outer loop: updated in every outer loop
 		VectorX _ollow;
@@ -124,7 +126,14 @@ namespace rovin
 		Real _ilrho0;
 		VectorX _ilri;
 		VectorX _ilrhoi;
+
+	public:
+		VectorX _resulty;
+		VectorX _resultlam;
 	};
+
+
+
 
 
 	class GCMMA_TRM : public GCMMAOptimization // solve GCMMA subproblem by using 'Trust-Region Method'
@@ -151,9 +160,10 @@ namespace rovin
 		VectorX _subx;
 		VectorX _suby;
 
-	public:
-		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.3, 0.7, 0.5, 0.7, 1.2); }
+		bool _bUpdated;
 
+	public:
+		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.0001, 0.25, 0.25, 0.5, 2/*0.0001, 0.5, 0.2, 0.3, 2*/); }
 	private:
 		void allocSUBvar(void);
 		void setParametersTR(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
