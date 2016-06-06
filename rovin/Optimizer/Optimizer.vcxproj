@@ -122,9 +122,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="convexQP.h" />
     <ClInclude Include="NonlinearOptimization.h" />
+    <ClInclude Include="UnconstraintedOptimization.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="convexQP.cpp" />
     <ClCompile Include="NonlinearOptimization.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

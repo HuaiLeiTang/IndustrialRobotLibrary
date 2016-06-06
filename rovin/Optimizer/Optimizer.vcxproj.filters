@@ -18,9 +18,18 @@
     <ClInclude Include="NonlinearOptimization.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="convexQP.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="UnconstraintedOptimization.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="NonlinearOptimization.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="convexQP.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

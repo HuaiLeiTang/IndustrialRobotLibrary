@@ -15,6 +15,7 @@ namespace rovin
 	{
 	public:
 		void saveMatrixX2txt(MatrixX in, std::string filename);
+		void saveVectorX2txt(VectorX in, std::string filename);
 
 	public:
 		int _xN; ///< number of parameters
@@ -163,7 +164,11 @@ namespace rovin
 		bool _bUpdated;
 
 	public:
-		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) { setParametersTR(0.0001, 0.25, 0.25, 0.5, 2/*0.0001, 0.5, 0.2, 0.3, 2*/); }
+		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) 
+		{ 
+			//setParametersTR(0.0001, 0.25, 0.25, 0.5, 2);
+			setParametersTR(0.25, 0.5, 0.0, 0.25, 2);
+		}
 	private:
 		void allocSUBvar(void);
 		void setParametersTR(const Real& v, const Real& w, const Real& gam0, const Real& gam1, const Real& gam2);
@@ -183,6 +188,13 @@ namespace rovin
 	class GCMMA_PDIPM : public GCMMAOptimization
 	{
 		// solve GCMMA subproblem by using 'Primal-Dual Interior-Point Method'
+
+	public:
+		void calcx(const VectorX& lam, /* output */ VectorX& subx);
+		void calcy(const VectorX& lam, /* output */ VectorX& suby);
+		void calcW(const VectorX& lam, /* output */ Real& W);
+		void calcdW(const VectorX& lam, /* output */ VectorX& dW);
+
 	public:
 		GCMMA_PDIPM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) {}
 

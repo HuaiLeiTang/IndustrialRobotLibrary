@@ -238,6 +238,9 @@ namespace rovin
 		return true;
 	}
 
+	///////////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////// Hong young suk addition /////////////////////////////////////
+
 	static Real VectorInner(const VectorX& vec1, const VectorX& vec2)
 	{
 		Real value = 0;
@@ -254,6 +257,47 @@ namespace rovin
 			value += vec1(i) * vec2(i);
 		return value;
 	}
+
+	static void MatrixVectorMul(const MatrixX& A, const VectorX& b, const int row, const int col, VectorX& x)
+	{
+		x.setZero();
+		for (int i = 0; i < row; i++)
+		{
+			for (int j = 0; j < col; j++)
+			{
+				x(i) += A(i, j) * b(j);
+			}
+		}
+	}
+
+	static void VectorSubtraction(const VectorX& a, const VectorX& b, const int s, VectorX& x)
+	{
+		for (int i = 0; i < s; i++)
+			x(i) = a(i) - b(i);
+	}
 	
+	static void VectorSubtraction(VectorX& a, const VectorX& b, const int s, VectorX& x)
+	{
+		for (int i = 0; i < s; i++)
+			x(i) = a(i) - b(i);
+	}
+
+	static void VectorAddition(const VectorX& a, const VectorX& b, const int s, VectorX& x)
+	{
+		for (int i = 0; i < s; i++)
+			x(i) = a(i) + b(i);
+	}
+
+	static void VectorAddition(VectorX& a, const VectorX& b, const int s, VectorX& x)
+	{
+		for (int i = 0; i < s; i++)
+			x(i) = a(i) + b(i);
+	}
+
+	static Real test2()
+	{
+		Real a = 1;
+		return a;
+	}
 
 }

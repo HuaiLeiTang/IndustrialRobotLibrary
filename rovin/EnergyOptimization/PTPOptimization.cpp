@@ -149,6 +149,7 @@ namespace rovin{
 		unsigned int np = _shared->_dPdP.rows(); // _qSpline.getControlPoints().cols() - 6,
 		unsigned int nq = _shared->_dQdP.rows(); // _qdotSpline.getControlPoints().cols() - 4
 		unsigned int nr = _shared->_dRdP.rows(); // _qddotSpline.getControlPoints().cols() - 2
+
 		MatrixX A((np + nq + nr) * 2 * _numOfOptJoint, _numOfOptCP * _numOfOptJoint);
 		VectorX b((np + nq + nr) * 2 * _numOfOptJoint);
 		A.setZero();
@@ -174,6 +175,8 @@ namespace rovin{
 			b.block((np + nq + nr) * 2 * i + (np + nq) * 2 + nr, 0, nr, 1) = -_shared->_R[i] + VectorX::Ones(nr)*_soc->getMotorJointPtr(_optJointIdx[i])->getLimitAccLower();
 		}
 		_linearIneqFunc = FunctionPtr(new AffineFunction(A, b));
+
+		cout << b.size() << endl;
 
 		_IneqFunc = FunctionPtr(new AugmentedFunction());
 		static_pointer_cast<AugmentedFunction>(_IneqFunc)->addFunction(_nonlinearIneqFunc);
@@ -350,6 +353,11 @@ namespace rovin{
 			cout << "------------------------------------" << endl;
 			cout << "computation time : " << (clock() - time) << endl << endl;
 			cout << "X : " << endl << _GCMMAoptimizer->getResultX() << endl << endl;
+			
+			//VectorX X = _GCMMAoptimizer->getResultX();
+			//cout << "func(X) : " << _GCMMAoptimizer->_objectFunc->func(X) << endl;
+			//cout << "ineqCons : " << _GCMMAoptimizer->_ineqConstraint->func(X) << endl;
+
 			cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
 			cout << "Value of objective function : " << _GCMMAoptimizer->getResultFunc() << endl << endl;
 			//cout << "_suby : " << endl << _GCMMAoptimizer->_resulty << endl << endl;

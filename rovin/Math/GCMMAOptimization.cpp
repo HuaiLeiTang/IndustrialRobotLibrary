@@ -13,11 +13,32 @@ namespace rovin
 		std::ofstream fout;
 		fout.open(filename);
 
-		for (int i = 0; i < in.cols(); i++)
+		//for (int i = 0; i < in.cols(); i++)
+		//{
+		//	for (int j = 0; j < in.rows(); j++)
+		//		fout << in(j, i) << '\t';
+		//	fout << std::endl;
+		//}
+		for (int i = 0; i < in.rows(); i++)
 		{
-			for (int j = 0; j < in.rows(); j++)
-				fout << in(j, i) << '\t';
+			for (int j = 0; j < in.cols(); j++)
+			{
+				fout << in(i, j) << '\t';
+			}
 			fout << std::endl;
+		}
+
+		fout.close();
+	}
+
+	void GCMMAOptimization::saveVectorX2txt(VectorX in, std::string filename)
+	{
+		std::ofstream fout;
+		fout.open(filename);
+
+		for (int i = 0; i < in.size(); i++)
+		{
+			fout << in(i) << endl;
 		}
 
 		fout.close();
@@ -112,7 +133,7 @@ namespace rovin
 		int iterOL = 0, iterIL; // iter for outer/inner loop
 		while (iterOL < _maxIterOL) // outer loop
 		{
-			//cout << "=== outer iter num: " << iterOL << endl;
+			cout << "=== outer iter num: " << iterOL << endl;
 
 
 			//cout << xk << endl << endl;
@@ -175,7 +196,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				//cout << "====== inner iter num: " << iterIL << endl;
+				cout << "====== inner iter num: " << iterIL << endl;
 
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
@@ -673,14 +694,13 @@ namespace rovin
 
 		Real deltaknu0 = (f0valknu(0) - f0tvalknu(0)) / dknu;
 		if (deltaknu0 > 0)
-
-		if (1.1*(_ilrho0 + deltaknu0) < 10 * _ilrho0)
-			_ilrho0 = 1.1*(_ilrho0 + deltaknu0);
-		else
-			_ilrho0 = 10 * _ilrho0;
-		//_ilrho0 = MIN(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
-
-
+			_ilrho0 = Min(1.1*(_ilrho0 + deltaknu0), 10 * _ilrho0);
+		
+		//if (1.1*(_ilrho0 + deltaknu0) < 10 * _ilrho0)
+		//	_ilrho0 = 1.1*(_ilrho0 + deltaknu0);
+		//else
+		//	_ilrho0 = 10 * _ilrho0;
+		
 		VectorX deltaknui = (fivalknu - fitvalknu) / dknu;
 		for (int i = 0; i < _ineqN; i++)
 		{
@@ -755,6 +775,23 @@ namespace rovin
 
 			iterSub++;
 		}
+
+		//VectorX x(_xN);
+		//calcx(_sublam, x);
+		//VectorX result = _ineqConstraint->func(x);
+		//for (int i = 0; i < _ineqN; i++)
+		//{
+		//	if (result(i) > 0)
+		//		cout << "inequality error" << endl;
+		//}
+
+		//Real W;
+		//VectorX dW(_ineqN);
+		//cout << "sublam" << endl << _sublam << endl << endl;
+		//calcW(_sublam, W);
+		//calcdW(_sublam, dW);
+		//cout << "W : " << W << endl;
+		//cout << "lam * dW : " << VectorInner(_sublam, dW, _ineqN) << endl;
 
 		if (!solFound)
 			LOG("exceeded max iteration number - 'solveSubProblem'");
@@ -1396,6 +1433,87 @@ namespace rovin
 	   return 0;
    }
 
+   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   void GCMMA_PDIPM::calcx(const VectorX & lam, VectorX & subx)
+   {
+	   Real ltpj, ltqj, tmpval;
+	   for (int j = 0; j < _xN; j++)
+	   {
+		   ltpj = 0; ltqj = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   ltpj += lam(i) * _ilpi(i, j);
+			   ltqj += lam(i) * _ilqi(i, j);
+		   }
+		   //cout << p0(j) + ltpj << endl;
+		   //cout << q0(j) + ltqj << endl << endl;
+		   tmpval = (sqrt(_ilp0(j) + ltpj) * _ollow(j) + sqrt(_ilq0(j) + ltqj) * _olupp(j)) / (sqrt(_ilp0(j) + ltpj) + sqrt(_ilq0(j) + ltqj));
+		   subx(j) = Max(_olalpha(j), Min(_olbeta(j), tmpval));
+		   //cout << _olalpha(j) << '\t' << _olbeta(j) << '\t' << tmpval << endl << endl;
+	   }
+   }
+
+   void GCMMA_PDIPM::calcdW(const VectorX & lam, VectorX & dW)
+   {
+	   // calc x/y 필요한가.....
+	   calcx(lam, _subx);
+	   calcy(lam, _suby);
+
+	   //cout << _TR_subx << endl;
+	   //cout << _TR_suby << endl;
+
+	   Real tmpval;
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = 0;
+		   for (int j = 0; j < _xN; j++)
+			   tmpval += _ilpi(i, j) / (_olupp(j) - _subx(j)) + _ilqi(i, j) / (_subx(j) - _ollow(j));
+
+		   dW(i) = -tmpval - _ilri(i) + _suby(i);
+	   }
+   }
+
+   void GCMMA_PDIPM::calcy(const VectorX & lam, VectorX & suby)
+   {
+	   for (int i = 0; i < _ineqN; i++)
+		   suby(i) = Max(0.0, (lam(i) - _ci(i)) / _di(i));
+   }
+
+   void GCMMA_PDIPM::calcW(const VectorX & lam, Real & W)
+   {
+	   calcx(lam, _subx);
+	   calcy(lam, _suby);
+
+	   W = 0;
+	   Real tmpval0, tmpval1;
+
+
+	   tmpval0 = 0;
+	   for (int i = 0; i < _ineqN; i++)
+		   tmpval0 += lam(i) * _ilri(i);
+
+	   W += _ilr0 + tmpval0;
+
+	   for (int j = 0; j < _xN; j++)
+	   {
+		   tmpval0 = 0; tmpval1 = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   tmpval0 += lam(i)*_ilpi(i, j);
+			   tmpval1 += lam(i)*_ilqi(i, j);
+		   }
+		   W += (_ilp0(j) + tmpval0) / (_olupp(j) - _subx(j)) + (_ilq0(j) + tmpval1) / (_subx(j) - _ollow(j));
+	   }
+
+	   for (int i = 0; i < _ineqN; i++)
+		   W += _suby(i) * (_ci(i) + 0.5*_di(i)*_suby(i) - lam(i));
+
+	   W *= -1;
+   }
+   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    void GCMMA_TRM::solveSubProblem(VectorX & xout)
    {
 	   // input variable size:
@@ -1415,9 +1533,26 @@ namespace rovin
 	   //saveVectorX2txt123(_subdWm1, filedd);
 	   //saveRealX2txt123(_radius, filedd);
 
-	   int iterSub = 0, maxIterSub = 50, iterSub1 = 0, maxIterSub1 = 100;
+	   //std::string filename = "C:/Users/crazy/Desktop/mma_new/parameter2/";
+	   //saveVectorX2txt(_ci, filename + "_ci.txt");
+	   //saveVectorX2txt(_di, filename + "_di.txt");
+	   //saveVectorX2txt(_ollow, filename + "_ollow.txt");
+	   //saveVectorX2txt(_olupp, filename + "_olupp.txt");
+	   //saveVectorX2txt(_olalpha, filename + "_olalpha.txt");
+	   //saveVectorX2txt(_olbeta, filename + "_olbeta.txt");
+	   //saveVectorX2txt(_ilp0, filename + "_ilp0.txt");
+	   //saveVectorX2txt(_ilq0, filename + "_ilq0.txt");
+	   //saveMatrixX2txt(_ilpi, filename + "_ilpi.txt");
+	   //saveMatrixX2txt(_ilqi, filename + "_ilqi.txt");
+	   //cout << _ilr0 << endl;
+	   //saveVectorX2txt(_ilri, filename + "_ilri.txt");
+
+
+	   int iterSub = 0, maxIterSub = 10000, iterSub1 = 0, maxIterSub1 = 20000;
+	   //int iterSub = 0, maxIterSub = 20, iterSub1 = 0, maxIterSub1 = 30;
 	   bool solFound = false;
 	   while (iterSub < maxIterSub && iterSub1 < maxIterSub1)
+	   //while(1)
 	   {
 		   //cout << "===================================================" << endl << endl;
 		   // step 1-1: calculate eta - equation(16)
@@ -1475,12 +1610,25 @@ namespace rovin
 		   }
 
 		   // step 4: update radius of trust region
+		   //cout << _TR_gamma2 << endl;
+		   //cout << _TR_gamma0 << '\t' << _TR_gamma1 << endl;
 		   if (_subtheta >= _TR_w)
+		   {
 			   _radius *= _TR_gamma2;
+		   }
 		   else if (_subtheta > _TR_v)
+		   {
 			   _radius *= 1;
+		   }
 		   else
-			   _radius *= (_TR_gamma0 + _TR_gamma1) / 2;
+		   {
+			   //_radius *= (_TR_gamma0 + _TR_gamma1) / 2;
+			   _radius *= _TR_gamma1;
+		   }
+			   
+
+		   //if (iterSub1 > 5 && abs(VectorInner(_sublam, _subdW, _ineqN)) < 1E+2)
+			  // break;
 
 		   //if (_bUpdated && abs(VectorInner(_sublam - _sublamm1, _subdW, _ineqN)) < 1E-2)
 		   //{
@@ -1508,6 +1656,23 @@ namespace rovin
 		   //}
 		   iterSub1++;
 	   }
+
+	   VectorX x(_xN);
+	   calcx(_sublam, x);
+	   VectorX result = _ineqConstraint->func(x);
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   if (result(i) > 0)
+			   cout << "inequality error" << endl;
+	   }
+
+	   //cout << "iterSub : " << iterSub << endl;
+	   //cout << "iterSub1 : " << iterSub1 << endl;
+	   //cout << "_sublam" << endl << _sublam << endl << endl;
+	   //cout << "W : " << _subW << endl;
+	   //calcdW(_sublam, _subdW);
+	   //cout << "lam * dW : " << VectorInner(_sublam, _subdW) << endl;
+	   //cout << "dW : " << _subdW << endl << endl;
 
 	   //if (!solFound)
 		  // LOG("exceeded max iteration number - 'TRsolveSubProblem'");
@@ -1557,6 +1722,9 @@ namespace rovin
 	   _sublam.setZero();
 	   //_TR_sublam.setConstant(2E-3);
 	   _sublamm1.setConstant(1E-3);
+
+	   //_sublam.setOnes();
+	   //_sublamm1.setConstant(1 + 1E-3);
 
 	   calcdW(_sublam, _subdW);
 	   calcdW(_sublamm1, _subdWm1);
