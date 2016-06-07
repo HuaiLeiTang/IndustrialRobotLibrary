@@ -11,47 +11,32 @@ using namespace rovin;
 
 void loadData(MatrixX& data, std::string filename);
 
-int num = 20;
+int num = 15;
 
 int main()
 {
+	MatrixX a(num, num);
+	a.setRandom(); a *= 10;
+
 	MatrixX A(num, num);
 	VectorX b(num), x0(num), x(num);
+	x0.setZero();
+	A = a.transpose() * a;
+	b.setRandom(); b *= 10;
 
-	std::string filename = "C:/Users/crazy/Desktop/A.txt";
-	loadData(A, filename);
-
-	b << 9.0327,
-		5.4126,
-		0.9868,
-		8.5708,
-		0.4274,
-		1.4204,
-		2.1750,
-		7.7746,
-		3.5761,
-		0.2532,
-		8.3378,
-		3.6320,
-		7.8856,
-		8.7966,
-		6.7651,
-		5.4524,
-		8.9889,
-		0.9949,
-		0.9094,
-		0.3424;
-
-	x0.setOnes();
+	//std::string filename = "C:/Users/crazy/Desktop/A.txt";
+	//loadData(A, filename);
+	//b << 9.0327, 5.4126, 0.9868, 8.5708, 0.4274, 1.4204, 2.1750, 7.7746, 3.5761, 0.2532, 8.3378, 3.6320,
+	//	7.8856, 8.7966, 6.7651, 5.4524, 8.9889, 0.9949, 0.9094, 0.3424;
 
 	clock_t time = clock();
-	for (int i = 0; i < 1000; i++)
+	for (int i = 0; i < 10000; i++)
 		x = A.inverse() * b;
 	cout << clock() - time << endl;
 	cout << x << endl << endl;
 
 	time = clock();
-	for (int i = 0; i < 1000; i++)
+	for (int i = 0; i < 10000; i++)
 		irLib::Opt::LinearConjugateGradient(A, b, x0, x);
 	cout << clock() - time << endl;
 	cout << x << endl;
