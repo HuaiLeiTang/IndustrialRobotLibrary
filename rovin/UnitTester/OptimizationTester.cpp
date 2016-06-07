@@ -22,8 +22,8 @@ void saveMatrixX2txt(MatrixX in, std::string filename);
 void saveVectorX2txt(VectorX in, std::string filename);
 void calculateTorqueTrajectory(const MatrixX& q, const MatrixX& qdot, const MatrixX& qddot, MatrixX& torque);
 
-//std::string file = "D:/jkkim/Documents/matlabTest/opt/";
-std::string file = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/";
+std::string file = "D:/jkkim/Documents/matlabTest/opt/";
+//std::string file = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/";
 
 SerialOpenChainPtr robot(new efortRobot());
 
@@ -59,13 +59,13 @@ int main()
 	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
 	PTPManagerNlopt.generateTrajectory();
 
-	//std::cout << "------- [GCMMA RESULT] -------" << endl;
-	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
-	//PTPManagerManualOptTR.generateTrajectory();
-
-	std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
+	std::cout << "------- [GCMMA RESULT] -------" << endl;
+	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
 	PTPManagerManualOptTR.generateTrajectory();
+
+	//std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
+	//PTPManagerManualOptTR.generateTrajectory();
 
 	//MatrixX cpp(dof, 6 + numOfOptCP);
 	//for (int i = 0; i < 3; i++)
@@ -86,7 +86,7 @@ int main()
 	//cout << PTPManagerManualOptTR._knot << endl;
 
 	///////////////////////////////// SAVE & RENDERING /////////////////////////////////
-	bool renderingswi = true;
+	bool renderingswi = false;
 
 	PTPOptimization* PTPManager1 = &PTPManagerNlopt;
 	PTPOptimization* PTPManager2 = &PTPManagerManualOptTR;

@@ -91,17 +91,6 @@ namespace rovin
 
 	void GCMMAOptimization::solve(const VectorX & initialX)
 	{
-		MatrixX tmpcp(6, 12);
-		VectorX tmpknot(6 + 4 + 6);
-		tmpcp << 1.0854, 1.0854, 1.0854, 0.742536, 0.399671, 0.0568071, -0.286057, -0.628921, -0.971786, -1.31465, -1.31465, -1.31465,
-			1.02654, 1.02654, 1.02654, 0.89829, 0.770039, 0.641789, 0.513538, 0.385288, 0.257037, 0.128787, 0.128787, 0.128787,
-			0.798359, 0.798359, 0.798359, 0.606166, 0.413973, 0.22178, 0.029587, -0.162606, -0.354799, -0.546992, -0.546992, -0.546992,
-			2.97849, 2.97849, 2.97849, 2.95824, 2.93798, 2.91773, 2.89747, 2.87722, 2.85696, 2.83671, 2.83671, 2.83671,
-			1.50724, 1.50724, 1.50724, 1.02645, 0.545657, 0.0648657, -0.415926, -0.896717, -1.37751, -1.8583, -1.8583, -1.8583,
-			1.45496, 1.45496, 1.45496, 1.66858, 1.8822, 2.09582, 2.30943, 2.52305, 2.73667, 2.95029, 2.95029, 2.95029;
-		tmpknot << 0, 0, 0, 0, 0.222222, 0.444444, 0.666667, 0.888889, 1.11111, 1.33333, 1.55556, 1.77778, 2, 2, 2, 2;
-
-
 		// initialize
 		// variables for outer loop
 
@@ -133,7 +122,7 @@ namespace rovin
 		int iterOL = 0, iterIL; // iter for outer/inner loop
 		while (iterOL < _maxIterOL) // outer loop
 		{
-			cout << "=== outer iter num: " << iterOL << endl;
+			//cout << "=== outer iter num: " << iterOL << endl;
 
 
 			//cout << xk << endl << endl;
@@ -196,7 +185,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				cout << "====== inner iter num: " << iterIL << endl;
+				//cout << "====== inner iter num: " << iterIL << endl;
 
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
@@ -554,7 +543,7 @@ namespace rovin
 
 		}
 	}
-#endif
+#else
 
 	void GCMMAOptimization::calcInitialRho(const MatrixX & df0dx, const MatrixX & dfidx)
 	{
@@ -574,6 +563,7 @@ namespace rovin
 			_ilrhoi(i) = Max(0.1 * tmpSum / (Real)_xN, 1E-6);
 		}
 	}
+#endif
 
 	void GCMMAOptimization::calcPQR(const MatrixX & df0dxp, const MatrixX & df0dxm, const MatrixX & dfidxp, const MatrixX & dfidxm, const VectorX & xk, const VectorX & f0val, const VectorX & fival)
 	{
@@ -1548,8 +1538,8 @@ namespace rovin
 	   //saveVectorX2txt(_ilri, filename + "_ilri.txt");
 
 
-	   int iterSub = 0, maxIterSub = 10000, iterSub1 = 0, maxIterSub1 = 20000;
-	   //int iterSub = 0, maxIterSub = 20, iterSub1 = 0, maxIterSub1 = 30;
+	   //int iterSub = 0, maxIterSub = 10000, iterSub1 = 0, maxIterSub1 = 20000;
+	   int iterSub = 0, maxIterSub = 20, iterSub1 = 0, maxIterSub1 = 30;
 	   bool solFound = false;
 	   while (iterSub < maxIterSub && iterSub1 < maxIterSub1)
 	   //while(1)
@@ -1657,14 +1647,19 @@ namespace rovin
 		   iterSub1++;
 	   }
 
-	   VectorX x(_xN);
-	   calcx(_sublam, x);
-	   VectorX result = _ineqConstraint->func(x);
-	   for (int i = 0; i < _ineqN; i++)
-	   {
-		   if (result(i) > 0)
-			   cout << "inequality error" << endl;
-	   }
+	   //VectorX x(_xN), y(_ineqN);
+	   //calcx(_sublam, x);
+	   //calcy(_sublam, y);
+	   //VectorX result = _ineqConstraint->func(x);
+	   //VectorX resulttilde(_ineqN);
+	   //calcfitilde(x, resulttilde);
+	   //for (int i = 0; i < _ineqN; i++)
+	   //{
+		  // if (result(i) > 0)
+			 //  cout << "inequality error" << endl;
+		  // if (resulttilde(i) - y(i) > 0)
+			 //  cout << "ineqqqqqq error" << endl;
+	   //}
 
 	   //cout << "iterSub : " << iterSub << endl;
 	   //cout << "iterSub1 : " << iterSub1 << endl;
