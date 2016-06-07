@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 
 #include "Constant.h"
 
@@ -294,10 +295,166 @@ namespace rovin
 			x(i) = a(i) + b(i);
 	}
 
-	static Real test2()
+	static void CholeskyDecomposition(const MatrixX& inmat, int dim, MatrixX& outmat)
 	{
-		Real a = 1;
-		return a;
+		outmat.setZero();
+		int i, j, k;
+
+		for (k = 0; k < dim; k++) // Cholesky decomposition
+		{
+			outmat(k, k) = inmat(k, k);
+			for (j = 0; j < k; j++)
+				outmat(k, k) -= outmat(k, j) * outmat(k, j);
+			outmat(k, k) = sqrt(outmat(k, k));
+
+			
+			for (i = k + 1; i < dim; i++)
+			{
+				outmat(i, k) = inmat(i, k);
+				for (j = 0; j < k; j++)
+					outmat(i, k) -= outmat(i, j) * outmat(k, j);
+				outmat(i, k) /= outmat(k, k);
+			}
+		}
 	}
+
+	static void IncompleteCholeskyDecomposition(const MatrixX& inmat, int dim, MatrixX& outmat)
+	{
+		outmat.setZero();
+		int i, j, k;
+
+		for (k = 0; k < dim; k++) // Cholesky decomposition
+		{
+			outmat(k, k) = inmat(k, k);
+			for (j = 0; j < k; j++)
+				outmat(k, k) -= outmat(k, j) * outmat(k, j);
+			outmat(k, k) = sqrt(outmat(k, k));
+
+			for (i = k + 1; i < dim; i++)
+			{
+				outmat(i, k) = inmat(i, k);
+				for (j = 0; j < k; j++)
+					outmat(i, k) -= outmat(i, j) * outmat(k, j);
+				outmat(i, k) /= outmat(k, k);
+
+				if (inmat(i, k) == 0)
+					outmat(i, k) = 0;
+			}
+		}
+
+		//for (int k = 0; k < num; k++)
+		//{
+		//	A(k, k) = std::sqrt(A(k, k));
+		//	for (int i = (k + 1); i < num; i++)
+		//	{
+		//		if (A(i, k) != 0)
+		//			A(i, k) = A(i, k) / A(k, k);
+		//	}
+
+		//	for (int j = (k + 1); j < num; j++)
+		//	{
+		//		for (int i = j; i < num; i++)
+		//		{
+		//			if (A(i, j) != 0)
+		//				A(i, j) = A(i, j) - A(i, k)*A(j, k);
+		//		}
+		//	}
+		//}
+	}
+
+	static void LowerMatrixInverse(const MatrixX& inmat, int dim, MatrixX& outmat)
+	{
+		outmat.setZero();
+		int i, j, k;
+		for (i = 0; i < dim; i++) // Inverse of lower matrix
+		{
+			outmat(i, i) = 1 / inmat(i, i);
+			for (j = i + 1; j < dim; j++)
+			{
+				for (k = i; k < j; k++)
+				{
+					outmat(j, i) += inmat(j, k) * outmat(k, i);
+				}
+				outmat(j, i) /= -inmat(j, j);
+			}
+		}
+	}
+
+	static void MultLowerUpperMatrix(const MatrixX& lower, const MatrixX& Upper, int dim, MatrixX& outmat)
+	{
+		outmat.setZero();
+		int i, j, k;
+		for (i = 0; i < dim; i++) // multiple lower matrax & upper matrix
+		{
+			for (j = i; j < dim; j++)
+			{
+				for (k = j; k < dim; k++)
+				{
+					outmat(i, j) += Upper(i, k)*lower(k, j);
+				}
+				outmat(j, i) = outmat(i, j);
+			}
+		}
+	}
+
+	static void PosDefMatrixInverse(const MatrixX& inmat, int dim, MatrixX& outmat)
+	{
+		// inverse of positive definite matrix('inmat') by using Cholesky decomposition
+
+		MatrixX Lower(dim, dim), iLower(dim, dim), iLowert(dim, dim);
+		Lower.setZero(); iLower.setZero(); iLowert.setZero(); outmat.setZero();
+
+		int i, j, k;
+
+		for (k = 0; k < dim; k++) // Cholesky decomposition
+		{
+			Lower(k, k) = inmat(k, k);
+			for (j = 0; j < k; j++)
+				Lower(k, k) -= Lower(k, j) * Lower(k, j);
+			Lower(k, k) = sqrt(Lower(k, k));
+
+			for (i = k + 1; i < dim; i++)
+			{
+				Lower(i, k) = inmat(i, k);
+				for (j = 0; j < k; j++)
+					Lower(i, k) -= Lower(i, j) * Lower(k, j);
+				Lower(i, k) /= Lower(k, k);
+			}
+		}
+
+		for (i = 0; i < dim; i++) // Inverse of lower matrix
+		{
+			iLower(i, i) = 1 / Lower(i, i);
+			for (j = i + 1; j < dim; j++)
+			{
+				for (k = i; k < j; k++)
+				{
+					iLower(j, i) += Lower(j, k) * iLower(k, i);
+				}
+				iLower(j, i) /= -Lower(j, j);
+			}
+		}
+
+		for (i = 0; i < dim; i++) // transpose
+		{
+			iLowert(i, i) = iLower(i, i);
+			for (j = 0; j < i; j++)
+				iLowert(j, i) = iLower(i, j);
+		}
+
+		for (i = 0; i < dim; i++) // multiple lower matrax & upper matrix
+		{
+			for (j = i; j < dim; j++)
+			{
+				for (k = j; k < dim; k++)
+				{
+					outmat(i, j) += iLowert(i, k)*iLower(k, j);
+				}
+				outmat(j, i) = outmat(i, j);
+			}
+		}
+	}
+
+
 
 }
