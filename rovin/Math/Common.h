@@ -95,6 +95,12 @@ namespace rovin
 		return false;
 	}
 
+	static bool RealEqual(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (std::abs(op1 - op2) < eps + eps*Abs(op1)) return true;
+		return false;
+	}
+
 	template< typename T >
 	static bool RealEqual(const Eigen::MatrixBase<T>& op1, const Real& op2)
 	{
@@ -144,6 +150,12 @@ namespace rovin
 		return false;
 	}
 
+	static bool RealLess(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 < op2 - eps - eps*Abs(op1)) return true;
+		return false;
+	}
+
 	template< typename T >
 	static bool RealLess(const Eigen::MatrixBase<T>& op1, const Real& op2)
 	{
@@ -166,6 +178,12 @@ namespace rovin
 	static bool RealLessEqual(const Real& op1, const Real& op2)
 	{
 		if (op1 < op2 + RealEps + RealEps*Abs(op1)) return true;
+		return false;
+	}
+
+	static bool RealLessEqual(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 < op2 + eps + eps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -194,6 +212,12 @@ namespace rovin
 		return false;
 	}
 
+	static bool RealBigger(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 > op2 + eps + eps*Abs(op1)) return true;
+		return false;
+	}
+
 	template< typename T >
 	static bool RealBigger(const Eigen::MatrixBase<T>& op1, const Real& op2)
 	{
@@ -216,6 +240,12 @@ namespace rovin
 	static bool RealBiggerEqual(const Real& op1, const Real& op2)
 	{
 		if (op1 > op2 - RealEps - RealEps*Abs(op1)) return true;
+		return false;
+	}
+
+	static bool RealBiggerEqual(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 > op2 - eps - eps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -298,6 +328,64 @@ namespace rovin
 	{
 		Real a = 1;
 		return a;
+	}
+
+	static void PosDefMatrixInverse(const MatrixX& inmat, int dim, MatrixX& outmat)
+	{
+		// inverse of positive definite matrix('inmat') by using Cholesky decomposition
+
+		MatrixX Lower(dim, dim), iLower(dim, dim), iLowert(dim, dim);
+		Lower.setZero(); iLower.setZero(); iLowert.setZero(); outmat.setZero();
+
+		int i, j, k;
+
+		for (k = 0; k < dim; k++) // Cholesky decomposition
+		{
+			Lower(k, k) = inmat(k, k);
+			for (j = 0; j < k; j++)
+				Lower(k, k) -= Lower(k, j) * Lower(k, j);
+			Lower(k, k) = sqrt(Lower(k, k));
+
+			for (i = k + 1; i < dim; i++)
+			{
+				Lower(i, k) = inmat(i, k);
+				for (j = 0; j < k; j++)
+					Lower(i, k) -= Lower(i, j) * Lower(k, j);
+				Lower(i, k) /= Lower(k, k);
+			}
+		}
+
+		for (i = 0; i < dim; i++) // Inverse of lower matrix
+		{
+			iLower(i, i) = 1 / Lower(i, i);
+			for (j = i + 1; j < dim; j++)
+			{
+				for (k = i; k < j; k++)
+				{
+					iLower(j, i) += Lower(j, k) * iLower(k, i);
+				}
+				iLower(j, i) /= -Lower(j, j);
+			}
+		}
+
+		for (i = 0; i < dim; i++) // transpose
+		{
+			iLowert(i, i) = iLower(i, i);
+			for (j = 0; j < i; j++)
+				iLowert(j, i) = iLower(i, j);
+		}
+
+		for (i = 0; i < dim; i++) // multiple lower matrax & upper matrix
+		{
+			for (j = i; j < dim; j++)
+			{
+				for (k = j; k < dim; k++)
+				{
+					outmat(i, j) += iLowert(i, k)*iLower(k, j);
+				}
+				outmat(j, i) = outmat(i, j);
+			}
+		}
 	}
 
 }
