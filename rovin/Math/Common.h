@@ -96,6 +96,12 @@ namespace rovin
 		return false;
 	}
 
+	static bool RealEqual(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (std::abs(op1 - op2) < eps + eps*Abs(op1)) return true;
+		return false;
+	}
+
 	template< typename T >
 	static bool RealEqual(const Eigen::MatrixBase<T>& op1, const Real& op2)
 	{
@@ -145,6 +151,12 @@ namespace rovin
 		return false;
 	}
 
+	static bool RealLess(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 < op2 - eps - eps*Abs(op1)) return true;
+		return false;
+	}
+
 	template< typename T >
 	static bool RealLess(const Eigen::MatrixBase<T>& op1, const Real& op2)
 	{
@@ -167,6 +179,12 @@ namespace rovin
 	static bool RealLessEqual(const Real& op1, const Real& op2)
 	{
 		if (op1 < op2 + RealEps + RealEps*Abs(op1)) return true;
+		return false;
+	}
+
+	static bool RealLessEqual(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 < op2 + eps + eps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -195,6 +213,12 @@ namespace rovin
 		return false;
 	}
 
+	static bool RealBigger(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 > op2 + eps + eps*Abs(op1)) return true;
+		return false;
+	}
+
 	template< typename T >
 	static bool RealBigger(const Eigen::MatrixBase<T>& op1, const Real& op2)
 	{
@@ -217,6 +241,12 @@ namespace rovin
 	static bool RealBiggerEqual(const Real& op1, const Real& op2)
 	{
 		if (op1 > op2 - RealEps - RealEps*Abs(op1)) return true;
+		return false;
+	}
+
+	static bool RealBiggerEqual(const Real& op1, const Real& op2, const Real& eps)
+	{
+		if (op1 > op2 - eps - eps*Abs(op1)) return true;
 		return false;
 	}
 
@@ -454,7 +484,4 @@ namespace rovin
 			}
 		}
 	}
-
-
-
 }

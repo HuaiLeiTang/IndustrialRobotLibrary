@@ -69,7 +69,6 @@ namespace rovin
 		void allocILvar(void);
 
 		virtual void solveSubProblem(/* output */ VectorX& xout) = 0;
-		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx);
 		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
 		void calcf0tilde(const VectorX& x, /* output */ VectorX& f0tval);
 		void calcfitilde(const VectorX& x, /* output */ VectorX& fitval);
@@ -82,6 +81,8 @@ namespace rovin
 		void calcSigma(int iter, const VectorX& xk, const VectorX& xkm1, const VectorX& xkm2);
 		void calcInitialRho_st01(int iter, const VectorX& xk, const VectorX& xkm1, const MatrixX& df0dx, const MatrixX& df0dxm1,
 			const MatrixX& dfidx, const MatrixX& dfidxm1);
+#else
+		void calcInitialRho(const MatrixX& df0dx, const MatrixX& dfidx);
 #endif
 	private:
 		// user setting parameters
