@@ -52,7 +52,7 @@ int main()
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
 	Real tf = 2.0;
-	int numOfOptCP = 5;
+	int numOfOptCP = 4;
 	int orderOfBSpline = 4;
 
 	std::cout << "------- [NLOPT RESULT] -------" << endl;

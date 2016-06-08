@@ -11,6 +11,20 @@
 
 namespace rovin
 {
+	enum GCMMAReturnFlag
+	{
+		Success_tolFunc,
+		Success_tolX,
+
+		quasiSuccess_subProbFailure,
+
+		Failure_exceedMaxIterOL,
+
+		subProblemFailure,
+		subProblemSuccess,
+	};
+	void displayGCMMAResult(GCMMAReturnFlag retFlag);
+
 	class GCMMAOptimization
 	{
 	public:
@@ -38,7 +52,7 @@ namespace rovin
 		virtual ~GCMMAOptimization() {}
 
 		// main function
-		void solve(const VectorX& initialX);
+		GCMMAReturnFlag solve(const VectorX& initialX);
 		
 		// get functions
 		const FunctionPtr& getObjectiveFunction() const { return _objectFunc; }
@@ -68,7 +82,7 @@ namespace rovin
 		void allocOLvar(void);
 		void allocILvar(void);
 
-		virtual void solveSubProblem(/* output */ VectorX& xout) = 0;
+		virtual GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout, Real& resout) = 0;
 		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
 		void calcf0tilde(const VectorX& x, /* output */ VectorX& f0tval);
 		void calcfitilde(const VectorX& x, /* output */ VectorX& fitval);
@@ -108,6 +122,12 @@ namespace rovin
 		VectorX _olt;
 		Real _oleta;
 		VectorX _olb;
+#endif
+#ifdef STRATEGY_02
+		Real _rescur, _resm1, _resm2; ///> reidue of KKT condition: current(cur), 1step before(m1), 2step before(m2)
+		Real _muVal;
+#else
+		Real _useless;
 #endif
 
 	public:
@@ -181,7 +201,7 @@ namespace rovin
 		void calcm(const VectorX& lam, /* output */ Real& m);
 		void calceta(void);
 		void calclamhat(void);
-		void solveSubProblem(/* output */ VectorX& xout);
+		GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout, Real& resout);
 
 	
 	};
@@ -200,7 +220,7 @@ namespace rovin
 		GCMMA_PDIPM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) {}
 
 	public:
-		void solveSubProblem(/* output */ VectorX& xout);
+		GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout, Real& resout);
 		void allocSUBvar(void);
 
 		void initializeSubProb(void);

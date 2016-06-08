@@ -8,6 +8,25 @@ using namespace std;
 
 namespace rovin
 {
+	void displayGCMMAResult(GCMMAReturnFlag retFlag)
+	{
+		switch (retFlag)
+		{
+		case Success_tolFunc:
+			cout << "optimization succeeded by satisfying 'tolFunc' condition" << endl;
+			break;
+		case Success_tolX:
+			cout << "optimization succeeded by satisfying 'tolX' condition" << endl;
+			break;
+		case quasiSuccess_subProbFailure:
+			cout << "sub problem failed, but former outer loop values are regarded as solution" << endl;
+			break;
+		default:
+			cout << "appropriate return flag is not assigned" << endl;
+			break;
+		}
+	}
+
 	void GCMMAOptimization::saveMatrixX2txt(MatrixX in, std::string filename)
 	{
 		std::ofstream fout;
@@ -89,8 +108,10 @@ namespace rovin
 		_maxX = maxX;
 	}
 
-	void GCMMAOptimization::solve(const VectorX & initialX)
+	GCMMAReturnFlag GCMMAOptimization::solve(const VectorX & initialX)
 	{
+		GCMMAReturnFlag ret; // return variable
+
 		// initialize
 		// variables for outer loop
 
@@ -105,12 +126,17 @@ namespace rovin
 
 
 		// function evaluation variables
-		VectorX f0val(1);            MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
-		VectorX fival(_ineqN);         MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
+		VectorX f0val(1);			MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
+		VectorX fival(_ineqN);		MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
 
 #ifdef STRATEGY_01
 		VectorX f0valm1(1), fivalm1(_ineqN);
 		MatrixX df0dxm1(1, _xN), dfidxm1(_ineqN, _xN);
+#endif
+#ifdef STRATEGY_02
+		_rescur = RealMax;
+		_resm1 = RealMax;
+		_resm2 = RealMax;
 #endif
 
 
@@ -181,6 +207,10 @@ namespace rovin
 			//   _maxIterIL = 2;
 			//else
 			//   _maxIterIL = (int)1E3;
+			//if (iterOL % 2)
+			//	_maxIterIL = 2;
+			//else
+			//	_maxIterIL = (int)1E3;
 
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
@@ -203,8 +233,21 @@ namespace rovin
 				//saveMatrixX2txt123(_ilqi, filedd);
 				//saveRealX2txt123(_ilr0, filedd);
 				//saveVectorX2txt123(_ilri, filedd);
+#ifdef STRATEGY_02
+				ret = solveSubProblem(xknu, _rescur);				
+				_muVal = Min(Min(Min(_rescur, _resm1), _resm2), 1E12) / pow((Real)iterOL + 2.0, 1.1);
+#else
+				ret = solveSubProblem(xknu, _useless);
+#endif
 
-				solveSubProblem(xknu);
+				if (ret == subProblemFailure)
+				{
+					// save solution as former outer loop x
+					resultX = xk;
+					VectorX tt = _objectFunc->func(resultX);
+					resultFunc = f0val(0);
+					return quasiSuccess_subProbFailure;
+				}
 
 				//cout << xknu << endl << endl;
 				//saveVectorX2txt123(xknu, filedd);
@@ -281,6 +324,7 @@ namespace rovin
 			}
 
 
+
 			/////////////////////////////////////////////////
 			//for (int i = 0; i < 3; i++)
 			//{
@@ -331,11 +375,20 @@ namespace rovin
 
 			//cout << f0val(0) << endl << endl;
 
-			if (abs(f0val(0) - f0valknu(0)) < _tolFunc)
-				break;
-			if ((xkm1 - xknu).norm() < _tolX)
-				break;
+			//cout << f0val(0) - f0valknu(0) << '\t' << (xkm1 - xknu).norm() << endl;
 
+			if (abs(f0val(0) - f0valknu(0)) < _tolFunc)
+			{
+				resultX = xknu;
+				resultFunc = f0valknu(0);
+				return Success_tolFunc;
+			}
+			if ((xkm1 - xknu).norm() < _tolX)
+			{
+				resultX = xknu;
+				resultFunc = f0valknu(0);
+				return Success_tolX;
+			}
 			// update
 			xkm2 = xkm1;
 			xkm1 = xk;
@@ -350,6 +403,10 @@ namespace rovin
 			df0dxm1 = df0dx;
 			dfidxm1 = dfidx;
 #endif
+#ifdef STRATEGY_02
+			_resm2 = _resm1;
+			_resm1 = _rescur;
+#endif
 
 			//cout << "---------------" << endl;
 			//cout << iterOL << endl << endl;
@@ -362,6 +419,10 @@ namespace rovin
 
 		resultX = xknu;
 		resultFunc = f0valknu(0);
+
+
+		return Failure_exceedMaxIterOL;
+
 	}
 
 
@@ -615,6 +676,20 @@ namespace rovin
 
 		bool ret = false;
 
+#ifdef STRATEGY_02
+		if (f0tvalknu(0) + _muVal*Max(1, abs(f0tvalknu(0))) >= f0valknu(0))
+		{
+			ret = true;
+			for (int i = 0; i < _ineqN; i++)
+			{
+				if (fitvalknu(i) + _muVal*Max(1, abs(fitvalknu(i)))< fivalknu(i))
+				{
+					ret = false;
+					break;
+				}
+			}
+		}
+#else
 		if (f0tvalknu(0) >= f0valknu(0))
 		{
 			ret = true;
@@ -627,6 +702,8 @@ namespace rovin
 				}
 			}
 		}
+#endif
+
 		return ret;
 	}
 
@@ -709,7 +786,7 @@ namespace rovin
 		}
 	}
 
-	void GCMMA_PDIPM::solveSubProblem(VectorX & xout)
+	GCMMAReturnFlag GCMMA_PDIPM::solveSubProblem(VectorX & xout, Real & resout)
 	{
 		// input variable size:
 		// VectorX p0(_xN), q0(_xN)
@@ -783,14 +860,20 @@ namespace rovin
 		//cout << "W : " << W << endl;
 		//cout << "lam * dW : " << VectorInner(_sublam, dW, _ineqN) << endl;
 
-		if (!solFound)
-			LOG("exceeded max iteration number - 'solveSubProblem'");
 
 		//cout << iterSub << endl;
 		//cout << _subeps << endl;
 		xout = _subx;
 
+#ifdef STRATEGY_02
+		resout = calcNormResidual_tmp(delw, 0.0, 2);
+#endif
 
+		if (solFound)
+			return subProblemSuccess;
+		else
+			return subProblemFailure;
+		
 	}
 
 	void GCMMA_PDIPM::allocSUBvar(void)
@@ -1504,7 +1587,7 @@ namespace rovin
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   void GCMMA_TRM::solveSubProblem(VectorX & xout)
+   GCMMAReturnFlag GCMMA_TRM::solveSubProblem(VectorX & xout, Real & resout)
    {
 	   // input variable size:
 	   // VectorX p0(_xN), q0(_xN)
@@ -1539,7 +1622,7 @@ namespace rovin
 
 
 	   //int iterSub = 0, maxIterSub = 10000, iterSub1 = 0, maxIterSub1 = 20000;
-	   int iterSub = 0, maxIterSub = 20, iterSub1 = 0, maxIterSub1 = 30;
+	   int iterSub = 0, maxIterSub = 10, iterSub1 = 0, maxIterSub1 = 20;
 	   bool solFound = false;
 	   while (iterSub < maxIterSub && iterSub1 < maxIterSub1)
 	   //while(1)
@@ -1682,6 +1765,9 @@ namespace rovin
 	   _resultlam = _sublam;
 
 	   xout = _subx;
+
+	   // 현재 구현 상태는 loop 돌다가 iterMax 치면 나오고.. 수렴조건 안쓰는 상태임....
+	   return subProblemSuccess;
    }
    void GCMMA_TRM::allocSUBvar(void)
    {

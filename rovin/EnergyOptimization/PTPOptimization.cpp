@@ -348,8 +348,9 @@ namespace rovin{
 			//cout << "initial objective value : " << _GCMMAoptimizer->_objectFunc->func(initX) << endl;
 			LOG("Start optimization.");
 			clock_t time = clock();
-			_GCMMAoptimizer->solve(initX);
+			GCMMAReturnFlag retFlag = _GCMMAoptimizer->solve(initX);
 			LOG("Finish optimization.");
+			displayGCMMAResult(retFlag);
 			cout << "------------------------------------" << endl;
 			cout << "computation time : " << (clock() - time) << endl << endl;
 			cout << "X : " << endl << _GCMMAoptimizer->getResultX() << endl << endl;
