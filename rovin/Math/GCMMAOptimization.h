@@ -93,7 +93,7 @@ namespace rovin
 		void allocOLvar(void);
 		void allocILvar(void);
 
-		virtual GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout, Real& resout) = 0;
+		virtual GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout) = 0;
 		void calcPQR(const MatrixX& df0dxp, const MatrixX& df0dxm, const MatrixX& dfidxp, const MatrixX& dfidxm, const VectorX& xk, const VectorX& f0val, const VectorX& fival);
 		void calcf0tilde(const VectorX& x, /* output */ VectorX& f0tval);
 		void calcfitilde(const VectorX& x, /* output */ VectorX& fitval);
@@ -117,10 +117,12 @@ namespace rovin
 		Real _ASYDECR;
 		Real _ASYINCR;
 
+	public:
 		// lower/upper bound for x
 		VectorX _minX;
 		VectorX _maxX;
 
+	private:
 		// terminate conditions
 		Real _tolX;
 		Real _tolFunc;
@@ -133,12 +135,6 @@ namespace rovin
 		VectorX _olt;
 		Real _oleta;
 		VectorX _olb;
-#endif
-#ifdef STRATEGY_02
-		Real _rescur, _resm1, _resm2; ///> reidue of KKT condition: current(cur), 1step before(m1), 2step before(m2)
-		Real _muVal;
-#else
-		Real _useless;
 #endif
 
 #ifdef STRATEGY_SCALE
@@ -170,6 +166,11 @@ namespace rovin
 	public:
 		VectorX _resulty;
 		VectorX _resultlam;
+#ifdef STRATEGY_02
+		Real _rescur, _resm1, _resm2; ///> reidue of KKT condition: current(cur), 1step before(m1), 2step before(m2)
+		Real _muVal;
+		virtual void calcResCur(const VectorX& fival, const MatrixX& df0dx, const MatrixX& dfidx) = 0;
+#endif
 	};
 
 
@@ -203,8 +204,8 @@ namespace rovin
 		bool _bUpdated;
 
 	public:
-		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) 
-		{ 
+		GCMMA_TRM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN)
+		{
 			//setParametersTR(0.0001, 0.25, 0.25, 0.5, 2);
 			setParametersTR(0.25, 0.5, 0.0, 0.25, 2);
 		}
@@ -219,8 +220,11 @@ namespace rovin
 		void calcm(const VectorX& lam, /* output */ Real& m);
 		void calceta(void);
 		void calclamhat(void);
-		GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout, Real& resout);
-
+		GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout);
+#ifdef STRATEGY_02
+		// 구현 안되어 있음 trm 쓰려면 strategy 2 꺼야함!
+		void calcResCur(const VectorX& fival, const MatrixX& df0dx, const MatrixX& dfidx) {}
+#endif
 	
 	};
 
@@ -238,7 +242,7 @@ namespace rovin
 		GCMMA_PDIPM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) {}
 
 	public:
-		GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout, Real& resout);
+		GCMMAReturnFlag solveSubProblem(/* output */ VectorX& xout);
 		void allocSUBvar(void);
 
 		void initializeSubProb(void);
@@ -257,6 +261,9 @@ namespace rovin
 		// modification ing
 		//      Real calcNormResidual(const VectorX& p0, const MatrixX& pi, const VectorX& q0, const MatrixX& qi, const VectorX& bi, const VectorX& delw, Real stepLength, int normCh);
 		Real calcNormResidual_tmp(const VectorX& delw, Real stepLength, int normCh);
+#ifdef STRATEGY_02
+		void calcResCur(const VectorX& fival, const MatrixX& df0dx, const MatrixX& dfidx);
+#endif
 
 	public:
 		// variables for subproblem

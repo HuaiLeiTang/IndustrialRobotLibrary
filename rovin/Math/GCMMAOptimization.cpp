@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <memory>
 
 using namespace std;
 
@@ -138,6 +139,18 @@ namespace rovin
 		_rescur = RealMax;
 		_resm1 = RealMax;
 		_resm2 = RealMax;
+		_muVal = 0;
+#endif
+#ifdef STRATEGY_SCALE
+		f0val = _objectFunc->func(xk, _scaleObjFunc, _scaleX);
+		fival = _ineqConstraint->func(xk, _scaleIneqFunc, _scaleX);
+		df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
+		dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
+#else
+		f0val = _objectFunc->func(xk);
+		fival = _ineqConstraint->func(xk);
+		df0dx = _objectFunc->Jacobian(xk);
+		dfidx = _ineqConstraint->Jacobian(xk);
 #endif
 
 
@@ -160,17 +173,6 @@ namespace rovin
 			//cout << "_olupp" << endl << _olupp << endl << endl;
 			//cout << "_ollow" << endl << _ollow << endl << endl;
 			calcAlphaBeta(xk);
-#ifdef STRATEGY_SCALE
-			f0val = _objectFunc->func(xk, _scaleObjFunc, _scaleX);
-			df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
-			fival = _ineqConstraint->func(xk, _scaleIneqFunc, _scaleX);
-			dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
-#else
-			f0val = _objectFunc->func(xk);
-			df0dx = _objectFunc->Jacobian(xk);
-			fival = _ineqConstraint->func(xk);
-			dfidx = _ineqConstraint->Jacobian(xk);
-#endif
 			//cout << f0val << endl << endl;
 			//cout << df0dx << endl << endl;
 			//cout << fival << endl << endl;
@@ -244,12 +246,9 @@ namespace rovin
 				//saveMatrixX2txt123(_ilqi, filedd);
 				//saveRealX2txt123(_ilr0, filedd);
 				//saveVectorX2txt123(_ilri, filedd);
-#ifdef STRATEGY_02
-				ret = solveSubProblem(xknu, _rescur);				
-				_muVal = Min(Min(Min(_rescur, _resm1), _resm2), 1E12) / pow((Real)iterOL + 2.0, 1.1);
-#else
-				ret = solveSubProblem(xknu, _useless);
-#endif
+
+
+				ret = solveSubProblem(xknu);
 
 				if (ret == subProblemFailure)
 				{
@@ -405,7 +404,16 @@ namespace rovin
 			xk = xknu;
 			_ollowm1 = _ollow;
 			_oluppm1 = _olupp;
-			//f0valm1(0) = f0valknu(0);
+
+			f0val = f0valknu;
+			fival = fivalknu;
+#ifdef STRATEGY_SCALE
+			df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
+			dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
+#else
+			df0dx = _objectFunc->Jacobian(xk);
+			dfidx = _ineqConstraint->Jacobian(xk);
+#endif
 
 #ifdef STRATEGY_01
 			f0valm1 = f0val;
@@ -416,6 +424,11 @@ namespace rovin
 #ifdef STRATEGY_02
 			_resm2 = _resm1;
 			_resm1 = _rescur;
+			calcResCur(fival, df0dx, dfidx);
+			_muVal = Min(Min(Min(_rescur, _resm1), _resm2), 1E12) / pow((Real)iterOL + 3.0, 1.1);
+			//cout << _rescur << '\t' << _muVal << endl << endl;
+			////// res_cur 계산하고 뮤밸업데이트까지 하면 완료!
+			//// 바로 위에서 구한 df0dx, dfidx (xknu로 계산한걸로!!!!!)
 #endif
 
 			//cout << "---------------" << endl;
@@ -802,7 +815,7 @@ namespace rovin
 		}
 	}
 
-	GCMMAReturnFlag GCMMA_PDIPM::solveSubProblem(VectorX & xout, Real & resout)
+	GCMMAReturnFlag GCMMA_PDIPM::solveSubProblem(VectorX & xout)
 	{
 		// input variable size:
 		// VectorX p0(_xN), q0(_xN)
@@ -881,9 +894,6 @@ namespace rovin
 		//cout << _subeps << endl;
 		xout = _subx;
 
-#ifdef STRATEGY_02
-		resout = calcNormResidual_tmp(delw, 0.0, 2);
-#endif
 
 		if (solFound)
 			return subProblemSuccess;
@@ -1603,7 +1613,7 @@ namespace rovin
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   GCMMAReturnFlag GCMMA_TRM::solveSubProblem(VectorX & xout, Real & resout)
+   GCMMAReturnFlag GCMMA_TRM::solveSubProblem(VectorX & xout)
    {
 	   // input variable size:
 	   // VectorX p0(_xN), q0(_xN)
@@ -1785,6 +1795,90 @@ namespace rovin
 	   // 현재 구현 상태는 loop 돌다가 iterMax 치면 나오고.. 수렴조건 안쓰는 상태임....
 	   return subProblemSuccess;
    }
+
+#ifdef STRATEGY_02
+   void GCMMA_PDIPM::calcResCur(const VectorX & fival, const MatrixX & df0dx, const MatrixX & dfidx)
+   {
+	   Real tmpval;
+	   _rescur = 0;
+
+	   for (int j = 0; j < _xN; j++)
+	   {
+		   tmpval = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   tmpval += _sublam(i) * dfidx(i, j);
+		   }
+		   tmpval += df0dx(j);
+		   if (tmpval > 0)
+		   {
+			   tmpval *= _subx(j) - _minX(j);
+			   _rescur += tmpval * tmpval;
+		   }
+		   else
+		   {
+			   tmpval *= -1;
+			   tmpval *= _maxX(j) - _subx(j);
+			   _rescur += tmpval * tmpval;
+		   }
+	   }
+
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = _ci(i) + _di(i) *_suby(i) - _sublam(i) - _submu(i);
+		   _rescur += tmpval * tmpval;
+	   }
+
+	   tmpval = 0;
+	   for (int i = 0; i < _ineqN; i++)
+		   tmpval += _ai(i) * _sublam(i);
+	   tmpval *= -1;
+	   tmpval += _a0 - _subzet;
+	   _rescur += tmpval * tmpval;
+
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = fival(i) - _ai(i)*_subz - _suby(i);
+		   if (tmpval > 0)
+		   {
+			   _rescur += tmpval * tmpval;
+		   }
+		   else
+		   {
+			   tmpval *= -_sublam(i);
+			   _rescur += tmpval * tmpval;
+		   }
+	   }
+
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = -_suby(i);
+		   if (tmpval > 0)
+		   {
+			   _rescur += tmpval * tmpval;
+		   }
+		   else
+		   {
+			   tmpval *= -_submu(i);
+			   _rescur += tmpval * tmpval;
+		   }
+	   }
+
+	   tmpval = -_subz;
+	   if (tmpval > 0)
+	   {
+		   _rescur += tmpval * tmpval;
+	   }
+	   else
+	   {
+		   tmpval *= -_subzet;
+		   _rescur += tmpval * tmpval;
+	   }
+
+	   _rescur = sqrt(_rescur);
+   }
+#endif
+
    void GCMMA_TRM::allocSUBvar(void)
    {
 	   _sublam.resize(_ineqN);

@@ -29,29 +29,8 @@ SerialOpenChainPtr robot(new efortRobot());
 
 int main()
 {
-	//class classA
-	//{
-	//public:
-	//	virtual void func1(int a) = 0;
-	//	virtual void func1(int a, int b) {}
-	//};
-	//class classB : public classA
-	//{
-	//public:
-	//	classB() :classA() {}
-	//	void func1(int a) { func1(a, a + 3); }
-	//	void func1(int a, int b) { cout << a << '\t'<<b<<endl; }
-	//};
-
-	//typedef std::shared_ptr< classA > classAPtr;
-
-	//classAPtr aptr = classAPtr(new classB());
-	//aptr->func1( 5);
-	//aptr->func1(50, 52);
-	//classB * bptr = new classB();
-	//bptr->func1(7);
-	//bptr->func1(1, 2);
-
+	VectorX aaa(3);
+	cout << aaa << endl;
 
 	cout << "Test" << endl;
 
@@ -76,7 +55,7 @@ int main()
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
 	Real tf = 2.0;
-	int numOfOptCP = 6;
+	int numOfOptCP = 4;
 	int orderOfBSpline = 4;
 
 	std::cout << "------- [GCMMA RESULT] -------" << endl;
