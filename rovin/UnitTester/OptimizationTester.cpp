@@ -29,6 +29,30 @@ SerialOpenChainPtr robot(new efortRobot());
 
 int main()
 {
+	//class classA
+	//{
+	//public:
+	//	virtual void func1(int a) = 0;
+	//	virtual void func1(int a, int b) {}
+	//};
+	//class classB : public classA
+	//{
+	//public:
+	//	classB() :classA() {}
+	//	void func1(int a) { func1(a, a + 3); }
+	//	void func1(int a, int b) { cout << a << '\t'<<b<<endl; }
+	//};
+
+	//typedef std::shared_ptr< classA > classAPtr;
+
+	//classAPtr aptr = classAPtr(new classB());
+	//aptr->func1( 5);
+	//aptr->func1(50, 52);
+	//classB * bptr = new classB();
+	//bptr->func1(7);
+	//bptr->func1(1, 2);
+
+
 	cout << "Test" << endl;
 
 	unsigned int dof = robot->getNumOfJoint();
@@ -52,16 +76,16 @@ int main()
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
 	Real tf = 2.0;
-	int numOfOptCP = 4;
+	int numOfOptCP = 6;
 	int orderOfBSpline = 4;
-
-	std::cout << "------- [NLOPT RESULT] -------" << endl;
-	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
-	PTPManagerNlopt.generateTrajectory();
 
 	std::cout << "------- [GCMMA RESULT] -------" << endl;
 	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
 	PTPManagerManualOptTR.generateTrajectory();
+
+	std::cout << "------- [NLOPT RESULT] -------" << endl;
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
+	PTPManagerNlopt.generateTrajectory();
 
 	//std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
 	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);

@@ -13,6 +13,7 @@
 #include <rovin/Math/GaussianQuadrature.h>
 #include <rovin/Math/Interpolation.h>
 #include <rovin/Math/GCMMAOptimization.h>
+#include <vector>
 
 
 namespace rovin {
@@ -155,7 +156,6 @@ namespace rovin {
 
 
 
-	// 
 	class effortFunction : public Function
 	{
 	public:
@@ -163,6 +163,28 @@ namespace rovin {
 
 		VectorX func(const VectorX& params) const;
 		MatrixX Jacobian(const VectorX& params) const;
+
+#ifdef STRATEGY_SCALE
+		VectorX func(const VectorX& params, const Real& scObjFunc, const VectorX& scParams) 
+		{
+			VectorX tmpVec = params;
+			for (int j = 0; j < tmpVec.size(); j++)
+				tmpVec(j) /= scParams(j);
+			VectorX fval = func(tmpVec);
+			fval(0) *= scObjFunc;
+			return fval;
+		}
+		MatrixX Jacobian(const VectorX& params, const Real& scObjFunc, const VectorX& scParams) 
+		{
+			VectorX tmpVec = params;
+			for (int j = 0; j < tmpVec.size(); j++)
+				tmpVec(j) /= scParams(j);
+			MatrixX jacobian = Jacobian(tmpVec);
+			for (int j = 0; j < tmpVec.size(); j++)
+				jacobian(0, j) *= scObjFunc / scParams(j);
+			return jacobian;
+		}
+#endif
 
 		PTPOptimization* _PTPOptimizer;
 	};
@@ -174,6 +196,28 @@ namespace rovin {
 
 		VectorX func(const VectorX& params) const;
 		MatrixX Jacobian(const VectorX& params) const;
+
+#ifdef STRATEGY_SCALE
+		VectorX func(const VectorX& params, const Real& scObjFunc, const VectorX& scParams) 
+		{
+			VectorX tmpVec = params;
+			for (int j = 0; j < tmpVec.size(); j++)
+				tmpVec(j) /= scParams(j);
+			VectorX fval = func(tmpVec);
+			fval(0) *= scObjFunc;
+			return fval;
+		}
+		MatrixX Jacobian(const VectorX& params, const Real& scObjFunc, const VectorX& scParams) 
+		{
+			VectorX tmpVec = params;
+			for (int j = 0; j < tmpVec.size(); j++)
+				tmpVec(j) /= scParams(j);
+			MatrixX jacobian = Jacobian(tmpVec);
+			for (int j = 0; j < tmpVec.size(); j++)
+				jacobian(0, j) *= scObjFunc / scParams(j);
+			return jacobian;
+		}
+#endif
 
 		PTPOptimization* _PTPOptimizer;
 	};
@@ -188,4 +232,82 @@ namespace rovin {
 
 		PTPOptimization* _PTPOptimizer;
 	};
+
+#ifdef STRATEGY_SCALE
+
+	class scaleAugmentedFunction : public Function
+	{
+	public:
+		scaleAugmentedFunction() {}
+
+		VectorX func(const VectorX& x) const
+		{
+			std::vector<VectorX> fvalList(_functionList.size());
+			unsigned int dimension = 0;
+			for (unsigned int i = 0; i < _functionList.size(); i++)
+			{
+				fvalList[i] = _functionList[i]->func(x);
+				dimension += fvalList[i].size();
+			}
+			VectorX f(dimension);
+			for (unsigned int i = 0, idx = 0; i < _functionList.size(); i++)
+			{
+				f.block(idx, 0, fvalList[i].size(), 1) = fvalList[i];
+				idx += fvalList[i].size();
+			}
+			return f;
+		}
+		MatrixX Jacobian(const VectorX& x) const
+		{
+			std::vector<MatrixX> jacobianList(_functionList.size());
+			unsigned int dimension = 0;
+			for (unsigned int i = 0; i < _functionList.size(); i++)
+			{
+				jacobianList[i] = _functionList[i]->Jacobian(x);
+				dimension += jacobianList[i].rows();
+			}
+			MatrixX jacobian(dimension, x.size());
+			for (unsigned int i = 0, idx = 0; i < _functionList.size(); i++)
+			{
+				jacobian.block(idx, 0, jacobianList[i].rows(), x.size()) = jacobianList[i];
+				idx += jacobianList[i].rows();
+			}
+			return jacobian;
+		}
+
+		void addFunction(const FunctionPtr& function)
+		{
+			_functionList.push_back(function);
+		}
+
+
+		VectorX func(const VectorX& params, const VectorX& scIneqFunc, const VectorX& scParams) 
+		{
+			VectorX tmpVec = params;
+			for (int j = 0; j < tmpVec.rows(); j++)
+				tmpVec(j) /= scParams(j);
+			VectorX fval = func(tmpVec);
+			for (int i = 0; i < fval.size(); i++)
+				fval(i) *= scIneqFunc(i);
+			return fval;
+		}
+		MatrixX Jacobian(const VectorX& params, const VectorX& scIneqFunc, const VectorX& scParams) 
+		{
+			VectorX tmpVec = params;
+			for (int j = 0; j < tmpVec.rows(); j++)
+				tmpVec(j) /= scParams(j);
+			MatrixX jacobian = Jacobian(tmpVec);
+			for (int i = 0; i < jacobian.rows(); i++)
+				for (int j = 0; j < jacobian.cols(); j++)
+					jacobian(i, j) *= scIneqFunc(i) / scParams(j);
+			return jacobian;
+		}
+
+	private:
+		std::vector<FunctionPtr> _functionList;
+
+	};
+#endif
+
+
 }

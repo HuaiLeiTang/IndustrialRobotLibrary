@@ -10,6 +10,7 @@ namespace rovin
 {
 	void displayGCMMAResult(GCMMAReturnFlag retFlag)
 	{
+		cout << "return reslut: ";
 		switch (retFlag)
 		{
 		case Success_tolFunc:
@@ -159,13 +160,23 @@ namespace rovin
 			//cout << "_olupp" << endl << _olupp << endl << endl;
 			//cout << "_ollow" << endl << _ollow << endl << endl;
 			calcAlphaBeta(xk);
+#ifdef STRATEGY_SCALE
+			f0val = _objectFunc->func(xk, _scaleObjFunc, _scaleX);
+			df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
+			fival = _ineqConstraint->func(xk, _scaleIneqFunc, _scaleX);
+			dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
+#else
 			f0val = _objectFunc->func(xk);
 			df0dx = _objectFunc->Jacobian(xk);
 			fival = _ineqConstraint->func(xk);
 			dfidx = _ineqConstraint->Jacobian(xk);
+#endif
+			//cout << f0val << endl << endl;
+			//cout << df0dx << endl << endl;
+			//cout << fival << endl << endl;
+			//cout << dfidx << endl << endl;
 			calcPlusMinusMatrix(df0dx, df0dxp, df0dxm);
 			calcPlusMinusMatrix(dfidx, dfidxp, dfidxm);
-
 
 			//std::cout << _ollow << std::endl << std::endl;
 			//std::cout << _olupp << std::endl << std::endl;
@@ -244,7 +255,6 @@ namespace rovin
 				{
 					// save solution as former outer loop x
 					resultX = xk;
-					VectorX tt = _objectFunc->func(resultX);
 					resultFunc = f0val(0);
 					return quasiSuccess_subProbFailure;
 				}
@@ -669,8 +679,14 @@ namespace rovin
 	bool GCMMAOptimization::testILSuccess(const VectorX & testx, VectorX & f0valknu, VectorX & fivalknu, VectorX & f0tvalknu, VectorX & fitvalknu)
 	{
 		//VectorX f0val(1), f0tval(1), fival(_ineqN), fitval(_ineqN);
+#ifdef STRATEGY_SCALE
+		f0valknu = _objectFunc->func(testx, _scaleObjFunc, _scaleX);
+		fivalknu = _ineqConstraint->func(testx, _scaleIneqFunc, _scaleX);
+#else
 		f0valknu = _objectFunc->func(testx);
 		fivalknu = _ineqConstraint->func(testx);
+#endif
+
 		calcf0tilde(testx, f0tvalknu);
 		calcfitilde(testx, fitvalknu);
 

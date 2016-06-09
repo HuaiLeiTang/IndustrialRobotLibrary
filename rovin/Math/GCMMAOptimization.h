@@ -8,6 +8,7 @@
 
 #define STRATEGY_01
 //#define STRATEGY_02
+#define STRATEGY_SCALE
 
 namespace rovin
 {
@@ -75,6 +76,16 @@ namespace rovin
 		void setMaxIterOL(const int maxIterOL) { _maxIterOL = maxIterOL; }
 		void setMaxIterIL(const int maxIterIL) { _maxIterIL = maxIterIL; }
 
+#ifdef STRATEGY_SCALE
+		void setScaleParameters(const Real& scObjFunc, const VectorX& scIneqFunc, const VectorX& scX) { _scaleObjFunc = scObjFunc; _scaleIneqFunc = scIneqFunc; _scaleX = scX; }
+		void restoreResultScale(void)
+		{
+			resultFunc /= _scaleObjFunc;
+			for (int j = 0; j < _xN; j++)
+				resultX(j) /= _scaleX(j);
+		}
+#endif
+
 	private:
 		void initialize(int xN, int ineqN);
 		// memory allocation for variables of outer loop/inner loop/sub problem
@@ -128,6 +139,13 @@ namespace rovin
 		Real _muVal;
 #else
 		Real _useless;
+#endif
+
+#ifdef STRATEGY_SCALE
+		// varaibles for scale objFunc/ineqFunc/x
+		Real	_scaleObjFunc;
+		VectorX _scaleIneqFunc;
+		VectorX _scaleX;
 #endif
 
 	public:
