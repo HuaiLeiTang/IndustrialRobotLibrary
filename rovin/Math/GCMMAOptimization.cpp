@@ -3,11 +3,32 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <memory>
 
 using namespace std;
 
 namespace rovin
 {
+	void displayGCMMAResult(GCMMAReturnFlag retFlag)
+	{
+		cout << "return reslut: ";
+		switch (retFlag)
+		{
+		case Success_tolFunc:
+			cout << "optimization succeeded by satisfying 'tolFunc' condition" << endl;
+			break;
+		case Success_tolX:
+			cout << "optimization succeeded by satisfying 'tolX' condition" << endl;
+			break;
+		case quasiSuccess_subProbFailure:
+			cout << "sub problem failed, but former outer loop values are regarded as solution" << endl;
+			break;
+		default:
+			cout << "appropriate return flag is not assigned" << endl;
+			break;
+		}
+	}
+
 	void GCMMAOptimization::saveMatrixX2txt(MatrixX in, std::string filename)
 	{
 		std::ofstream fout;
@@ -89,8 +110,10 @@ namespace rovin
 		_maxX = maxX;
 	}
 
-	void GCMMAOptimization::solve(const VectorX & initialX)
+	GCMMAReturnFlag GCMMAOptimization::solve(const VectorX & initialX)
 	{
+		GCMMAReturnFlag ret; // return variable
+
 		// initialize
 		// variables for outer loop
 
@@ -105,12 +128,29 @@ namespace rovin
 
 
 		// function evaluation variables
-		VectorX f0val(1);            MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
-		VectorX fival(_ineqN);         MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
+		VectorX f0val(1);			MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
+		VectorX fival(_ineqN);		MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
 
 #ifdef STRATEGY_01
 		VectorX f0valm1(1), fivalm1(_ineqN);
 		MatrixX df0dxm1(1, _xN), dfidxm1(_ineqN, _xN);
+#endif
+#ifdef STRATEGY_02
+		_rescur = RealMax;
+		_resm1 = RealMax;
+		_resm2 = RealMax;
+		_muVal = 0;
+#endif
+#ifdef STRATEGY_SCALE
+		f0val = _objectFunc->func(xk, _scaleObjFunc, _scaleX);
+		fival = _ineqConstraint->func(xk, _scaleIneqFunc, _scaleX);
+		df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
+		dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
+#else
+		f0val = _objectFunc->func(xk);
+		fival = _ineqConstraint->func(xk);
+		df0dx = _objectFunc->Jacobian(xk);
+		dfidx = _ineqConstraint->Jacobian(xk);
 #endif
 
 
@@ -133,13 +173,12 @@ namespace rovin
 			//cout << "_olupp" << endl << _olupp << endl << endl;
 			//cout << "_ollow" << endl << _ollow << endl << endl;
 			calcAlphaBeta(xk);
-			f0val = _objectFunc->func(xk);
-			df0dx = _objectFunc->Jacobian(xk);
-			fival = _ineqConstraint->func(xk);
-			dfidx = _ineqConstraint->Jacobian(xk);
+			//cout << f0val << endl << endl;
+			//cout << df0dx << endl << endl;
+			//cout << fival << endl << endl;
+			//cout << dfidx << endl << endl;
 			calcPlusMinusMatrix(df0dx, df0dxp, df0dxm);
 			calcPlusMinusMatrix(dfidx, dfidxp, dfidxm);
-
 
 			//std::cout << _ollow << std::endl << std::endl;
 			//std::cout << _olupp << std::endl << std::endl;
@@ -181,6 +220,10 @@ namespace rovin
 			//   _maxIterIL = 2;
 			//else
 			//   _maxIterIL = (int)1E3;
+			//if (iterOL % 2)
+			//	_maxIterIL = 2;
+			//else
+			//	_maxIterIL = (int)1E3;
 
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
@@ -204,7 +247,16 @@ namespace rovin
 				//saveRealX2txt123(_ilr0, filedd);
 				//saveVectorX2txt123(_ilri, filedd);
 
-				solveSubProblem(xknu);
+
+				ret = solveSubProblem(xknu);
+
+				if (ret == subProblemFailure)
+				{
+					// save solution as former outer loop x
+					resultX = xk;
+					resultFunc = f0val(0);
+					return quasiSuccess_subProbFailure;
+				}
 
 				//cout << xknu << endl << endl;
 				//saveVectorX2txt123(xknu, filedd);
@@ -281,6 +333,7 @@ namespace rovin
 			}
 
 
+
 			/////////////////////////////////////////////////
 			//for (int i = 0; i < 3; i++)
 			//{
@@ -331,24 +384,51 @@ namespace rovin
 
 			//cout << f0val(0) << endl << endl;
 
-			if (abs(f0val(0) - f0valknu(0)) < _tolFunc)
-				break;
-			if ((xkm1 - xknu).norm() < _tolX)
-				break;
+			//cout << f0val(0) - f0valknu(0) << '\t' << (xkm1 - xknu).norm() << endl;
 
+			if (abs(f0val(0) - f0valknu(0)) < _tolFunc)
+			{
+				resultX = xknu;
+				resultFunc = f0valknu(0);
+				return Success_tolFunc;
+			}
+			if ((xkm1 - xknu).norm() < _tolX)
+			{
+				resultX = xknu;
+				resultFunc = f0valknu(0);
+				return Success_tolX;
+			}
 			// update
 			xkm2 = xkm1;
 			xkm1 = xk;
 			xk = xknu;
 			_ollowm1 = _ollow;
 			_oluppm1 = _olupp;
-			//f0valm1(0) = f0valknu(0);
+
+			f0val = f0valknu;
+			fival = fivalknu;
+#ifdef STRATEGY_SCALE
+			df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
+			dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
+#else
+			df0dx = _objectFunc->Jacobian(xk);
+			dfidx = _ineqConstraint->Jacobian(xk);
+#endif
 
 #ifdef STRATEGY_01
 			f0valm1 = f0val;
 			fivalm1 = fival;
 			df0dxm1 = df0dx;
 			dfidxm1 = dfidx;
+#endif
+#ifdef STRATEGY_02
+			_resm2 = _resm1;
+			_resm1 = _rescur;
+			calcResCur(fival, df0dx, dfidx);
+			_muVal = Min(Min(Min(_rescur, _resm1), _resm2), 1E12) / pow((Real)iterOL + 3.0, 1.1);
+			//cout << _rescur << '\t' << _muVal << endl << endl;
+			////// res_cur 계산하고 뮤밸업데이트까지 하면 완료!
+			//// 바로 위에서 구한 df0dx, dfidx (xknu로 계산한걸로!!!!!)
 #endif
 
 			//cout << "---------------" << endl;
@@ -362,6 +442,10 @@ namespace rovin
 
 		resultX = xknu;
 		resultFunc = f0valknu(0);
+
+
+		return Failure_exceedMaxIterOL;
+
 	}
 
 
@@ -608,13 +692,33 @@ namespace rovin
 	bool GCMMAOptimization::testILSuccess(const VectorX & testx, VectorX & f0valknu, VectorX & fivalknu, VectorX & f0tvalknu, VectorX & fitvalknu)
 	{
 		//VectorX f0val(1), f0tval(1), fival(_ineqN), fitval(_ineqN);
+#ifdef STRATEGY_SCALE
+		f0valknu = _objectFunc->func(testx, _scaleObjFunc, _scaleX);
+		fivalknu = _ineqConstraint->func(testx, _scaleIneqFunc, _scaleX);
+#else
 		f0valknu = _objectFunc->func(testx);
 		fivalknu = _ineqConstraint->func(testx);
+#endif
+
 		calcf0tilde(testx, f0tvalknu);
 		calcfitilde(testx, fitvalknu);
 
 		bool ret = false;
 
+#ifdef STRATEGY_02
+		if (f0tvalknu(0) + _muVal*Max(1, abs(f0tvalknu(0))) >= f0valknu(0))
+		{
+			ret = true;
+			for (int i = 0; i < _ineqN; i++)
+			{
+				if (fitvalknu(i) + _muVal*Max(1, abs(fitvalknu(i)))< fivalknu(i))
+				{
+					ret = false;
+					break;
+				}
+			}
+		}
+#else
 		if (f0tvalknu(0) >= f0valknu(0))
 		{
 			ret = true;
@@ -627,6 +731,8 @@ namespace rovin
 				}
 			}
 		}
+#endif
+
 		return ret;
 	}
 
@@ -709,7 +815,7 @@ namespace rovin
 		}
 	}
 
-	void GCMMA_PDIPM::solveSubProblem(VectorX & xout)
+	GCMMAReturnFlag GCMMA_PDIPM::solveSubProblem(VectorX & xout)
 	{
 		// input variable size:
 		// VectorX p0(_xN), q0(_xN)
@@ -783,14 +889,17 @@ namespace rovin
 		//cout << "W : " << W << endl;
 		//cout << "lam * dW : " << VectorInner(_sublam, dW, _ineqN) << endl;
 
-		if (!solFound)
-			LOG("exceeded max iteration number - 'solveSubProblem'");
 
 		//cout << iterSub << endl;
 		//cout << _subeps << endl;
 		xout = _subx;
 
 
+		if (solFound)
+			return subProblemSuccess;
+		else
+			return subProblemFailure;
+		
 	}
 
 	void GCMMA_PDIPM::allocSUBvar(void)
@@ -1504,7 +1613,7 @@ namespace rovin
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   void GCMMA_TRM::solveSubProblem(VectorX & xout)
+   GCMMAReturnFlag GCMMA_TRM::solveSubProblem(VectorX & xout)
    {
 	   // input variable size:
 	   // VectorX p0(_xN), q0(_xN)
@@ -1539,7 +1648,7 @@ namespace rovin
 
 
 	   //int iterSub = 0, maxIterSub = 10000, iterSub1 = 0, maxIterSub1 = 20000;
-	   int iterSub = 0, maxIterSub = 20, iterSub1 = 0, maxIterSub1 = 30;
+	   int iterSub = 0, maxIterSub = 10, iterSub1 = 0, maxIterSub1 = 20;
 	   bool solFound = false;
 	   while (iterSub < maxIterSub && iterSub1 < maxIterSub1)
 	   //while(1)
@@ -1682,7 +1791,94 @@ namespace rovin
 	   _resultlam = _sublam;
 
 	   xout = _subx;
+
+	   // 현재 구현 상태는 loop 돌다가 iterMax 치면 나오고.. 수렴조건 안쓰는 상태임....
+	   return subProblemSuccess;
    }
+
+#ifdef STRATEGY_02
+   void GCMMA_PDIPM::calcResCur(const VectorX & fival, const MatrixX & df0dx, const MatrixX & dfidx)
+   {
+	   Real tmpval;
+	   _rescur = 0;
+
+	   for (int j = 0; j < _xN; j++)
+	   {
+		   tmpval = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   tmpval += _sublam(i) * dfidx(i, j);
+		   }
+		   tmpval += df0dx(j);
+		   if (tmpval > 0)
+		   {
+			   tmpval *= _subx(j) - _minX(j);
+			   _rescur += tmpval * tmpval;
+		   }
+		   else
+		   {
+			   tmpval *= -1;
+			   tmpval *= _maxX(j) - _subx(j);
+			   _rescur += tmpval * tmpval;
+		   }
+	   }
+
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = _ci(i) + _di(i) *_suby(i) - _sublam(i) - _submu(i);
+		   _rescur += tmpval * tmpval;
+	   }
+
+	   tmpval = 0;
+	   for (int i = 0; i < _ineqN; i++)
+		   tmpval += _ai(i) * _sublam(i);
+	   tmpval *= -1;
+	   tmpval += _a0 - _subzet;
+	   _rescur += tmpval * tmpval;
+
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = fival(i) - _ai(i)*_subz - _suby(i);
+		   if (tmpval > 0)
+		   {
+			   _rescur += tmpval * tmpval;
+		   }
+		   else
+		   {
+			   tmpval *= -_sublam(i);
+			   _rescur += tmpval * tmpval;
+		   }
+	   }
+
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = -_suby(i);
+		   if (tmpval > 0)
+		   {
+			   _rescur += tmpval * tmpval;
+		   }
+		   else
+		   {
+			   tmpval *= -_submu(i);
+			   _rescur += tmpval * tmpval;
+		   }
+	   }
+
+	   tmpval = -_subz;
+	   if (tmpval > 0)
+	   {
+		   _rescur += tmpval * tmpval;
+	   }
+	   else
+	   {
+		   tmpval *= -_subzet;
+		   _rescur += tmpval * tmpval;
+	   }
+
+	   _rescur = sqrt(_rescur);
+   }
+#endif
+
    void GCMMA_TRM::allocSUBvar(void)
    {
 	   _sublam.resize(_ineqN);
@@ -1950,7 +2146,7 @@ namespace rovin
 	   }
    }
 
-   void GCMMA_GDM::solveSubProblem(/* output */ VectorX& xout)
+   GCMMAReturnFlag GCMMA_GDM::solveSubProblem(/* output */ VectorX& xout)
    {
 	   GD_initializeSubProb();
 
@@ -2015,6 +2211,7 @@ namespace rovin
 	   calcy(_sublam, _suby);
 
 	   xout = _subx;
+	   return GCMMAReturnFlag::Success_tolFunc;
    }
 
 }

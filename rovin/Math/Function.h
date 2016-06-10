@@ -34,6 +34,12 @@ namespace rovin
 		virtual std::vector< MatrixX > Hessian(const VectorX& x) const;
 		virtual FunctionPtr MultiplyConst(const Real& w) const;
 
+		// 이거 하기 싫지만 일단 이렇게 하자... 힝.....
+		virtual VectorX func(const VectorX& x, const Real& a, const VectorX& b) { return VectorX(); }
+		virtual VectorX func(const VectorX& x, const VectorX& a, const VectorX& b) { return VectorX(); }
+		virtual MatrixX Jacobian(const  VectorX& x, const Real& a, const VectorX& b) { return MatrixX(); }
+		virtual MatrixX Jacobian(const  VectorX& x, const VectorX& a, const VectorX& b) { return MatrixX(); }
+
 	private:
 		Real _eps;
 	};

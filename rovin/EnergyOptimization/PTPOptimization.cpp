@@ -176,11 +176,16 @@ namespace rovin{
 		}
 		_linearIneqFunc = FunctionPtr(new AffineFunction(A, b));
 
-		cout << b.size() << endl;
 
+#ifdef STRATEGY_SCALE
+		_IneqFunc = FunctionPtr(new scaleAugmentedFunction());
+		static_pointer_cast<scaleAugmentedFunction>(_IneqFunc)->addFunction(_nonlinearIneqFunc);
+		static_pointer_cast<scaleAugmentedFunction>(_IneqFunc)->addFunction(_linearIneqFunc);
+#else
 		_IneqFunc = FunctionPtr(new AugmentedFunction());
 		static_pointer_cast<AugmentedFunction>(_IneqFunc)->addFunction(_nonlinearIneqFunc);
 		static_pointer_cast<AugmentedFunction>(_IneqFunc)->addFunction(_linearIneqFunc);
+#endif
 	}
 
 	void PTPOptimization::makeIneqConstraintFunction_MMA()
@@ -344,16 +349,40 @@ namespace rovin{
 			else if (_optType == OptimizationType::GCMMA_GD)
 				_GCMMAoptimizer = new GCMMA_GDM(initX.size(), _IneqFunc->func(initX).size());
 
+#ifdef STRATEGY_SCALE
+			Real scaleObj = 1E-4;
+			VectorX scaleIneq(_IneqFunc->func(initX).size());
+			VectorX scaleX(initX.size());
+			// ineq 는 앞에 12개만(nonlinear만) 0.01 곱하고 뒤쪽 linear 부분은 1로 두면 될듯!
+			scaleIneq.setOnes();
+			for (unsigned int tmpi = 0; tmpi < 2*_soc->getNumOfJoint(); tmpi++)
+			{
+				scaleIneq(tmpi) *= 0.01;
+			}
+			scaleX.setConstant(10);
+			for (int tmpi = 0; tmpi < initX.size(); tmpi++)
+			{
+				minX(tmpi) *= scaleX(tmpi);
+				maxX(tmpi) *= scaleX(tmpi);
+				initX(tmpi) *= scaleX(tmpi);
+			}
+			_GCMMAoptimizer->setScaleParameters(scaleObj, scaleIneq, scaleX);
+#endif
+
 			_GCMMAoptimizer->setMinMax(minX, maxX);
 			_GCMMAoptimizer->setObjectiveFunction(_objectFunc);
 			_GCMMAoptimizer->setInequalityConstraint(_IneqFunc);
 			//cout << "initial objective value : " << _GCMMAoptimizer->_objectFunc->func(initX) << endl;
 			LOG("Start optimization.");
 			clock_t time = clock();
-			_GCMMAoptimizer->solve(initX);
+			GCMMAReturnFlag retFlag = _GCMMAoptimizer->solve(initX);
 			LOG("Finish optimization.");
 			cout << "------------------------------------" << endl;
 			cout << "computation time : " << (clock() - time) << endl << endl;
+#ifdef STRATEGY_SCALE
+			_GCMMAoptimizer->restoreResultScale();
+#endif
+			displayGCMMAResult(retFlag);
 			cout << "X : " << endl << _GCMMAoptimizer->getResultX() << endl << endl;
 			
 			//VectorX X = _GCMMAoptimizer->getResultX();
