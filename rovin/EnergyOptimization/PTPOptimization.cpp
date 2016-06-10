@@ -341,6 +341,8 @@ namespace rovin{
 				_GCMMAoptimizer = new GCMMA_PDIPM(initX.size(), _IneqFunc->func(initX).size());
 			else if (_optType == OptimizationType::GCMMA_TR)
 				_GCMMAoptimizer = new GCMMA_TRM(initX.size(), _IneqFunc->func(initX).size());
+			else if (_optType == OptimizationType::GCMMA_GD)
+				_GCMMAoptimizer = new GCMMA_GDM(initX.size(), _IneqFunc->func(initX).size());
 
 			_GCMMAoptimizer->setMinMax(minX, maxX);
 			_GCMMAoptimizer->setObjectiveFunction(_objectFunc);

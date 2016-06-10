@@ -59,13 +59,17 @@ int main()
 	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
 	PTPManagerNlopt.generateTrajectory();
 
-	std::cout << "------- [GCMMA RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
-	PTPManagerManualOptTR.generateTrajectory();
+	//std::cout << "------- [GCMMA RESULT] -------" << endl;
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
+	//PTPManagerManualOptTR.generateTrajectory();
 
 	//std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
 	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
 	//PTPManagerManualOptTR.generateTrajectory();
+
+	std::cout << "------- [GCMMA GD RESULT] -------" << endl;
+	PTPOptimization PTPManagerManualOptGD(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_GD, ObjectiveFunctionType::effort);
+	PTPManagerManualOptGD.generateTrajectory();
 
 	//MatrixX cpp(dof, 6 + numOfOptCP);
 	//for (int i = 0; i < 3; i++)
@@ -89,7 +93,7 @@ int main()
 	bool renderingswi = false;
 
 	PTPOptimization* PTPManager1 = &PTPManagerNlopt;
-	PTPOptimization* PTPManager2 = &PTPManagerManualOptTR;
+	PTPOptimization* PTPManager2 = &PTPManagerManualOptGD;
 	int datanum = 2000;
 	Real stepsize = (tf - 0.0) / 2000;
 	Real t = 0.0;

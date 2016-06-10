@@ -11,7 +11,7 @@ using namespace rovin;
 
 void loadData(MatrixX& data, std::string filename);
 
-int num = 10;
+int num = 20;
 
 int main()
 {
@@ -24,7 +24,10 @@ int main()
 	A = a.transpose() * a;
 	b.setRandom(); b *= 10;
 
-	MatrixX C(num, num);
+	//MatrixX C(num, num);
+
+	irLib::Opt::LinearConjugateGradient(A, b, x0, x);
+
 
 	//A(0, 3) = 0; A(3, 0) = 0;
 	//A(1, 2) = 0; A(2, 1) = 0;

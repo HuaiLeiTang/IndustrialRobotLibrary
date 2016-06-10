@@ -6,6 +6,7 @@
 
 
 using namespace rovin;
+using namespace std;
 
 namespace irLib
 {
@@ -14,20 +15,22 @@ namespace irLib
 		static void LinearConjugateGradient(const MatrixX& A, const VectorX& b, const VectorX& x0, VectorX& x)
 		{
 			int n = A.rows();
-			int maxIter = n * 2;
+			int nn = 0;
+			int maxIter = n * 10;
 			int k = 0;
 			bool iterSwi = false;
 
-			VectorX r(n), r1(n), p(n), Ap(n);
+			VectorX r(n), r1(n), p0(n), p(n), Ap(n);
 			Real alpha = 0, beta = 0;
 			Real r1inner = 0;
 			
 			// initialization
 			r = A * x0 - b;
-			p = -r; x = x0;
+			p0 = -r; p = -r; x = x0;
 
-			while (k <= maxIter)
+			while (k < maxIter)
 			{
+				cout << "k : " << k << endl;
 				Ap = A * p;
 				alpha = (r.transpose() * r);
 				alpha /= (p.transpose()*Ap);
@@ -38,11 +41,20 @@ namespace irLib
 				p = -r1 + beta*p;
 
 				r = r1;
+				cout << "r1inner : " << r1inner << endl;
 				if(r1inner < 1E-10)
 				{
 					iterSwi = true;
 					break;
 				}
+
+				//if (nn == (n - 1))
+				//{
+				//	p = p0;
+				//	nn = 0;
+				//}
+				//nn++;
+
 				k++;
 			}
 

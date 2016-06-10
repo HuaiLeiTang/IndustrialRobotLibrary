@@ -122,7 +122,7 @@ namespace rovin
 		int iterOL = 0, iterIL; // iter for outer/inner loop
 		while (iterOL < _maxIterOL) // outer loop
 		{
-			//cout << "=== outer iter num: " << iterOL << endl;
+			cout << "=== outer iter num: " << iterOL << endl;
 
 
 			//cout << xk << endl << endl;
@@ -185,7 +185,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				//cout << "====== inner iter num: " << iterIL << endl;
+				cout << "====== inner iter num: " << iterIL << endl;
 
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
@@ -1861,4 +1861,160 @@ namespace rovin
 		   //cout << _TR_sublamhat(i) << endl << endl;
 	   }
    }
+
+   ///////////////////////////////////////////////////////
+   ////////////////////////////////////////////////////////
+   /////////////////////////////////////////////////////////
+   void GCMMA_GDM::GD_initializeSubProb()
+   {
+	   _sublam.resize(_ineqN);
+	   _sublam.setZero();
+	   _subx.resize(_xN);
+	   _suby.resize(_ineqN);
+	   _subdW.resize(_ineqN);
+   }
+
+   void GCMMA_GDM::calcx(const VectorX& lam, /* output */ VectorX& subx)
+   {
+	   Real ltpj, ltqj, tmpval;
+	   for (int j = 0; j < _xN; j++)
+	   {
+		   ltpj = 0; ltqj = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   ltpj += lam(i) * _ilpi(i, j);
+			   ltqj += lam(i) * _ilqi(i, j);
+		   }
+		   //cout << p0(j) + ltpj << endl;
+		   //cout << q0(j) + ltqj << endl << endl;
+		   tmpval = (sqrt(_ilp0(j) + ltpj) * _ollow(j) + sqrt(_ilq0(j) + ltqj) * _olupp(j)) / (sqrt(_ilp0(j) + ltpj) + sqrt(_ilq0(j) + ltqj));
+		   subx(j) = Max(_olalpha(j), Min(_olbeta(j), tmpval));
+		   //cout << _olalpha(j) << '\t' << _olbeta(j) << '\t' << tmpval << endl << endl;
+	   }
+   }
+
+   void GCMMA_GDM::calcy(const VectorX& lam, /* output */ VectorX& suby)
+   {
+	   for (int i = 0; i < _ineqN; i++)
+		   suby(i) = Max(0.0, (lam(i) - _ci(i)) / _di(i));
+   }
+
+   void GCMMA_GDM::calcW(const VectorX& lam, /* output */ Real& W)
+   {
+	   calcx(lam, _subx);
+	   calcy(lam, _suby);
+
+	   W = 0;
+	   Real tmpval0, tmpval1;
+
+	   tmpval0 = 0;
+	   for (int i = 0; i < _ineqN; i++)
+		   tmpval0 += lam(i) * _ilri(i);
+
+	   W += _ilr0 + tmpval0;
+
+	   for (int j = 0; j < _xN; j++)
+	   {
+		   tmpval0 = 0; tmpval1 = 0;
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   tmpval0 += lam(i)*_ilpi(i, j);
+			   tmpval1 += lam(i)*_ilqi(i, j);
+		   }
+		   W += (_ilp0(j) + tmpval0) / (_olupp(j) - _subx(j)) + (_ilq0(j) + tmpval1) / (_subx(j) - _ollow(j));
+	   }
+
+	   for (int i = 0; i < _ineqN; i++)
+		   W += _suby(i) * (_ci(i) + 0.5*_di(i)*_suby(i) - lam(i));
+
+	   W *= -1;
+   }
+
+   void GCMMA_GDM::calcdW(const VectorX& lam, /* output */ VectorX& dW)
+   {
+	   // calc x/y 필요한가.....
+	   calcx(lam, _subx);
+	   calcy(lam, _suby);
+
+	   //cout << _TR_subx << endl;
+	   //cout << _TR_suby << endl;
+
+	   Real tmpval;
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   tmpval = 0;
+		   for (int j = 0; j < _xN; j++)
+			   tmpval += _ilpi(i, j) / (_olupp(j) - _subx(j)) + _ilqi(i, j) / (_subx(j) - _ollow(j));
+
+		   dW(i) = -tmpval - _ilri(i) + _suby(i);
+	   }
+   }
+
+   void GCMMA_GDM::solveSubProblem(/* output */ VectorX& xout)
+   {
+	   GD_initializeSubProb();
+
+	   int iter = 0, maxIter = 100000;
+	   bool break_swi = false;
+
+	   calcW(_sublam, _subW);
+	   calcdW(_sublam, _subdW);
+
+	   Real stepsize = 2;
+	   Real v = 0;
+
+	   while (iter < maxIter)
+	   {
+		   //cout << "iter : " << iter << endl;
+		   //cout << "_sublam" << endl << _sublam << endl << endl;
+		   //cout << "_subdW" << endl << _subdW << endl << endl;
+
+		   _sublam = _sublam - stepsize * _subdW;
+
+		   for (int i = 0; i < _ineqN; i++)
+		   {
+			   if (_sublam(i) < 0)
+				   _sublam(i) = 0;
+		   }
+
+		   v = _sublam.transpose() * _subdW;
+		   //calcW(_sublam, _subW);
+		   calcdW(_sublam, _subdW);
+
+		   //cout << "_sublam" << endl << _sublam << endl << endl;
+		   //cout << "_subdW" << endl << _subdW << endl << endl;
+
+		   iter++;
+
+		   if (std::abs(v) < 20)
+			   break_swi = true;
+
+		   if (break_swi)
+			   break;
+	   }
+
+	   VectorX x(_xN), y(_ineqN);
+	   calcx(_sublam, x);
+	   calcy(_sublam, y);
+	   VectorX result = _ineqConstraint->func(x);
+	   for (int i = 0; i < _ineqN; i++)
+	   {
+		   if (result(i) > 0)
+			   cout << "inequality error" << endl;
+	   }
+
+	   //calcW(_sublam, _subW);
+	   //cout << iter << endl;
+	   //cout << v << endl;
+	   //cout << _subW << endl;
+	   //cout << "_sublam" << endl;
+	   //cout << _sublam << endl << endl;
+	   //cout << "_subdW" << endl << _subdW << endl;
+
+	   calcx(_sublam, _subx);
+	   calcy(_sublam, _suby);
+
+	   xout = _subx;
+   }
+
 }

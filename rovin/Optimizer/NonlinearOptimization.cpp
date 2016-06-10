@@ -69,7 +69,13 @@ namespace rovin
 
 		opt optimizer;
 
-		if(_eqN != 0) optimizer = opt(nlopt::LD_SLSQP, _xN);
+		if (_eqN == 0 && _ineqN == 0)
+		{
+			optimizer = opt(nlopt::LD_LBFGS, _xN);
+			//optimizer = opt(nlopt::LD_TNEWTON_PRECOND, _xN);
+			//optimizer = opt(nlopt::LD_VAR1, _xN);
+		}
+		else if(_eqN != 0) optimizer = opt(nlopt::LD_SLSQP, _xN);
 		else optimizer = opt(nlopt::LD_MMA, _xN);
 
 		optimizer.set_min_objective(objective, this);

@@ -39,6 +39,9 @@
     <ClCompile Include="convexQPTester.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="typeIITest.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NdofOpenChain.h">

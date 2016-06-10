@@ -134,8 +134,29 @@ namespace rovin
 		VectorX _resultlam;
 	};
 
+	class GCMMA_GDM : public GCMMAOptimization
+	{
+	private:
+		VectorX _subx;
+		VectorX _suby;
+		VectorX _sublam;
 
+		Real _subW;
+		VectorX _subdW;
+	public:
+		GCMMA_GDM(int xN, int ineqN) : GCMMAOptimization(xN, ineqN) {}
+		~GCMMA_GDM() {}
 
+	private:
+		void allocSUBvar(void) {}
+		void GD_initializeSubProb();
+		void calcx(const VectorX& lam, /* output */ VectorX& subx);
+		void calcy(const VectorX& lam, /* output */ VectorX& suby);
+		void calcW(const VectorX& lam, /* output */ Real& W);
+		void calcdW(const VectorX& lam, /* output */ VectorX& dW);
+	public:
+		void solveSubProblem(/* output */ VectorX& xout);
+	};
 
 
 	class GCMMA_TRM : public GCMMAOptimization // solve GCMMA subproblem by using 'Trust-Region Method'
@@ -182,9 +203,9 @@ namespace rovin
 		void calceta(void);
 		void calclamhat(void);
 		void solveSubProblem(/* output */ VectorX& xout);
-
-	
 	};
+
+
 
 	class GCMMA_PDIPM : public GCMMAOptimization
 	{
