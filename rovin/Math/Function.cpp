@@ -36,6 +36,12 @@ namespace rovin
 		return J;
 	}
 
+	MatrixX Function::InverseJacobian(const VectorX& x) const
+	{
+		MatrixX invj = Jacobian(x);
+		return invj.inverse();
+	}
+
 	std::vector<MatrixX> Function::Hessian(const VectorX & x) const
 	{
 		Real eps_square_inv = 1.0 / (_eps*_eps);

@@ -4,6 +4,7 @@
 #include "rovin\Math\Common.h"
 #include <iostream>
 
+#include "rovin\Math\Function.h"
 
 using namespace rovin;
 using namespace std;
@@ -12,6 +13,66 @@ namespace irLib
 {
 	namespace Opt
 	{
+		class NewtonRaphson;
+
+		class NewtonRaphson
+		{
+		private:
+			int _xN;
+			int _fN;
+			Real _tol;
+			FunctionPtr _fcn;
+			VectorX resultX;
+		public:
+			NewtonRaphson(int xN, int fN, Real tol = 1E-10) : _xN(xN), _fN(fN), _tol(tol) 
+			{
+				resultX.resize(xN);
+				resultX.setZero();
+			}
+
+			void setxN(const int xN) { _xN = xN; }
+			void setfN(const int fN) { _fN = fN; }
+			void setfunction(FunctionPtr fcn) { _fcn = fcn; }
+			void settolerance(const Real tol) { _tol = tol; }
+
+			void solve(const VectorX& initX, int maxIter = 1000)
+			{
+				int iter = 0;
+				VectorX f(_fN);
+
+				MatrixX g(_fN, _xN);
+				VectorX tmp(_fN);
+
+				resultX = initX;
+
+				//cout << "xN : " << _xN << '\t' << "fN : " << _fN << endl;
+				
+				while (iter < maxIter)
+				{	
+					f = _fcn->func(resultX);
+					
+					//resultX -= _fcn->InverseJacobian(resultX) * f;
+					g = _fcn->InverseJacobian(resultX);
+					tmp.setZero();
+					for (int i = 0; i < _fN; i++)
+					{
+						for (int j = 0; j < _xN; j++)
+						{
+							//cout << "i : " << i << '\t' << "j : " << j << endl;
+							tmp(i) += g(i, j) * f(j);
+						}
+					}
+					resultX -= tmp;
+
+					if (f.norm() < _tol)
+						break;
+					iter++;
+				}
+				//cout << iter << endl;
+			}
+			const VectorX& getResultX() const { return resultX; }
+		};
+
 		static void LinearConjugateGradient(const MatrixX& A, const VectorX& b, const VectorX& x0, VectorX& x)
 		{
 			int n = A.rows();

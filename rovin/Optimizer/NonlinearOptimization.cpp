@@ -79,6 +79,7 @@ namespace rovin
 		else optimizer = opt(nlopt::LD_MMA, _xN);
 
 		optimizer.set_min_objective(objective, this);
+		//optimizer.set_min_objective(objective, NULL);
 		if (_eqN != 0)
 		{
 			optimizer.add_equality_mconstraint(constraint, new pair<bool, NonlinearOptimization*>(false, this), vector<Real>(_eqN, 1e-7));
