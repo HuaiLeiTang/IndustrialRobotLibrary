@@ -9,6 +9,126 @@ using namespace std;
 
 namespace rovin
 {
+	void ObjFcnEval(FunctionPtr f, const VectorX& params, VectorX& fval, const Real scaleObjFunc, const VectorX& scaleX)
+	{
+		fval = f->func(params);
+	}
+
+	void ObjJacobianEval(FunctionPtr f, const VectorX& params, MatrixX& dfdx, const Real scaleObjFunc, const VectorX& scaleX)
+	{
+		dfdx = f->Jacobian(params);
+	}
+
+	void InequalFcnEval(FunctionPtr f, const VectorX& params, VectorX& fval, const VectorX& scaleIneqFunc, const VectorX& scaleX)
+	{
+		fval = f->func(params);
+	}
+
+	void InequalJacobianEval(FunctionPtr f, const VectorX& params, MatrixX& dfdx, const VectorX& scaleIneqFunc, const VectorX& scaleX)
+	{
+		dfdx = f->Jacobian(params);
+	}
+
+	void ScaleObjFcnEval(FunctionPtr f, const VectorX& params, VectorX& fval, const Real scaleObjFunc, const VectorX& scaleX)
+	{
+		int xN = params.size();
+		VectorX tmpVec(xN);
+		for (int j = 0; j < xN; j++)
+			tmpVec(j) = params(j) / scaleX(j);
+		fval = f->func(tmpVec);
+		fval(0) *= scaleObjFunc;
+	}
+
+	void ScaleObjJacobianEval(FunctionPtr f, const VectorX& params, MatrixX& dfdx, const Real scaleObjFunc, const VectorX& scaleX)
+	{
+		int xN = params.size();
+		VectorX tmpVec(xN);
+		for (int j = 0; j < xN; j++)
+			tmpVec(j) = params(j) / scaleX(j);
+		dfdx = f->Jacobian(tmpVec);
+		for (int j = 0; j < xN; j++)
+			dfdx(0, j) *= scaleObjFunc / scaleX(j);
+	}
+
+	void ScaleInequalFcnEval(FunctionPtr f, const VectorX& params, VectorX& fval, const VectorX& scaleIneqFunc, const VectorX& scaleX)
+	{
+		int xN = params.size();
+		VectorX tmpVec(xN);
+		for (int j = 0; j < xN; j++)
+			tmpVec(j) = params(j) / scaleX(j);
+		fval = f->func(tmpVec);
+		for (int i = 0; i < fval.size(); i++)
+			fval(i) *= scaleIneqFunc(i);
+	}
+
+	void ScaleInequalJacobianEval(FunctionPtr f, const VectorX& params, MatrixX& dfdx, const VectorX& scaleIneqFunc, const VectorX& scaleX)
+	{
+		int xN = params.size();
+		VectorX tmpVec(xN);
+		for (int j = 0; j < xN; j++)
+			tmpVec(j) = params(j) / scaleX(j);
+		dfdx = f->Jacobian(tmpVec);
+		for (int i = 0; i < dfdx.rows(); i++)
+			for (int j = 0; j < xN; j++)
+				dfdx(i, j) *= scaleIneqFunc(i) / scaleX(j);
+	}
+
+	GCMMAOptimization::GCMMAOptimization(const int xN, const int ineqN, bool st_scale) : _xN(xN), _ineqN(ineqN), Strategy_Scale(st_scale), _objectFunc(NULL), _ineqConstraint(NULL)
+	{
+		initialize(xN, ineqN);
+		
+		if (!Strategy_Scale)
+		{
+			_objectf = &ObjFcnEval;
+			_objectJ = &ObjJacobianEval;
+			_ineqf = &InequalFcnEval;
+			_ineqJ = &InequalJacobianEval;
+		}
+		else
+		{
+			_objectf = &ScaleObjFcnEval;
+			_objectJ = &ScaleObjJacobianEval;
+			_ineqf = &ScaleInequalFcnEval;
+			_ineqJ = &ScaleInequalJacobianEval;
+		}
+	}
+
+	//void GCMMAOptimization::saveMatrixX2txt(MatrixX in, std::string filename)
+	//{
+	//	std::ofstream fout;
+	//	fout.open(filename);
+
+	//	//for (int i = 0; i < in.cols(); i++)
+	//	//{
+	//	//	for (int j = 0; j < in.rows(); j++)
+	//	//		fout << in(j, i) << '\t';
+	//	//	fout << std::endl;
+	//	//}
+	//	for (int i = 0; i < in.rows(); i++)
+	//	{
+	//		for (int j = 0; j < in.cols(); j++)
+	//		{
+	//			fout << in(i, j) << '\t';
+	//		}
+	//		fout << std::endl;
+	//	}
+
+	//	fout.close();
+	//}
+
+	//void GCMMAOptimization::saveVectorX2txt(VectorX in, std::string filename)
+	//{
+	//	std::ofstream fout;
+	//	fout.open(filename);
+
+	//	for (int i = 0; i < in.size(); i++)
+	//	{
+	//		fout << in(i) << endl;
+	//	}
+
+	//	fout.close();
+	//}
+
 	void displayGCMMAResult(GCMMAReturnFlag retFlag)
 	{
 		cout << "return reslut: ";
@@ -27,42 +147,6 @@ namespace rovin
 			cout << "appropriate return flag is not assigned" << endl;
 			break;
 		}
-	}
-
-	void GCMMAOptimization::saveMatrixX2txt(MatrixX in, std::string filename)
-	{
-		std::ofstream fout;
-		fout.open(filename);
-
-		//for (int i = 0; i < in.cols(); i++)
-		//{
-		//	for (int j = 0; j < in.rows(); j++)
-		//		fout << in(j, i) << '\t';
-		//	fout << std::endl;
-		//}
-		for (int i = 0; i < in.rows(); i++)
-		{
-			for (int j = 0; j < in.cols(); j++)
-			{
-				fout << in(i, j) << '\t';
-			}
-			fout << std::endl;
-		}
-
-		fout.close();
-	}
-
-	void GCMMAOptimization::saveVectorX2txt(VectorX in, std::string filename)
-	{
-		std::ofstream fout;
-		fout.open(filename);
-
-		for (int i = 0; i < in.size(); i++)
-		{
-			fout << in(i) << endl;
-		}
-
-		fout.close();
 	}
 
 	void GCMMAOptimization::initialize(int xN, int ineqN)
@@ -110,6 +194,39 @@ namespace rovin
 		_maxX = maxX;
 	}
 
+	void GCMMAOptimization::restoreResultScale(void)
+	{
+		if (Strategy_Scale)
+		{
+			resultFunc /= _scaleObjFunc;
+			for (int j = 0; j < _xN; j++)
+				resultX(j) /= _scaleX(j);
+		}
+	}
+
+	void GCMMAOptimization::calScaleFactors(VectorX& x)
+	{
+		VectorX fvali = _objectFunc->func(x);
+		VectorX InequalVal = _ineqConstraint->func(x);
+
+		_scaleObjFunc = 1 / std::abs(fvali(0)) * 100;
+
+		_scaleIneqFunc.setOnes(_ineqN);
+
+		for (int i = 0; i < _ineqN; i++)
+			_scaleIneqFunc(i) /= abs(InequalVal(i));
+		
+		_scaleX.resize(_xN);
+		_scaleX.setConstant(10);
+		
+		for (int i = 0; i < _xN; i++)
+		{
+			_minX(i) *= _scaleX(i);
+			_maxX(i) *= _scaleX(i);
+			x(i) *= _scaleX(i);
+		}
+	}
+
 	GCMMAReturnFlag GCMMAOptimization::solve(const VectorX & initialX)
 	{
 		GCMMAReturnFlag ret; // return variable
@@ -126,32 +243,29 @@ namespace rovin
 		allocILvar();
 		allocSUBvar();
 
-
 		// function evaluation variables
 		VectorX f0val(1);			MatrixX df0dx(1, _xN), df0dxp(1, _xN), df0dxm(1, _xN); // originally, Real and VectorX respectively.
 		VectorX fival(_ineqN);		MatrixX dfidx(_ineqN, _xN), dfidxp(_ineqN, _xN), dfidxm(_ineqN, _xN);
+
 
 #ifdef STRATEGY_01
 		VectorX f0valm1(1), fivalm1(_ineqN);
 		MatrixX df0dxm1(1, _xN), dfidxm1(_ineqN, _xN);
 #endif
+
 #ifdef STRATEGY_02
 		_rescur = RealMax;
 		_resm1 = RealMax;
 		_resm2 = RealMax;
 		_muVal = 0;
 #endif
-#ifdef STRATEGY_SCALE
-		f0val = _objectFunc->func(xk, _scaleObjFunc, _scaleX);
-		fival = _ineqConstraint->func(xk, _scaleIneqFunc, _scaleX);
-		df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
-		dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
-#else
-		f0val = _objectFunc->func(xk);
-		fival = _ineqConstraint->func(xk);
-		df0dx = _objectFunc->Jacobian(xk);
-		dfidx = _ineqConstraint->Jacobian(xk);
-#endif
+		if(Strategy_Scale)
+			calScaleFactors(xk);
+
+		_objectf(_objectFunc, xk, f0val, _scaleObjFunc, _scaleX);
+		_ineqf(_ineqConstraint, xk, fival, _scaleIneqFunc, _scaleX);
+		_objectJ(_objectFunc, xk, df0dx, _scaleObjFunc, _scaleX);
+		_ineqJ(_ineqConstraint, xk, dfidx, _scaleIneqFunc, _scaleX);
 
 
 		// variables for inner loop
@@ -162,7 +276,7 @@ namespace rovin
 		int iterOL = 0, iterIL; // iter for outer/inner loop
 		while (iterOL < _maxIterOL) // outer loop
 		{
-			cout << "=== outer iter num: " << iterOL << endl;
+			//cout << "=== outer iter num: " << iterOL << endl;
 
 
 			//cout << xk << endl << endl;
@@ -228,7 +342,7 @@ namespace rovin
 			iterIL = 0;
 			while (iterIL < _maxIterIL) // inner loop
 			{
-				cout << "====== inner iter num: " << iterIL << endl;
+				//cout << "====== inner iter num: " << iterIL << endl;
 
 
 				calcPQR(df0dxp, df0dxm, dfidxp, dfidxm, xk, f0val, fival);
@@ -255,6 +369,8 @@ namespace rovin
 					// save solution as former outer loop x
 					resultX = xk;
 					resultFunc = f0val(0);
+					if (Strategy_Scale)
+						restoreResultScale();
 					return quasiSuccess_subProbFailure;
 				}
 
@@ -390,12 +506,16 @@ namespace rovin
 			{
 				resultX = xknu;
 				resultFunc = f0valknu(0);
+				if (Strategy_Scale)
+					restoreResultScale();
 				return Success_tolFunc;
 			}
 			if ((xkm1 - xknu).norm() < _tolX)
 			{
 				resultX = xknu;
 				resultFunc = f0valknu(0);
+				if (Strategy_Scale)
+					restoreResultScale();
 				return Success_tolX;
 			}
 			// update
@@ -407,13 +527,9 @@ namespace rovin
 
 			f0val = f0valknu;
 			fival = fivalknu;
-#ifdef STRATEGY_SCALE
-			df0dx = _objectFunc->Jacobian(xk, _scaleObjFunc, _scaleX);
-			dfidx = _ineqConstraint->Jacobian(xk, _scaleIneqFunc, _scaleX);
-#else
-			df0dx = _objectFunc->Jacobian(xk);
-			dfidx = _ineqConstraint->Jacobian(xk);
-#endif
+
+			_objectJ(_objectFunc, xk, df0dx, _scaleObjFunc, _scaleX);
+			_ineqJ(_ineqConstraint, xk, dfidx, _scaleIneqFunc, _scaleX);
 
 #ifdef STRATEGY_01
 			f0valm1 = f0val;
@@ -443,9 +559,9 @@ namespace rovin
 		resultX = xknu;
 		resultFunc = f0valknu(0);
 
-
+		if (Strategy_Scale)
+			restoreResultScale();
 		return Failure_exceedMaxIterOL;
-
 	}
 
 
@@ -692,13 +808,8 @@ namespace rovin
 	bool GCMMAOptimization::testILSuccess(const VectorX & testx, VectorX & f0valknu, VectorX & fivalknu, VectorX & f0tvalknu, VectorX & fitvalknu)
 	{
 		//VectorX f0val(1), f0tval(1), fival(_ineqN), fitval(_ineqN);
-#ifdef STRATEGY_SCALE
-		f0valknu = _objectFunc->func(testx, _scaleObjFunc, _scaleX);
-		fivalknu = _ineqConstraint->func(testx, _scaleIneqFunc, _scaleX);
-#else
-		f0valknu = _objectFunc->func(testx);
-		fivalknu = _ineqConstraint->func(testx);
-#endif
+		_objectf(_objectFunc, testx, f0valknu, _scaleObjFunc, _scaleX);
+		_ineqf(_ineqConstraint, testx, fivalknu, _scaleIneqFunc, _scaleX);
 
 		calcf0tilde(testx, f0tvalknu);
 		calcfitilde(testx, fitvalknu);
@@ -837,13 +948,9 @@ namespace rovin
 		bool solFound = false;
 		while (iterSub < maxIterSub)
 		{
-			//cout << "solveSubProblem iter num : " << iterSub << endl;
-			//cout << "calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) : " << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, -1) << endl;
-			//cout << "subx" << endl << _subx << endl << endl;
-
 			// step 1: calculate gradient of w
 			//calcGradientW(p0, pi, q0, qi, bi, delw);
-			calcGradientW_tmp(delw);
+			calcGradientW(delw);
 
 			//cout << "[delw]" << endl << delw << endl << endl;
 
@@ -858,7 +965,7 @@ namespace rovin
 
 			// step 4: update epsilon
 			//if (calcNormResidual(p0, pi, q0, qi, bi, delw, 0.0, -1) < 0.9 * _subeps)
-			if (calcNormResidual_tmp(delw, 0.0, -1) < 0.9 * _subeps)
+			if (calcNormResidual(delw, 0.0, -1) < 0.9 * _subeps)
 				_subeps *= 0.1;
 
 			// step 5: check terminate condition
@@ -943,13 +1050,9 @@ namespace rovin
 
 		DlyGDxGt.resize(_ineqN, _ineqN);
 		iDlyGDxGt.resize(_ineqN, _ineqN);
-		Lower.resize(_ineqN, _ineqN);
-		iLower.resize(_ineqN, _ineqN);
 
 		DxGtiDlyG.resize(_xN, _xN);
 		iDxGtiDlyG.resize(_xN, _xN);
-		Lower2.resize(_xN, _xN);
-		iLower2.resize(_xN, _xN);
 
 		MatSizeineqNbyxN.resize(_ineqN, _xN);
 		MatSizexNbyineqN.resize(_xN, _ineqN);
@@ -1059,7 +1162,7 @@ namespace rovin
 	}
 
 
-	void GCMMA_PDIPM::calcGradientW_tmp(VectorX & delw)
+	void GCMMA_PDIPM::calcGradientW(VectorX & delw)
 	{
 		// output delw consists of delx, dely, delz, dellam, delxsi,...
 		delw.setZero();
@@ -1114,7 +1217,6 @@ namespace rovin
 		if (_xN > _ineqN)
 		{
 			// equation (5.20)
-			iLower.setZero();
 			iDlyGDxGt.setZero();
 
 			// Calculate (Dly + G * iDx * G.transpose())
@@ -1137,48 +1239,7 @@ namespace rovin
 				DlyGDxGt(i, i) += Dly(i, i);
 			}
 
-			// Calculate inverse of (Dly + G * iDx * G.transpose())
-			for (int k = 0; k < _ineqN; k++) // Cholesky decomposition
-			{
-				Lower(k, k) = DlyGDxGt(k, k);
-				for (int j = 0; j < k; j++)
-					Lower(k, k) -= Lower(k, j) * Lower(k, j);
-				Lower(k, k) = sqrt(Lower(k, k));
-
-				for (int i = k + 1; i < _ineqN; i++)
-				{
-					Lower(i, k) = DlyGDxGt(i, k);
-					for (int j = 0; j < k; j++)
-						Lower(i, k) -= Lower(i, j) * Lower(k, j);
-					Lower(i, k) /= Lower(k, k);
-				}
-			}
-
-			for (int i = 0; i < _ineqN; i++) // Inverse of lower matrix
-			{
-				iLower(i, i) = 1 / Lower(i, i);
-				for (int j = i + 1; j < _ineqN; j++)
-				{
-					for (int k = i; k < j; k++)
-					{
-						iLower(j, i) += Lower(j, k) * iLower(k, i);
-					}
-					iLower(j, i) /= -Lower(j, j);
-				}
-			}
-			iLowert = iLower.transpose();
-
-			for (int i = 0; i < _ineqN; i++) // multiple lower matrax & upper matrix
-			{
-				for (int j = i; j < _ineqN; j++)
-				{
-					for (int k = j; k < _ineqN; k++)
-					{
-						iDlyGDxGt(i, j) += iLowert(i, k)*iLower(k, j);
-					}
-					iDlyGDxGt(j, i) = iDlyGDxGt(i, j);
-				}
-			}
+			PosDefMatrixInverse(DlyGDxGt, _ineqN, iDlyGDxGt);
 
 			// Calculate dellam, delz, delx
 			for (int i = 0; i < _xN; i++) // dellam
@@ -1207,7 +1268,6 @@ namespace rovin
 		else
 		{
 			// equation (5.22)
-			iLower2.setZero();
 			iDxGtiDlyG.setZero();
 
 			// Calculate (Dx + G.transpose()*iDly*G) 
@@ -1229,48 +1289,7 @@ namespace rovin
 				DxGtiDlyG(i, i) += Dx(i, i);
 			}
 
-			// Calculate inverse of (Dx + G.transpose()*iDly*G)
-			for (int k = 0; k < _xN; k++) // Cholesky decomposition
-			{
-				Lower2(k, k) = DxGtiDlyG(k, k);
-				for (int j = 0; j < k; j++)
-					Lower2(k, k) -= Lower2(k, j) * Lower2(k, j);
-				Lower2(k, k) = sqrt(Lower2(k, k));
-
-				for (int i = k + 1; i < _xN; i++)
-				{
-					Lower2(i, k) = DxGtiDlyG(i, k);
-					for (int j = 0; j < k; j++)
-						Lower2(i, k) -= Lower2(i, j) * Lower2(k, j);
-					Lower2(i, k) /= Lower2(k, k);
-				}
-			}
-
-			for (int i = 0; i < _xN; i++) // Inverse of lower matrix
-			{
-				iLower2(i, i) = 1 / Lower2(i, i);
-				for (int j = i + 1; j < _xN; j++)
-				{
-					for (int k = i; k < j; k++)
-					{
-						iLower2(j, i) += Lower2(j, k) * iLower2(k, i);
-					}
-					iLower2(j, i) /= -Lower2(j, j);
-				}
-			}
-			iLowert2 = iLower2.transpose();
-
-			for (int i = 0; i < _xN; i++) // multiple lower matrax & upper matrix
-			{
-				for (int j = i; j < _xN; j++)
-				{
-					for (int k = j; k < _xN; k++)
-					{
-						iDxGtiDlyG(i, j) += iLowert2(i, k)*iLower2(k, j);
-					}
-					iDxGtiDlyG(j, i) = iDxGtiDlyG(i, j);
-				}
-			}
+			PosDefMatrixInverse(DxGtiDlyG, _xN, iDxGtiDlyG);
 
 			// Calculate delx, delz, dellam
 			for (int i = 0; i < _ineqN; i++) // delx
@@ -1426,7 +1445,7 @@ namespace rovin
 	   //cout << "minVelLeg : " << minValLeq << endl;
 
 	   //Real resNorm = calcNormResidual(p0, pi, q0, qi, bi, delw, 0.0, 2);
-	   Real resNorm = calcNormResidual_tmp(delw, 0.0, 2);
+	   Real resNorm = calcNormResidual(delw, 0.0, 2);
 	   bool tauFound = false;
 	   int iterTau = 0, maxIterTau = 1000;
 
@@ -1434,12 +1453,8 @@ namespace rovin
 	   while (iterTau < maxIterTau)
 	   {
 		   //if (calcNormResidual(p0, pi, q0, qi, bi, delw, minValLeq, 2) < resNorm)
-		   if (calcNormResidual_tmp(delw, minValLeq, 2) < resNorm)
+		   if (calcNormResidual(delw, minValLeq, 2) < resNorm)
 		   {
-			   //cout << "minValLeg : " << minValLeq << endl;
-			   //cout << "calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, minValLeq, 2) : " << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, minValLeq, 2) << endl;
-			   //cout << "calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, 2) : " << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, 2) << endl;
-
 			   tauFound = true;
 			   break;
 		   }
@@ -1451,8 +1466,6 @@ namespace rovin
 			   //cout << "init : " << init << endl;
 			   //cout << "maxValGeq : " << maxValGeq << endl;
 			   //cout << "minValLeg : " << minValLeq << endl;
-			   //cout << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, minValLeq, 2) << endl;
-			   //cout << calcNormResidual_tmp(p0, pi, q0, qi, bi, delw, 0.0, 2) << endl;
 			   //cout << endl;
 		   }
 
@@ -1462,7 +1475,7 @@ namespace rovin
 	   return minValLeq;
    }
 
-   Real GCMMA_PDIPM::calcNormResidual_tmp(const VectorX& delw, Real stepLength, int normCh)
+   Real GCMMA_PDIPM::calcNormResidual(const VectorX& delw, Real stepLength, int normCh)
    {
 	   //VectorX resvec(_subDimW);
 
@@ -1786,9 +1799,6 @@ namespace rovin
 	   //cout << "lambda: " << _sublam << endl;
 	   calcx(_sublam, _subx);
 	   calcy(_sublam, _suby);
-
-	   _resulty = _suby;
-	   _resultlam = _sublam;
 
 	   xout = _subx;
 
