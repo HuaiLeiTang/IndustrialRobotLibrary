@@ -30,6 +30,7 @@ SerialOpenChainPtr robot(new efortRobot());
 int main()
 {
 	cout << "Test" << endl;
+	cout << "Test Hong" << endl;
 
 	unsigned int dof = robot->getNumOfJoint();
 
