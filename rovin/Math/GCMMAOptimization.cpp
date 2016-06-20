@@ -1714,6 +1714,19 @@ namespace rovin
 				//cout << iterSub << '\t' << VectorInner(_sublam - _sublamm1, _subdW, _ineqN) << endl;
 				//if (abs(VectorInner(_sublam - _sublamm1, _subdW, _ineqN)) < 1E-2)
 				//	break;
+
+
+
+				// stopping criteria
+				//VectorX tmpVec(_ineqN);
+				//for (int i = 0; i < _ineqN; i++)
+				//{
+				//	tmpVec(i) = Max(_sublam(i) - _subdW(i), 0.0) - _sublam(i);
+				//	//tmpVec(i) = (tmpVec(i) * Max(abs(_sublam(i)), 1.0)) / Max(abs(_subWhat), 1.0);
+				//}
+				////cout << (_sublam - _sublamm1).norm() << '\t' << tmpVec.maxCoeff() << endl;
+				//if (tmpVec.norm() < 1E-2)
+				//	break;
 		   }
 		   else
 		   {
