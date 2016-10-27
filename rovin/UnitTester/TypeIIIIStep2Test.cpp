@@ -660,19 +660,38 @@ int main()
 	srand(time(NULL));
 	Real value2 = rand();
 	NewtonRaphson solver(3, 3);
-	clock_t time;
+	Real time;
 
 	// PosTriZeroNegTri Case Experiment --> numerical
 	cout << "------- case 1 : PosTriZeroNegTri -------" << endl;
-	std::shared_ptr<Step2PosTriZeroNegTri> obj1 = std::shared_ptr<Step2PosTriZeroNegTri>(new Step2PosTriZeroNegTri(3, 5, 6.25, 0, 19.7917, 0, 10, 100, 100));
-	vec2(0) = makeRandLU(0, 15); vec2(1) = makeRandLU(-10, 0);
-	cout << "initial ap1 : " << vec2(0) << endl;
-	cout << "initial ap2 : " << vec2(1) << endl;
-	solver.setxN(2); solver.setfN(2); solver.setfunction(obj1);
-	time = clock();
-	solver.solve(vec2);
-	cout << "Computation time : " << clock() - time << endl;
-	cout << "Result" << endl << solver.getResultX() << endl << endl;
+	
+	// newton raphon method
+	int numOfExp = 10;
+	int errorcnt = 0;
+	bool r = true;
+	for (int k = 0; k < numOfExp; k++)
+	{
+		r = true;
+
+		std::shared_ptr<Step2PosTriZeroNegTri> obj1 = std::shared_ptr<Step2PosTriZeroNegTri>(new Step2PosTriZeroNegTri(3, 5, 6.25, 0, 19.7917, 0, 10, 100, 100));
+		vec2(0) = makeRandLU(0, 30); vec2(1) = makeRandLU(-30, 0);
+		//cout << "initial ap1 : " << vec2(0) << ", initial ap2 : " << vec2(1) << endl;
+		solver.setxN(2); solver.setfN(2); solver.setfunction(obj1);
+		//time = clock();
+		//for (int i = 0; i < 100; i++)
+		solver.solve(vec2);
+		//cout << "Computation time : " << clock() - time << endl;
+
+		if (std::pow((10 - solver.getResultX()(0)), 2) > 1E-5)
+		{
+			errorcnt++;
+			r = false;
+		}
+		cout << "initial ap1 : " << vec2(0) << ", initial ap2 : " << vec2(1) <<  "/ Result : " << solver.getResultX()(0) << ", " << solver.getResultX()(1) << ", " << r << endl;
+	}
+
+	Real success = (Real)(numOfExp - errorcnt) / (Real)(numOfExp)* 100;
+	cout << "success per : " << success << "%" << endl;
 
 	// PosTrapZeroNegTri Case Experiment --> closed-form
 	cout << "------- case 2 : PosTrapZeroNegTri -------" << endl;

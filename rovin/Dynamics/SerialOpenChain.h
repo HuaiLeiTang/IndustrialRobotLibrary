@@ -37,7 +37,7 @@ namespace rovin
 			//JOINT_JACOBIANDOT = 1 << 2 ///< option for differenctial forward kinematics, Link acceleration
 		};
 
-	private:
+	public:
 		/*!
 		* \brief SerialOpenChain class member variable
 		*/
@@ -174,7 +174,7 @@ namespace rovin
 
 	class SerialOpenChainLink
 	{
-	private:
+	public:
 		SE3 _M; ///< initial link SE3 w.r.t base(fixed) frame
 		Inertia _G; ///< initial link inertia w.r.t base(fixed) frame 
 	public:
@@ -199,7 +199,7 @@ namespace rovin
 
 	class SerialOpenChainJoint
 	{
-	private:
+	public:
 		se3 _screw; ///< initial joint screw w.r.t base(fixed) frame
 	public:
 		/*!

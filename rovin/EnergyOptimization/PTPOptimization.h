@@ -14,6 +14,7 @@
 #include <rovin/Math/Interpolation.h>
 #include <rovin/Math/GCMMAOptimization.h>
 #include <vector>
+#include <fstream>
 
 namespace rovin {
 
@@ -26,7 +27,7 @@ namespace rovin {
 	
 	typedef std::shared_ptr<sharedResource> sharedResourcePtr;
 
-	enum ObjectiveFunctionType { effort, energyloss };
+	enum ObjectiveFunctionType { effort, energyloss, acceleration };
 	enum OptimizationType { nlopt, GCMMA, GCMMA_TR, GCMMA_GD };
 
 	// 제로 속도에서 제로 속도로 가는거..?!!!
@@ -84,6 +85,15 @@ namespace rovin {
 		// initial value
 		VectorX initX;
 
+		// YS addition
+		BSpline<-1, -1, -1> _initialBSpline;
+		bool _initialswi;
+		const static int _numOfData = 500;
+		Real _dt;
+		VectorX _tspan;
+
+		void contructorSetting();
+
 	public:
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
 			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState);
@@ -91,6 +101,8 @@ namespace rovin {
 			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType);
 		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
 			const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType, ObjectiveFunctionType objectiveType);
+		PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const BSpline<-1, -1, -1>& initialBSpline, 
+			const unsigned int numOfGQSample, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType, ObjectiveFunctionType objectiveType);
 		~PTPOptimization() { delete _GCMMAoptimizer; }
 
 		void makeNonOptJointCP();
@@ -104,6 +116,9 @@ namespace rovin {
 		void makeIneqConstraintFunction_nlopt();
 		void makeIneqConstraintFunction_MMA();
 		void generateTrajectory();
+
+	public:
+		MatrixX initM;
 	};
 
 	// calculate inverse 
@@ -150,6 +165,13 @@ namespace rovin {
 		std::vector<VectorX> _P;
 		std::vector<VectorX> _Q;
 		std::vector<VectorX> _R;
+
+
+		// YS addition
+		void updatetau(const VectorX& params);
+		void updatedtaudp(const VectorX& params);
+
+
 	};
 
 	class effortFunction : public Function
@@ -169,6 +191,17 @@ namespace rovin {
 		energyLossFunction(PTPOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
 
 		VectorX func(const VectorX& params) const;
+		//MatrixX Jacobian(const VectorX& params) const;
+
+		PTPOptimization* _PTPOptimizer;
+	};
+
+	class accelerationFunction : public Function
+	{
+	public:
+		accelerationFunction(PTPOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
+
+		VectorX func(const VectorX& params) const;
 		MatrixX Jacobian(const VectorX& params) const;
 
 		PTPOptimization* _PTPOptimizer;
@@ -180,7 +213,7 @@ namespace rovin {
 		NonlinearInequalityConstraint(PTPOptimization* PTPOptimizer) : _PTPOptimizer(PTPOptimizer) {}
 
 		VectorX func(const VectorX& params) const;
-		MatrixX Jacobian(const VectorX& params) const;
+		//MatrixX Jacobian(const VectorX& params) const;
 
 		PTPOptimization* _PTPOptimizer;
 	};

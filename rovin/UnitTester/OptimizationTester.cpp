@@ -18,12 +18,20 @@ class TestObjFunction;
 class TestEqFunction;
 class TestIneqFunction;
 
+void calculatePathfromeBSpline(MatrixX& result, const VectorX& t, BSpline<-1, -1, -1>& spline);
+void calculatePathfromeBSpline(MatrixX& result, const unsigned int numOfdata, const Real ti, const Real tf, BSpline<-1, -1, -1>& spline);
+void loadData_ys(MatrixX& data, std::string filename);
 void saveMatrixX2txt(MatrixX in, std::string filename);
 void saveVectorX2txt(VectorX in, std::string filename);
 void calculateTorqueTrajectory(const MatrixX& q, const MatrixX& qdot, const MatrixX& qddot, MatrixX& torque);
+Real makeRandLU(Real lower, Real upper)
+{
+	return lower + (upper - lower)*((double)rand() / 32767.0);
+}
 
 //std::string file = "D:/jkkim/Documents/matlabTest/opt/";
 std::string file = "C:/Users/crazy/Desktop/Time optimization/nloptMMA test/";
+std::string filePath = "C:/Users/crazy/Desktop/Time optimization/pathOptTest/";
 
 SerialOpenChainPtr robot(new efortRobot());
 
@@ -52,17 +60,34 @@ int main()
 	///////////////////////////////// OPTIMIZATION /////////////////////////////////
 	vector<bool> optJoint(robot->getNumOfJoint());
 	optJoint[0] = optJoint[1] = optJoint[2] = true;
-	Real tf = 2.0;
+	Real tf = 5.0;
 	int numOfOptCP = 4;
 	int orderOfBSpline = 4;
 
-	//std::cout << "------- [NLOPT RESULT] -------" << endl;
-	//PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt, ObjectiveFunctionType::effort);
-	//PTPManagerNlopt.generateTrajectory();
+	//MatrixX initM;
+	//loadData_ys(initM, "C:/Users/crazy/Desktop/Time optimization/pathOptTest/dataOptResult2.txt");
 
-	std::cout << "------- [GCMMA RESULT] -------" << endl;
-	PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
-	PTPManagerManualOptTR.generateTrajectory();
+	std::cout << "------- [NLOPT RESULT] -------" << endl;
+	PTPOptimization PTPManagerNlopt(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::nlopt , ObjectiveFunctionType::energyloss);
+	//PTPManagerNlopt.initM = initM;
+	PTPManagerNlopt.generateTrajectory();
+
+	//BSpline<-1, -1, -1> qresult = PTPManagerNlopt._shared->_qSpline;
+	//cout << qresult.getControlPoints() << endl;
+	//cout << qresult.getKnots() << endl;
+	//BSpline<-1, -1, -1> qdotresult = PTPManagerNlopt._shared->_qdotSpline;
+	//BSpline<-1, -1, -1> qddotresult = PTPManagerNlopt._shared->_qddotSpline;
+	//MatrixX qresultM, qdotresultM, qddotresultM;
+	//calculatePathfromeBSpline(qresultM, 1000, 0, tf, qresult);
+	//calculatePathfromeBSpline(qdotresultM, 1000, 0, tf, qdotresult);
+	//calculatePathfromeBSpline(qddotresultM, 1000, 0, tf, qddotresult);
+	//saveMatrixX2txt(qresultM, filePath + "datafromRovinq.txt");
+	//saveMatrixX2txt(qdotresultM, filePath + "datafromRovinqdot.txt");
+	//saveMatrixX2txt(qddotresultM, filePath + "datafromRovinqddot.txt");
+
+	//std::cout << "------- [GCMMA RESULT] -------" << endl;
+	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA, ObjectiveFunctionType::effort);
+	//PTPManagerManualOptTR.generateTrajectory();
 
 	//std::cout << "------- [GCMMA TRUST_REGION RESULT] -------" << endl;
 	//PTPOptimization PTPManagerManualOptTR(robot, optJoint, orderOfBSpline, numOfOptCP, 20, tf, initState, finalState, OptimizationType::GCMMA_TR, ObjectiveFunctionType::effort);
@@ -235,6 +260,58 @@ int main()
 	_getch();
 
 	return 0;
+}
+
+void calculatePathfromeBSpline(MatrixX& result, const VectorX& t, BSpline<-1, -1, -1>& spline)
+{
+	int row = spline(0.1).rows(), col = t.size();
+	result.resize(row, col);
+	for (int i = 0; i < col; i++)
+		result.col(i) = spline(t(i));
+}
+void calculatePathfromeBSpline(MatrixX& result, const unsigned int numOfdata, const Real ti, const Real tf, BSpline<-1, -1, -1>& spline)
+{
+	int row = spline(0.1).rows();
+	result.resize(row, numOfdata);
+	Real dt = (tf - ti) / (Real)(numOfdata - 1);
+	Real t = ti;
+
+	for (unsigned int i = 0; i < numOfdata; i++)
+	{
+		result.col(i) = spline(t);
+		t += dt;
+	}
+}
+
+void loadData_ys(MatrixX& data, std::string filename)
+{
+	ifstream input(filename);
+	if (input.fail()) cout << "파일 열기 실패" << endl;
+	else cout << "파일 열기 성공" << endl;
+
+	Real tmp;
+	unsigned int cnt = 0;
+	while (!input.eof()) {
+		input >> tmp;
+		cnt++;
+	}
+	input.close();
+
+	ifstream trajectory(filename);
+	if (trajectory.fail()) cout << "파일 열기 실패" << endl;
+	else cout << "파일 열기 성공" << endl;
+
+	unsigned int dof = 6;
+	unsigned int data_num = cnt / dof;
+	MatrixX q(dof, data_num);
+
+	for (unsigned int i = 0; i < data_num; i++)
+		for (unsigned int j = 0; j < dof; j++)
+			trajectory >> q(j, i);
+
+	trajectory.close();
+
+	data = q;
 }
 
 void saveMatrixX2txt(MatrixX in, std::string filename)

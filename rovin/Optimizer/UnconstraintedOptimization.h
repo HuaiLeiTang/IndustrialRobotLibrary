@@ -128,7 +128,6 @@ namespace irLib
 						break;
 					iter++;
 				}
-				cout << iter << endl;
 			}
 			const VectorX& getResultX() const { return resultX; }
 		};

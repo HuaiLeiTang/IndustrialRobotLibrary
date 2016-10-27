@@ -1,6 +1,7 @@
 #include "NonlinearOptimization.h"
 
 #include <nlopt.hpp>
+#include <rovin\Math\Common.h>
 
 using namespace std;
 using namespace nlopt;
@@ -90,8 +91,11 @@ namespace rovin
 		}
 
 		optimizer.set_xtol_rel(1e-4);
+		//optimizer.set_xtol_rel(1e-8);
 		optimizer.set_ftol_rel(1e-4);
+		//optimizer.set_ftol_rel(1e-8);
 		optimizer.set_maxeval(500);
+		//optimizer.set_maxeval(3000);
 
 		std::vector<Real> x(_xN);
 		for (int i = 0; i < _xN; i++)
@@ -99,12 +103,66 @@ namespace rovin
 			x[i] = initialX(i);
 		}
 
-		optimizer.optimize(x, resultFunc);
+		/////////////////////////////
+		//optimizer.optimize(x, resultFunc);
 
-		resultX = VectorX::Zero(_xN);
-		for (int i = 0; i < _xN; i++)
+		//resultX = VectorX::Zero(_xN);
+		//for (int i = 0; i < _xN; i++)
+		//{
+		//	resultX(i) = x[i];
+		//}
+		/////////////////////////////
+
+		VectorX minX = initialX;
+		Real min = RealMax;
+		for (unsigned int i = 0; i < 10; i++) // 3 -> 10
 		{
-			resultX(i) = x[i];
+			Real past = resultFunc;
+			bool flag = false;
+			try
+			{
+				optimizer.optimize(x, resultFunc);
+			}
+			catch (exception&)
+			{
+				//cout << "[OPTIMIZATION] FORCE STOP" << endl;
+			}
+
+			VectorX x_tmp(_xN);
+			for (int i = 0; i < _xN; i++)
+			{
+				x_tmp(i) = x[i];
+			}
+			resultFunc = _objectFunc->func(x_tmp)(0);
+
+			if (min > resultFunc && RealLessEqual(_ineqConstraint->func(x_tmp), 1e-3))
+			{
+				minX = x_tmp;
+				min = resultFunc;
+			}
+
+			if (RealLess(Abs(past - resultFunc), resultFunc / (Real)1.0e+3))
+			{
+				if (RealEqual(min, RealMax))
+				{
+					minX = x_tmp;
+					min = resultFunc;
+				}
+				break;
+			}
 		}
+
+		if (!RealLessEqual(_ineqConstraint->func(minX), 1e-3))
+		{
+			min = RealMax;
+		}
+
+		//cout << "[OPTIMIZATION] Computation Time : " << clock() - startTime << "ms" << endl;
+
+		/////////////////////////////// 만약에 정답이 없는 경우 처리 ///////////////////////////////
+		resultX = minX;
+		resultFunc = min;
+
+
 	}
 }

@@ -7,7 +7,19 @@ using namespace std;
 
 namespace rovin{
 
-	PTPOptimization::PTPOptimization(const SerialOpenChainPtr & soc, const vector<bool>& optJoint, 
+	void PTPOptimization::contructorSetting()
+	{
+		_dt = (_tf) / (_numOfData - 1);
+		Real t = 0.0;
+		_tspan.resize(_numOfData);
+		for (unsigned int i = 0; i < _numOfData; i++)
+		{
+			_tspan(i) = t;
+			t += _dt;
+		}
+	}
+
+	PTPOptimization::PTPOptimization(const SerialOpenChainPtr & soc, const vector<bool>& optJoint,
 		const unsigned int orderOfBSpline, const unsigned int numOfOptCP, const unsigned int numOfGQSample,
 		const Real tf, const StatePtr& initialState, const StatePtr& finalState)
 	{
@@ -36,7 +48,10 @@ namespace rovin{
 			}
 		}
 		_GCMMAoptimizer = NULL;
+		_initialswi = false;
+		contructorSetting();
 	}
+
 
 	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
 		const unsigned int numOfOptCP, const unsigned int numOfGQSample, const Real tf, const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType)
@@ -65,6 +80,8 @@ namespace rovin{
 		}
 		_optType = optType;
 		_GCMMAoptimizer = NULL;
+		_initialswi = false;
+		contructorSetting();
 	}
 
 	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const unsigned int orderOfBSpline,
@@ -95,6 +112,35 @@ namespace rovin{
 		_optType = optType;
 		_objectiveType = objectiveType;
 		_GCMMAoptimizer = NULL;
+		_initialswi = false;
+		contructorSetting();
+	}
+
+	PTPOptimization::PTPOptimization(const SerialOpenChainPtr& soc, const std::vector<bool>& optJoint, const BSpline<-1, -1, -1>& initialBSpline, const unsigned int numOfGQSample,
+		const StatePtr& initialState, const StatePtr& finalState, OptimizationType optType, ObjectiveFunctionType objectiveType)
+		: _soc(soc), _optJoint(optJoint), _initialBSpline(initialBSpline), _numOfGQSample(numOfGQSample), _initialState(initialState), 
+		_finalState(finalState), _optType(optType), _objectiveType(objectiveType)
+	{
+		_numOfOptJoint = 0;
+		for (unsigned int i = 0; i < _soc->getNumOfJoint(); i++)
+		{
+			if (_optJoint[i])
+			{
+				_optJointIdx.push_back(i);
+				_numOfOptJoint++;
+			}
+			else
+			{
+				_noptJointIdx.push_back(i);
+			}
+		}
+		_GCMMAoptimizer = NULL;
+
+		_orderOfBSpline = _initialBSpline.getOrder();
+		_numOfOptCP = _initialBSpline.getControlPoints().cols() - 6;
+		_tf = _initialBSpline.getKnots()[_initialBSpline.getKnots().size() - 1];
+		_initialswi = true;
+		contructorSetting();
 	}
 
 	void PTPOptimization::makeBSplineKnot()
@@ -139,6 +185,10 @@ namespace rovin{
 		else if (_objectiveType == ObjectiveFunctionType::energyloss)
 		{
 			_objectFunc = FunctionPtr(new energyLossFunction(this));
+		}
+		else if (_objectiveType == ObjectiveFunctionType::acceleration)
+		{
+			_objectFunc = FunctionPtr(new accelerationFunction(this));
 		}
 	}
 
@@ -228,10 +278,28 @@ namespace rovin{
 
 	void PTPOptimization::generateTrajectory()
 	{
-		makeBSplineKnot();
+		if(!_initialswi)
+			makeBSplineKnot();
+		else
+		{
+			_knot = _initialBSpline.getKnots();
+		}
+		
+
 		LOG("Complete making B-Spline knots.");
 		//cout << "knot : " << _knot.transpose() << endl;
-		makeBoundaryCondition();
+		if (!_initialswi)
+			makeBoundaryCondition();
+		else
+		{
+			_initialCP.resize(3); _finalCP.resize(3);
+			for (unsigned int i = 0; i < 3; i++)
+			{
+				_initialCP[i] = _initialBSpline.getControlPoints().col(i);
+				_finalCP[i] = _initialBSpline.getControlPoints().col(_initialBSpline.getControlPoints().cols() - 1 - i);
+			}
+		}
+
 		LOG("Complete making boundary conditions.");
 		//cout << "Boundary Conditions : " << endl;
 		//for (unsigned int i = 0; i < 3; i++) cout << _initialCP[i].transpose() << endl;
@@ -248,7 +316,11 @@ namespace rovin{
 		//cout << _shared->_dQdP << endl;
 		//cout << _shared->_dRdP << endl;
 
-		makeNonOptJointCP();
+		if (!_initialswi)
+			makeNonOptJointCP();
+		else
+			_noptJointCP = _initialBSpline.getControlPoints().block(3, 3, 3, _numOfOptCP);
+
 		makeObjectiveFunction();
 		if (_optType == OptimizationType::nlopt)
 		{
@@ -268,13 +340,70 @@ namespace rovin{
 
 		// Initial Guess
 		initX.resize(_numOfOptJoint * _numOfOptCP);
-		for (unsigned int i = 0; i < _numOfOptJoint; i++)
+
+		if (!_initialswi)
 		{
-			for (unsigned int j = 0; j < _numOfOptCP; j++)
+			srand((unsigned)time(NULL));
+			for (unsigned int i = 0; i < _numOfOptJoint; i++)
 			{
-				initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
+				for (unsigned int j = 0; j < _numOfOptCP; j++)
+				{
+					initX(_numOfOptCP * i + j) = (_finalCP[2](_optJointIdx[i]) - _initialCP[2](_optJointIdx[i])) / (_numOfOptCP + 1) * (j + 1) + _initialCP[2](_optJointIdx[i]);
+					//initX(_numOfOptCP * i + j) = _soc->getMotorJointPtr(i)->getLimitPosLower() + (_soc->getMotorJointPtr(i)->getLimitPosUpper() - _soc->getMotorJointPtr(i)->getLimitPosLower())*((double)rand() / 32767.0);
+				}
 			}
 		}
+		else
+		{
+			for (unsigned int i = 0; i < _numOfOptJoint; i++)
+			{
+				for (unsigned int j = 0; j < _numOfOptCP; j++)
+				{
+					initX(_numOfOptCP * i + j) = _initialBSpline.getControlPoints()(i, j + 3);
+				}
+			}
+		}
+
+		FunctionPtr f = FunctionPtr(new energyLossFunction(this));
+
+		//cout << "_numOfOptJoint : " << _numOfOptJoint << endl;
+		//cout << "_orderOfBSpline : " << _orderOfBSpline << endl;
+		//cout << "_numOfOptCP : " << _numOfOptCP << endl;
+		//cout << "_knots : " << _knot << endl;
+		//cout << "initX" << endl << initX << endl;
+		//cout << "initialCP" << endl;
+		//for (unsigned int i = 0; i < _initialCP.size(); i++)
+		//	cout << _initialCP[i] << endl << endl;
+		//cout << endl;
+		//cout << "_finalCP" << endl;
+		//for (unsigned int i = 0; i < _finalCP.size(); i++)
+		//	cout << _finalCP[i] << endl << endl;
+		//cout << endl;
+		//cout << "_noptJointCP" << endl << _noptJointCP << endl;
+		//cout << "tf : " << _tf << endl;
+		//cout << "_optJointIdx" << endl;
+		//for (int i = 0; i < _optJointIdx.size(); i++)
+		//	cout << _optJointIdx[i] << '\t';
+		//cout << endl;
+		//cout << "_noptJointIdx" << endl;
+		//for (int i = 0; i < _noptJointIdx.size(); i++)
+		//	cout << _noptJointIdx[i] << '\t';
+		//cout << endl;
+
+		///////////
+		//unsigned int dataNum = initM.cols();
+		//Real t = 0.0;
+		//Real dt = (_tf - t) / (dataNum - 1);
+		//VectorX tt(dataNum);
+		//for (unsigned int i = 0; i < dataNum; i++)
+		//{
+		//	tt(i) = t;
+		//	t += dt;
+		//}
+
+		//BSpline<-1, -1, -1> q = BSplineFitting(initM, _orderOfBSpline, _numOfOptCP + 6, tt);
+		//MatrixX cptmp = q.getControlPoints();
+		//initX << cptmp(0, 3), cptmp(0, 4), cptmp(0, 5), cptmp(0, 6), cptmp(1, 3), cptmp(1, 4), cptmp(1, 5), cptmp(1, 6), cptmp(2, 3), cptmp(2, 4), cptmp(2, 5), cptmp(2, 6);
 
 		//cout << "initCP" << endl;
 		//for (int i = 0; i < _initialCP.size(); i++)
@@ -285,14 +414,14 @@ namespace rovin{
 		//cout << "_noptJointCP" << endl;
 		//cout << _noptJointCP << endl;
 
-
 		//initX << 0.556274, 0.11917, -0.328995, -0.814881, 0.603234, 0.0932657, -0.130955, -0.064882, 1.14852, 0.774952, 0.2058, -0.233091;
 		//initX << 0.419949, 0.275863, -0.263421, -0.847695, -0.218918, -0.226281, -0.224308, -0.177036, 1.22172, 1.20281, 0.169464, -0.362267;
 		LOG("Initial guess ready.");
-		//cout << "Initial X: " << endl;
+		//cout << "Initial X: " << endl;%
 		//cout << initX << endl;
-		//cout << "f(X): " << endl;
-		//cout << _objectFunc->func(initX) << endl;
+		cout << "f(X): " << endl;
+		cout << _objectFunc->func(initX) << endl;
+		cout << "energy loss before optimization : " << f->func(initX) << endl;
 		//cout << "Inequality(X): " << endl;
 		//cout << _IneqFunc->func(initX) << endl;
 
@@ -313,6 +442,7 @@ namespace rovin{
 			//cout << "control points" << endl << _shared->_qSpline.getControlPoints() << endl << endl;
 			//cout << "Inequality : " << _IneqFunc->func(_optimizer.resultX) << endl;
 			cout << "Value of objective function : " << _optimizer.resultFunc << endl << endl;
+			cout << "energy loss after optimization : " << f->func(_optimizer.resultX) << endl;
 		}
 		else if ((_optType == OptimizationType::GCMMA) || (_optType == OptimizationType::GCMMA_TR) || (_optType == OptimizationType::GCMMA_GD))
 		{
@@ -369,8 +499,91 @@ namespace rovin{
 
 	sharedResource::sharedResource(PTPOptimization* PTPOptimizer)
 	{
+		//////////////////////////////// choi /////////////////////////////////////////
+		//_PTPOptimizer = PTPOptimizer;
+		//_state.resize(_PTPOptimizer->_numOfGQSample);
+		//for (unsigned int i = 0; i < _state.size(); i++)
+		//{
+		//	_state[i] = _PTPOptimizer->_soc->makeState();
+		//}
+
+		//// Calculate _dqdp,dqdotdp, dqddotdq
+		//// Calculate _dPdP,_dQdP, _dRdP
+		//MatrixX cp(1, _PTPOptimizer->_numOfOptCP + 6);
+		//bool checkMatrixSize = false;
+		//_dqdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		//_dqdotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		//_dqddotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		//for (unsigned int i = 0; i < _PTPOptimizer->_numOfOptCP; i++)
+		//{
+		//	cp.setZero();
+		//	cp(0, 3 + i) = 1.0;
+		//	_qSpline = BSpline<-1, -1, -1>(_PTPOptimizer->_knot, cp);
+		//	_qdotSpline = _qSpline.derivative();
+		//	_qddotSpline = _qdotSpline.derivative();
+
+		//	if (!checkMatrixSize)
+		//	{
+		//		_dPdP.resize(_qSpline.getControlPoints().cols() - 6, _PTPOptimizer->_numOfOptCP);
+		//		_dQdP.resize(_qdotSpline.getControlPoints().cols() - 4, _PTPOptimizer->_numOfOptCP);
+		//		_dRdP.resize(_qddotSpline.getControlPoints().cols() - 2, _PTPOptimizer->_numOfOptCP);
+		//		checkMatrixSize = true;
+		//	}
+		//	_dPdP.col(i) = _qSpline.getControlPoints().block(0, 3, 1, _dPdP.rows()).transpose();
+		//	_dQdP.col(i) = _qdotSpline.getControlPoints().block(0, 2, 1, _dQdP.rows()).transpose();
+		//	_dRdP.col(i) = _qddotSpline.getControlPoints().block(0, 1, 1, _dRdP.rows()).transpose();
+
+		//	for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
+		//	{
+		//		VectorX dqdp = _qSpline(_PTPOptimizer->GQ.getQueryPoints()[j]);
+		//		VectorX dqdotdp = _qdotSpline(_PTPOptimizer->GQ.getQueryPoints()[j]);
+		//		VectorX dqddotdp = _qddotSpline(_PTPOptimizer->GQ.getQueryPoints()[j]);
+
+		//		for (unsigned int k = 0; k < _PTPOptimizer->_numOfOptJoint; k++)
+		//		{
+		//			_dqdp[j](_PTPOptimizer->_optJointIdx[k], _PTPOptimizer->_numOfOptCP*k + i) = dqdp[0];
+		//			_dqdotdp[j](_PTPOptimizer->_optJointIdx[k], _PTPOptimizer->_numOfOptCP*k + i) = dqdotdp[0];
+		//			_dqddotdp[j](_PTPOptimizer->_optJointIdx[k], _PTPOptimizer->_numOfOptCP*k + i) = dqddotdp[0];
+		//		}
+		//	}
+		//}
+
+		////cout << "_dPdP size : " << _dPdP.rows() << '\t' << _dPdP.cols() << endl;
+		////cout << "_dQdP size : " << _dQdP.rows() << '\t' << _dQdP.cols() << endl;
+		////cout << "_dRdP size : " << _dRdP.rows() << '\t' << _dRdP.cols() << endl;
+		////cout << "_dPdP" << endl << _dPdP << endl;
+		////cout << "_dQdP" << endl << _dQdP << endl;
+		////cout << "_dRdP" << endl << _dRdP << endl;
+
+		//_P.resize(_PTPOptimizer->_numOfOptJoint);
+		//_Q.resize(_PTPOptimizer->_numOfOptJoint);
+		//_R.resize(_PTPOptimizer->_numOfOptJoint);
+		//for (unsigned int i = 0; i < _PTPOptimizer->_numOfOptJoint; i++)
+		//{
+		//	cp.setZero();
+		//	cp(0) = _PTPOptimizer->_initialCP[0](_PTPOptimizer->_optJointIdx[i]);
+		//	cp(1) = _PTPOptimizer->_initialCP[1](_PTPOptimizer->_optJointIdx[i]);
+		//	cp(2) = _PTPOptimizer->_initialCP[2](_PTPOptimizer->_optJointIdx[i]);
+		//	cp(_PTPOptimizer->_numOfOptCP + 3) = _PTPOptimizer->_finalCP[2](_PTPOptimizer->_optJointIdx[i]);
+		//	cp(_PTPOptimizer->_numOfOptCP + 4) = _PTPOptimizer->_finalCP[1](_PTPOptimizer->_optJointIdx[i]);
+		//	cp(_PTPOptimizer->_numOfOptCP + 5) = _PTPOptimizer->_finalCP[0](_PTPOptimizer->_optJointIdx[i]);
+		//	//cout << cp << endl;
+		//	_qSpline = BSpline<-1, -1, -1>(_PTPOptimizer->_knot, cp);
+		//	_qdotSpline = _qSpline.derivative();
+		//	_qddotSpline = _qdotSpline.derivative();
+		//	_P[i] = _qSpline.getControlPoints().block(0, 3, 1, _dPdP.rows()).transpose();
+		//	_Q[i] = _qdotSpline.getControlPoints().block(0, 2, 1, _dQdP.rows()).transpose();
+		//	_R[i] = _qddotSpline.getControlPoints().block(0, 1, 1, _dRdP.rows()).transpose();
+
+		//	//cout << "_P[" << i << "]" << endl << _P[i] << endl;
+		//	//cout << "_Q[" << i << "]" << endl << _Q[i] << endl;
+		//	//cout << "_R[" << i << "]" << endl << _R[i] << endl;
+		//}
+		/////////////////////////////////////////////////////////////////////////////////////
+
+		//////////////////////////////// YS /////////////////////////////////////////
 		_PTPOptimizer = PTPOptimizer;
-		_state.resize(_PTPOptimizer->_numOfGQSample);
+		_state.resize(_PTPOptimizer->_numOfData);
 		for (unsigned int i = 0; i < _state.size(); i++)
 		{
 			_state[i] = _PTPOptimizer->_soc->makeState();
@@ -380,9 +593,9 @@ namespace rovin{
 		// Calculate _dPdP,_dQdP, _dRdP
 		MatrixX cp(1, _PTPOptimizer->_numOfOptCP + 6);
 		bool checkMatrixSize = false;
-		_dqdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
-		_dqdotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
-		_dqddotdp.resize(_PTPOptimizer->_numOfGQSample, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		_dqdp.resize(_PTPOptimizer->_numOfData, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		_dqdotdp.resize(_PTPOptimizer->_numOfData, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
+		_dqddotdp.resize(_PTPOptimizer->_numOfData, MatrixX::Zero(_PTPOptimizer->_soc->getNumOfJoint(), _PTPOptimizer->_numOfOptCP * _PTPOptimizer->_numOfOptJoint));
 		for (unsigned int i = 0; i < _PTPOptimizer->_numOfOptCP; i++)
 		{
 			cp.setZero();
@@ -402,7 +615,7 @@ namespace rovin{
 			_dQdP.col(i) = _qdotSpline.getControlPoints().block(0, 2, 1, _dQdP.rows()).transpose();
 			_dRdP.col(i) = _qddotSpline.getControlPoints().block(0, 1, 1, _dRdP.rows()).transpose();
 
-			for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
+			for (unsigned int j = 0; j < _PTPOptimizer->_numOfData; j++)
 			{
 				VectorX dqdp = _qSpline(_PTPOptimizer->GQ.getQueryPoints()[j]);
 				VectorX dqdotdp = _qdotSpline(_PTPOptimizer->GQ.getQueryPoints()[j]);
@@ -416,10 +629,6 @@ namespace rovin{
 				}
 			}
 		}
-		//cout << "_dPdP" << endl << _dPdP << endl;
-		//cout << "_dQdP" << endl << _dQdP << endl;
-		//cout << "_dRdP" << endl << _dRdP << endl;
-
 		_P.resize(_PTPOptimizer->_numOfOptJoint);
 		_Q.resize(_PTPOptimizer->_numOfOptJoint);
 		_R.resize(_PTPOptimizer->_numOfOptJoint);
@@ -483,20 +692,83 @@ namespace rovin{
 
 	void sharedResource::update(const VectorX & params)
 	{
+		//if (_params.size() == 0 || !_params.isApprox(params))
+		//{
+		//	_params = params;
+
+		//	_tau.resize(_PTPOptimizer->_numOfGQSample, VectorX());
+		//	_dtaudp.resize(_PTPOptimizer->_numOfGQSample, MatrixX());
+
+		//	makeBSpline(_params);
+		//	for (unsigned int i = 0; i < _PTPOptimizer->_numOfGQSample; i++)
+		//	{
+		//		_state[i]->setJointStatePos(_qSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
+		//		_state[i]->setJointStateVel(_qdotSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
+		//		_state[i]->setJointStateAcc(_qddotSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
+		//		 
+		//		_PTPOptimizer->_soc->solveInverseDynamics(*_state[i]);
+		//		_tau[i] = _state[i]->getJointStateTorque();
+		//		_dtaudp[i] = _PTPOptimizer->_soc->solveDiffInverseDynamics(*_state[i], _dqdp[i], _dqdotdp[i], _dqddotdp[i]);
+		//	}
+		//}
 		if (_params.size() == 0 || !_params.isApprox(params))
 		{
 			_params = params;
 
-			_tau.resize(_PTPOptimizer->_numOfGQSample, VectorX());
-			_dtaudp.resize(_PTPOptimizer->_numOfGQSample, MatrixX());
+			_tau.resize(_PTPOptimizer->_numOfData, VectorX());
+			_dtaudp.resize(_PTPOptimizer->_numOfData, MatrixX());
 
 			makeBSpline(_params);
-			for (unsigned int i = 0; i < _PTPOptimizer->_numOfGQSample; i++)
+			for (unsigned int i = 0; i < _PTPOptimizer->_numOfData; i++)
 			{
-				_state[i]->setJointStatePos(_qSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
-				_state[i]->setJointStateVel(_qdotSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
-				_state[i]->setJointStateAcc(_qddotSpline(_PTPOptimizer->GQ.getQueryPoints()[i]));
-				 
+				_state[i]->setJointStatePos(_qSpline(_PTPOptimizer->_tspan(i)));
+				_state[i]->setJointStateVel(_qdotSpline(_PTPOptimizer->_tspan(i)));
+				_state[i]->setJointStateAcc(_qddotSpline(_PTPOptimizer->_tspan(i)));
+
+				_PTPOptimizer->_soc->solveInverseDynamics(*_state[i]);
+				_tau[i] = _state[i]->getJointStateTorque();
+				_dtaudp[i] = _PTPOptimizer->_soc->solveDiffInverseDynamics(*_state[i], _dqdp[i], _dqdotdp[i], _dqddotdp[i]);
+			}
+		}
+	}
+
+	void sharedResource::updatetau(const VectorX& params)
+	{
+		if (_params.size() == 0 || !_params.isApprox(params))
+		{
+			_params = params;
+
+			_tau.resize(_PTPOptimizer->_numOfData, VectorX());
+
+			makeBSpline(_params);
+			for (unsigned int i = 0; i < _PTPOptimizer->_numOfData; i++)
+			{
+				_state[i]->setJointStatePos(_qSpline(_PTPOptimizer->_tspan(i)));
+				_state[i]->setJointStateVel(_qdotSpline(_PTPOptimizer->_tspan(i)));
+				_state[i]->setJointStateAcc(_qddotSpline(_PTPOptimizer->_tspan(i)));
+
+				_PTPOptimizer->_soc->solveInverseDynamics(*_state[i]);
+				_tau[i] = _state[i]->getJointStateTorque();
+			}
+		}
+	}
+
+	void sharedResource::updatedtaudp(const VectorX& params)
+	{
+		if (_params.size() == 0 || !_params.isApprox(params))
+		{
+			_params = params;
+
+			_tau.resize(_PTPOptimizer->_numOfData, VectorX());
+			_dtaudp.resize(_PTPOptimizer->_numOfData, MatrixX());
+
+			makeBSpline(_params);
+			for (unsigned int i = 0; i < _PTPOptimizer->_numOfData; i++)
+			{
+				_state[i]->setJointStatePos(_qSpline(_PTPOptimizer->_tspan(i)));
+				_state[i]->setJointStateVel(_qdotSpline(_PTPOptimizer->_tspan(i)));
+				_state[i]->setJointStateAcc(_qddotSpline(_PTPOptimizer->_tspan(i)));
+
 				_PTPOptimizer->_soc->solveInverseDynamics(*_state[i]);
 				_tau[i] = _state[i]->getJointStateTorque();
 				_dtaudp[i] = _PTPOptimizer->_soc->solveDiffInverseDynamics(*_state[i], _dqdp[i], _dqdotdp[i], _dqddotdp[i]);
@@ -506,13 +778,15 @@ namespace rovin{
 
 	const vector<VectorX>& sharedResource::gettau(const VectorX & params)
 	{
-		update(params);
+		//update(params);
+		updatetau(params);
 		return _tau;
 	}
 
 	const vector<MatrixX>& sharedResource::getdtaudp(const VectorX & params)
 	{
-		update(params);
+		//update(params);
+		updatedtaudp(params);
 		return _dtaudp;
 	}
 
@@ -521,6 +795,7 @@ namespace rovin{
 		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
 		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
 		VectorX fval = VectorX::Zero(1);
+
 		for (unsigned int i = 0; i < _PTPOptimizer->_numOfGQSample; i++)
 		{
 			fval(0) += weight(i) * tau[i].squaredNorm();
@@ -543,53 +818,156 @@ namespace rovin{
 
 	VectorX energyLossFunction::func(const VectorX& params) const
 	{
+		//const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+		//const VectorX& weight = _PTPOptimizer->GQ.getWeights();
+
+		//MotorJointPtr joint;
+		//Real voltage, current;
+		//VectorX fval = VectorX::Zero(1);
+		//for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+		//{
+		//	for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
+		//	{
+		//		joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
+
+		//		current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
+		//			joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
+		//		voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
+
+		//		fval(0) += weight[k] * max(current * voltage, 0.0);
+		//	}
+		//}
+		//return fval;
+
 		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
-		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
+
 		MotorJointPtr joint;
 		Real voltage, current;
 		VectorX fval = VectorX::Zero(1);
 		for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
 		{
-			for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
+			for (unsigned int k = 0; k < _PTPOptimizer->_numOfData; k++)
 			{
 				joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
 
 				current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
-					joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
+					joint->getRotorInertia() * joint->getGearRatio() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
 				voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
 
-				fval(0) += weight[k] * max(current * voltage, 0.0);
+				fval(0) += max(current * voltage, 0.0);
 			}
+		}
+		fval(0) *= _PTPOptimizer->_dt;
+		cout << "Energyloss val : " << fval(0) << endl;
+		return fval;
+	}
+
+	//MatrixX energyLossFunction::Jacobian(const VectorX& params) const
+	//{
+	//	//const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+	//	//const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
+	//	//const VectorX& weight = _PTPOptimizer->GQ.getWeights();
+	//	//MotorJointPtr joint;
+	//	//Real voltage, current;
+	//	//MatrixX jacobian = MatrixX::Zero(1, params.size());
+	//	//for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+	//	//{
+	//	//	for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
+	//	//	{
+	//	//		joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
+
+	//	//		current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
+	//	//			joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
+	//	//		voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
+
+	//	//		if (RealBigger(current * voltage, 0.0))
+	//	//		{
+	//	//			MatrixX dcurrentdp = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * dtaudp[k].row(j) +
+	//	//				joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getdqddotdp()[k].row(j);
+	//	//			jacobian += weight[k] * ((current * joint->getResistance() + voltage) * dcurrentdp + current * joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getdqdotdp()[k].row(j));	
+	//	//		}
+	//	//	}
+	//	//}
+	//	//return jacobian;
+
+	//	const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+	//	const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
+	//	MotorJointPtr joint;
+	//	Real voltage, current;
+	//	MatrixX jacobian = MatrixX::Zero(1, params.size());
+	//	for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+	//	{
+	//		for (unsigned int k = 0; k < _PTPOptimizer->_numOfData; k++)
+	//		{
+	//			joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
+
+	//			current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
+	//				joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
+	//			voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
+
+	//			if (RealBigger(current * voltage, 0.0))
+	//			{
+	//				MatrixX dcurrentdp = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * dtaudp[k].row(j) +
+	//					joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getdqddotdp()[k].row(j);
+	//				jacobian += ((current * joint->getResistance() + voltage) * dcurrentdp + current * joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getdqdotdp()[k].row(j));
+	//			}
+	//		}
+	//	}
+	//	jacobian *= _PTPOptimizer->_dt;
+	//	return jacobian;
+	//}
+
+	VectorX accelerationFunction::func(const VectorX& params) const
+	{
+		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+		const VectorX& querypoint = _PTPOptimizer->GQ.getQueryPoints();
+		MatrixX qq(_PTPOptimizer->_soc->getNumOfJoint(), querypoint.size());
+
+		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
+		VectorX fval = VectorX::Zero(1);
+
+		for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+		{
+			for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
+				fval(0) += weight[k] * _PTPOptimizer->_shared->_qddotSpline(querypoint[k]).squaredNorm();
 		}
 		return fval;
 	}
 
-	MatrixX energyLossFunction::Jacobian(const VectorX& params) const
+
+	MatrixX accelerationFunction::Jacobian(const VectorX& params) const
 	{
 		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
-		const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
+		const VectorX& querypoint = _PTPOptimizer->GQ.getQueryPoints();
 		const VectorX& weight = _PTPOptimizer->GQ.getWeights();
-		MotorJointPtr joint;
-		Real voltage, current;
 		MatrixX jacobian = MatrixX::Zero(1, params.size());
-		for (unsigned int j = 0; j < _PTPOptimizer->_soc->getNumOfJoint(); j++)
+
+		VectorX v(_PTPOptimizer->_numOfOptCP);
+		MatrixX dRdP(_PTPOptimizer->_shared->_dRdP.rows() + 2, _PTPOptimizer->_numOfOptCP);
+		dRdP.setZero();
+		dRdP.block(1, 0, _PTPOptimizer->_shared->_dRdP.rows(), _PTPOptimizer->_numOfOptCP) = _PTPOptimizer->_shared->_dRdP;
+
+		MatrixX M(_PTPOptimizer->_soc->getNumOfJoint(), params.size()); M.setZero();
+
+		std::vector<BSpline<-1, - 1, -1>> qs;
+		for (int i = 0; i < v.size(); i++)
 		{
-			for (unsigned int k = 0; k < _PTPOptimizer->_numOfGQSample; k++)
-			{
-				joint = _PTPOptimizer->_soc->getMotorJointPtr(j);
-
-				current = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * tau[k](j) +
-					joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getstate()[k]->getJointStateAcc(j);
-				voltage = current * joint->getResistance() + joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getstate()[k]->getJointStateVel(j);
-
-				if (RealBigger(current * voltage, 0.0))
-				{
-					MatrixX dcurrentdp = 1.0 / (joint->getMotorConstant() * joint->getGearRatio()) * dtaudp[k].row(j) +
-						joint->getRotorInertia() * joint->getGearRatio() / joint->getMotorConstant() * _PTPOptimizer->_shared->getdqddotdp()[k].row(j);
-					jacobian += weight[k] * ((current * joint->getResistance() + voltage) * dcurrentdp + current * joint->getBackEMFConstant() * joint->getGearRatio() * _PTPOptimizer->_shared->getdqdotdp()[k].row(j));	
-				}
-			}
+			BSpline<-1, -1, -1> q(_PTPOptimizer->_shared->_qddotSpline.getKnots(), dRdP.col(i).transpose());
+			qs.push_back(q);
 		}
+
+		for (unsigned int i = 0; i < _PTPOptimizer->_numOfGQSample; i++)
+		{
+			
+			for (int j = 0; j < v.size(); j++)
+				v(j) = qs[j](querypoint[i])(0);
+			for (unsigned int j = 0; j < _PTPOptimizer->_numOfOptJoint; j++)
+			{
+				M.block(j, v.size()*j, 1, v.size()) = v.transpose();
+			}
+			jacobian += weight[i] * 2 * _PTPOptimizer->_shared->_qddotSpline(querypoint[i]).transpose() * M;
+		}
+
 		return jacobian;
 	}
 
@@ -603,7 +981,8 @@ namespace rovin{
 		{
 			upper = RealMin;
 			lower = RealMax;
-			for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
+			//for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
+			for (unsigned int j = 0; j < _PTPOptimizer->_numOfData; j++)
 			{
 				if (upper < tau[j](i))
 				{
@@ -621,34 +1000,34 @@ namespace rovin{
 		return fval;
 	}
 
-	MatrixX NonlinearInequalityConstraint::Jacobian(const VectorX& params) const
-	{
-		const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
-		const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
-		MatrixX jacobian(_PTPOptimizer->_soc->getNumOfJoint() * 2, params.size());
-		Real upper, lower;
-		unsigned int upperIdx, lowerIdx;
-		for (unsigned int i = 0; i < _PTPOptimizer->_soc->getNumOfJoint(); i++)
-		{
-			upper = RealMin;
-			lower = RealMax;
-			for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
-			{
-				if (upper < tau[j](i))
-				{
-					upper = tau[j](i);
-					upperIdx = j;
-				}
-				if (lower > tau[j](i))
-				{
-					lower = tau[j](i);
-					lowerIdx = j;
-				}
-			}
-
-			jacobian.row(i) = dtaudp[upperIdx].row(i);
-			jacobian.row(_PTPOptimizer->_soc->getNumOfJoint() + i) = -dtaudp[lowerIdx].row(i);
-		}
-		return jacobian;
-	}
+	//MatrixX NonlinearInequalityConstraint::Jacobian(const VectorX& params) const
+	//{
+	//	const vector<VectorX>& tau = _PTPOptimizer->_shared->gettau(params);
+	//	const std::vector<MatrixX>& dtaudp = _PTPOptimizer->_shared->getdtaudp(params);
+	//	MatrixX jacobian(_PTPOptimizer->_soc->getNumOfJoint() * 2, params.size());
+	//	Real upper, lower;
+	//	unsigned int upperIdx, lowerIdx;
+	//	for (unsigned int i = 0; i < _PTPOptimizer->_soc->getNumOfJoint(); i++)
+	//	{
+	//		upper = RealMin;
+	//		lower = RealMax;
+	//		//for (unsigned int j = 0; j < _PTPOptimizer->_numOfGQSample; j++)
+	//		for (unsigned int j = 0; j < _PTPOptimizer->_numOfData; j++)
+	//		{
+	//			if (upper < tau[j](i))
+	//			{
+	//				upper = tau[j](i);
+	//				upperIdx = j;
+	//			}
+	//			if (lower > tau[j](i))
+	//			{
+	//				lower = tau[j](i);
+	//				lowerIdx = j;
+	//			}
+	//		}
+	//		jacobian.row(i) = dtaudp[upperIdx].row(i);
+	//		jacobian.row(_PTPOptimizer->_soc->getNumOfJoint() + i) = -dtaudp[lowerIdx].row(i);
+	//	}
+	//	return jacobian;
+	//}
 }

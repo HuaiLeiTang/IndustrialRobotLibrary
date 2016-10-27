@@ -53,7 +53,7 @@ namespace rovin
 	class GCMMAOptimization
 	{
 	public:
-		GCMMAOptimization(const int xN, const int ineqN, bool st_scale = true);
+		GCMMAOptimization(const int xN, const int ineqN, bool st_scale = false);
 		virtual ~GCMMAOptimization() {}
 
 		GCMMAReturnFlag solve(const VectorX& initialX);
